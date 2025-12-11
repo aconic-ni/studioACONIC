@@ -1,3 +1,4 @@
+
 "use client";
 import React, { useEffect, useState } from 'react';
 import Image from 'next/image';
@@ -269,16 +270,6 @@ export const Anexo7Details: React.FC<{ worksheet: Worksheet; onClose: () => void
                         </div>
                     )}
                  </SignatureSection>
-            </div>
-             <div className="w-full text-xs mt-1 border border-gray-400 rounded-md p-2 print:text-[8pt] print:p-1 col-span-2">
-                <h4 className="text-sm font-semibold text-center mb-2 print:text-xs print:mb-1">TRÁNSITO</h4>
-                <div className="grid grid-cols-2 gap-x-8">
-                    <SignatureSection title="Firma y Sello" />
-                     <div className="space-y-1">
-                        <DetailRow label="Hora de Salida" value="" />
-                        <DetailRow label="Hora de Llegada" value="" />
-                    </div>
-                </div>
             </div>
         </div>
 
