@@ -1,4 +1,3 @@
-
 "use client";
 import React, { useEffect, useState } from 'react';
 import Image from 'next/image';
@@ -83,7 +82,6 @@ const SignatureSection: React.FC<{
   );
 };
 
-
 export const Anexo7Details: React.FC<{ worksheet: Worksheet; onClose: () => void; }> = ({ worksheet, onClose }) => {
   const [agente, setAgente] = useState<AppUser | null>(null);
 
@@ -131,6 +129,7 @@ export const Anexo7Details: React.FC<{ worksheet: Worksheet; onClose: () => void
 
 
   return (
+    <>
     <Card className="w-full max-w-5xl mx-auto shadow-none border-none card-print-styles" id="printable-area">
         <div className="p-4 print:p-2 bg-white">
             <div className="hidden print:block">
@@ -254,16 +253,16 @@ export const Anexo7Details: React.FC<{ worksheet: Worksheet; onClose: () => void
                         </tbody>
                     </table>
                 </div>
-                <div className="space-y-2 print:space-y-1">
-                    <table className="w-full border-collapse mt-1 print:mt-1 border border-black">
+                 <div className="space-y-2 print:space-y-1 mt-1 print:mt-1">
+                    <table className="w-full border-collapse border border-black">
                         <tbody>
                              <TransportDetailItem label="Bultos Totales" value={bultosTotales > 0 ? bultosTotales.toLocaleString('es-NI') : ''} />
                              <TransportDetailItem label="Peso Total" value={pesoTotal > 0 ? pesoTotal.toLocaleString('es-NI', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : ''} />
                              <TransportDetailItem label="Precinto" value={worksheet.precinto || ''} />
                         </tbody>
                     </table>
-                    <div className="h-[50px]"></div>
-                     <table className="w-full border-collapse mt-1 print:mt-1 border border-black">
+                    <div className="h-[20px] print:h-4"></div>
+                     <table className="w-full border-collapse border border-black">
                         <tbody>
                            <TransportDetailItem label="Hora de Salida" value={""} />
                            <TransportDetailItem label="Hora de Llegada" value={""} />
@@ -272,26 +271,20 @@ export const Anexo7Details: React.FC<{ worksheet: Worksheet; onClose: () => void
                 </div>
             </div>
             
-            <div className="h-[50px] print:h-12"></div>
-
-             <div className="mt-8 print:mt-4 grid grid-cols-2 gap-x-8">
-                <div className="space-y-8">
-                    <SignatureSection title="CONTROL DE RECINTO ADUANERO" subtitle="Aduana Managua" align="left" />
-                    <SignatureSection title="Aduana de Destino." subtitle="En original y 3 Copias." align="left" />
-                </div>
-                <div className="space-y-8">
-                    <SignatureSection title="ALMACEN DE DEPOSITO" align="center" />
-                    <SignatureSection title="TRAMITANTE" align="center">
-                        {agente && (
-                            <div className="text-black font-semibold">
-                                <p>{agente.displayName || 'N/A'}</p>
-                                <p>Licencia: {agente.agentLicense || 'N/A'}</p>
-                                <p>Cédula: {agente.cedula || 'N/A'}</p>
-                                <p>AGENCIA ADUANERA ACONIC</p>
-                            </div>
-                        )}
-                    </SignatureSection>
-                </div>
+            <div className="grid grid-cols-2 gap-x-8 mt-12 print:mt-12">
+                 <SignatureSection title="CONTROL DE RECINTO ADUANERO" subtitle="Aduana Managua" align="left" />
+                 <SignatureSection title="ALMACEN DE DEPOSITO" align="center" />
+                 <SignatureSection title="Aduana de Destino." subtitle="En original y 3 Copias." align="left" />
+                 <SignatureSection title="TRAMITANTE" align="center">
+                    {agente && (
+                        <div className="text-black font-semibold">
+                            <p>{agente.displayName || 'N/A'}</p>
+                            <p>Licencia: {agente.agentLicense || 'N/A'}</p>
+                            <p>Cédula: {agente.cedula || 'N/A'}</p>
+                            <p>AGENCIA ADUANERA ACONIC</p>
+                        </div>
+                    )}
+                </SignatureSection>
             </div>
 
         </div>
@@ -309,5 +302,6 @@ export const Anexo7Details: React.FC<{ worksheet: Worksheet; onClose: () => void
         </Button>
       </CardFooter>
     </Card>   
-   );
+    </>
+  );
 };
