@@ -288,13 +288,15 @@ export const Anexo7Details: React.FC<{ worksheet: Worksheet; onClose: () => void
               </div>
           </div>
 
-    <CardFooter className="justify-end gap-2 no-print border-t pt-4 mt-4">
-              <Button asChild variant="outline">
-                  <Link href={`/executive/anexos?type=${worksheet.worksheetType}&id=${worksheet.id}`}><Edit className="mr-2 h-4 w-4" /> Editar</Link>
-              </Button>
-              <Button type="button" onClick={onClose} variant="outline">Cerrar</Button>
-              <Button type="button" onClick={handlePrint} variant="default"><Printer className="mr-2 h-4 w-4" /> Imprimir</Button>
-          </CardFooter></>
+          </div>
+       <CardFooter className="justify-end gap-2 no-print border-t pt-4 mt-4">
+          <Button asChild variant="outline">
+            <Link href={`/executive/anexos?type=${worksheet.worksheetType}&id=${worksheet.id}`}><Edit className="mr-2 h-4 w-4" /> Editar</Link>
+          </Button>
+          <Button type="button" onClick={onClose} variant="outline">Cerrar</Button>
+          <Button type="button" onClick={handlePrint} variant="default"><Printer className="mr-2 h-4 w-4" /> Imprimir</Button>
+      </CardFooter>
     </Card>
   );
 };
+
