@@ -227,7 +227,7 @@ export const Anexo7Details: React.FC<{ worksheet: Worksheet; onClose: () => void
                   <div className="p-2 print:p-1">
                   </div>
               </div>
-
+            </div>
               <div className="grid grid-cols-2 gap-x-8 mt-2 print:mt-1">
                   <div className="border border-black mt-2 print:mt-1">
                       <h4 className="text-sm font-semibold print:text-xs mb-1 border-b border-black p-1 text-center">DATOS DE TRANSPORTE:</h4>
@@ -286,7 +286,7 @@ export const Anexo7Details: React.FC<{ worksheet: Worksheet; onClose: () => void
                       )}
                   </SignatureSection>
               </div>
-              </div>
+            </div>
 
         <CardFooter className="justify-end gap-2 no-print border-t pt-4 mt-4">
           <Button asChild variant="outline">
@@ -302,5 +302,5 @@ export const Anexo7Details: React.FC<{ worksheet: Worksheet; onClose: () => void
           </Button>
         </CardFooter>
     </Card>   
-  );
+   );
 };
