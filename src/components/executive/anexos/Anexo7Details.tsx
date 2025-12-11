@@ -1,4 +1,3 @@
-
 "use client";
 import React, { useEffect, useState } from 'react';
 import Image from 'next/image';
@@ -17,12 +16,6 @@ import { cn } from "@/lib/utils";
 import { db } from '@/lib/firebase';
 import Link from 'next/link';
 
-const formatTimestamp = (timestamp: Timestamp | null | undefined): string => {
-  if (!timestamp) return 'N/A';
-  const date = timestamp.toDate();
-  return formatDateFns(date, 'dd/MM/yy HH:mm', { locale: es });
-};
-
 const formatShortDate = (timestamp: Timestamp | Date | null | undefined): string => {
   if (!timestamp) return '';
   const date = timestamp instanceof Timestamp ? timestamp.toDate() : timestamp;
@@ -36,22 +29,13 @@ const getAduanaLabel = (code: string | undefined) => {
     return aduana ? aduana.label.substring(5) : code;
 };
 
-const DetailItem: React.FC<{ label: string; value?: string | number | null | boolean; icon?: React.ElementType }> = ({ label, value, icon: Icon }) => {
-  let displayValue: React.ReactNode;
-  if (typeof value === 'boolean') {
-    displayValue = value ? 'Sí' : 'No';
-  } else {
-    displayValue = String(value ?? 'N/A');
-  }
-
-  return (
-    <div className="flex items-start gap-2 print:gap-1">
-      {Icon && <Icon className="mr-1 h-4 w-4 text-primary mt-0.5 flex-shrink-0 print:h-3 print:w-3" />}
-      <p className="text-xs font-medium text-muted-foreground whitespace-nowrap print:text-[8pt]">{label}:</p>
-      <p className="text-sm text-foreground print:text-[9pt]">{displayValue}</p>
+const LinedDetailItem: React.FC<{ label: string; value?: string | number | null; className?: string }> = ({ label, value, className }) => (
+    <div className={cn("border-b border-black flex justify-between items-baseline py-1 print:py-0.5", className)}>
+        <span className="text-xs font-semibold text-gray-700 print:text-[8pt]">{label}</span>
+        <p className="text-xs font-medium text-gray-800 print:text-[9pt]">{value || ''}</p>
     </div>
-  );
-};
+);
+
 
 const TransportDetailItem: React.FC<{ label: string; value?: string | number | null; className?: string }> = ({ label, value, className }) => (
     <tr className={cn("border-b border-black last:border-b-0", className)}>
@@ -104,15 +88,6 @@ export const Anexo7Details: React.FC<{ worksheet: Worksheet; onClose: () => void
     window.print();
   };
   
-  const getTransportDocTypeLabel = (type?: string | null) => {
-    switch (type) {
-      case 'guia_aerea': return 'Guía Aérea';
-      case 'bl': return 'BL';
-      case 'carta_porte': return 'Carta de Porte';
-      default: return 'N/A';
-    }
-  };
-
   const productHeaders = ["CANTIDAD", "ORIGEN", "UM", "SAC", "PESO", "DESCRIPCIÓN", "BULTOS", "VALOR"];
   
   const cantidadTotal = Number(worksheet.cantidadTotal) || (worksheet.documents || []).reduce((sum, doc) => sum + (Number((doc as any).cantidad) || 0), 0);
@@ -131,7 +106,7 @@ export const Anexo7Details: React.FC<{ worksheet: Worksheet; onClose: () => void
 
   return (
     <>
-    <Card className="w-full max-w-5xl mx-auto shadow-none border-none card-print-styles" id="printable-area">
+      <Card className="w-full max-w-5xl mx-auto shadow-none border-none card-print-styles" id="printable-area">
         <div className="p-4 print:p-2 bg-white">
             <div className="hidden print:block">
                 <Image
@@ -144,20 +119,20 @@ export const Anexo7Details: React.FC<{ worksheet: Worksheet; onClose: () => void
             </div>
 
             <div className="grid grid-cols-2 gap-x-8 mb-2 print:mb-1">
-                <div className="space-y-1">
-                    <DetailItem label="Fecha" value={formatShortDate(new Date())} />
-                    <DetailItem label="Empresa que solicita" value={worksheet.consignee} />
-                    <DetailItem label="RUC" value={worksheet.ruc} />
-                    <DetailItem label="Almacén de Salida" value={worksheet.almacenSalida} />
-                    <DetailItem label="Código de Almacén" value={worksheet.codigoAlmacen} />
-                </div>
-                <div className="space-y-1">
-                    <DetailItem label="RESA No" value={worksheet.resa} />
-                    <DetailItem label="Factura No" value={worksheet.facturaNumber} />
-                    <DetailItem label="Documento de Transporte" value={worksheet.transportDocumentNumber} />
-                    <DetailItem label="Delegación de Aduana Destino" value={getAduanaLabel(worksheet.dispatchCustoms)} />
-                    <DetailItem label="Código de Aduana" value={worksheet.dispatchCustoms} />
-                </div>
+              <div className="space-y-1">
+                <LinedDetailItem label="Fecha" value={formatShortDate(new Date())} />
+                <LinedDetailItem label="Empresa que solicita" value={worksheet.consignee} />
+                <LinedDetailItem label="RUC" value={worksheet.ruc} />
+                <LinedDetailItem label="Almacén de Salida" value={worksheet.almacenSalida} />
+                <LinedDetailItem label="Código de Almacén" value={worksheet.codigoAlmacen} />
+              </div>
+              <div className="space-y-1">
+                <LinedDetailItem label="RESA No" value={worksheet.resa} />
+                <LinedDetailItem label="Factura No" value={worksheet.facturaNumber} />
+                <LinedDetailItem label="Documento de Transporte" value={worksheet.transportDocumentNumber} />
+                <LinedDetailItem label="Delegación de Aduana Destino" value={getAduanaLabel(worksheet.dispatchCustoms)} />
+                <LinedDetailItem label="Código de Aduana" value={worksheet.dispatchCustoms} />
+              </div>
             </div>
 
             <div className="border-2 border-black">
