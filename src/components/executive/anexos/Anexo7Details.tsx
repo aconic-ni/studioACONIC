@@ -1,3 +1,4 @@
+
 "use client";
 import React, { useEffect, useState } from 'react';
 import Image from 'next/image';
@@ -261,8 +262,7 @@ export const Anexo7Details: React.FC<{ worksheet: Worksheet; onClose: () => void
                              <TransportDetailItem label="Precinto" value={worksheet.precinto || ''} />
                         </tbody>
                     </table>
-                    <div className="h-[20px] print:h-4"></div>
-                     <table className="w-full border-collapse border border-black">
+                     <table className="w-full border-collapse border border-black mt-2 print:mt-1">
                         <tbody>
                            <TransportDetailItem label="Hora de Salida" value={""} />
                            <TransportDetailItem label="Hora de Llegada" value={""} />
@@ -270,23 +270,34 @@ export const Anexo7Details: React.FC<{ worksheet: Worksheet; onClose: () => void
                     </table>
                 </div>
             </div>
-            
-            <div className="grid grid-cols-2 gap-x-8 mt-12 print:mt-12">
-                 <SignatureSection title="CONTROL DE RECINTO ADUANERO" subtitle="Aduana Managua" align="left" />
-                 <SignatureSection title="ALMACEN DE DEPOSITO" align="center" />
-                 <SignatureSection title="Aduana de Destino." subtitle="En original y 3 Copias." align="left" />
-                 <SignatureSection title="TRAMITANTE" align="center">
-                    {agente && (
-                        <div className="text-black font-semibold">
-                            <p>{agente.displayName || 'N/A'}</p>
-                            <p>Licencia: {agente.agentLicense || 'N/A'}</p>
-                            <p>Cédula: {agente.cedula || 'N/A'}</p>
-                            <p>AGENCIA ADUANERA ACONIC</p>
-                        </div>
-                    )}
-                </SignatureSection>
-            </div>
 
+            <div className="h-[50px] print:h-[50px]"></div>
+            
+            <div className="grid grid-cols-2 gap-x-8 mt-4 print:mt-2">
+                <div className="h-full flex flex-col">
+                    <SignatureSection title="CONTROL DE RECINTO ADUANERO" subtitle="Aduana Managua" align="left" />
+                </div>
+                <div className="h-full flex flex-col">
+                    <SignatureSection title="ALMACEN DE DEPOSITO" align="center" />
+                </div>
+            </div>
+            <div className="grid grid-cols-2 gap-x-8 mt-12 print:mt-8">
+                <div className="h-full flex flex-col">
+                    <SignatureSection title="Aduana de Destino." subtitle="En original y 3 Copias." align="left" />
+                </div>
+                 <div className="h-full flex flex-col">
+                    <SignatureSection title="TRAMITANTE" align="center">
+                        {agente && (
+                            <div className="text-black font-semibold">
+                                <p>{agente.displayName || 'N/A'}</p>
+                                <p>Licencia: {agente.agentLicense || 'N/A'}</p>
+                                <p>Cédula: {agente.cedula || 'N/A'}</p>
+                                <p>AGENCIA ADUANERA ACONIC</p>
+                            </div>
+                        )}
+                    </SignatureSection>
+                </div>
+            </div>
         </div>
        <CardFooter className="justify-end gap-2 no-print border-t pt-4 mt-4">
         <Button asChild variant="outline">
