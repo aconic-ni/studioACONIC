@@ -1,3 +1,4 @@
+
 "use client";
 import React, { useEffect, useState } from 'react';
 import Image from 'next/image';
@@ -249,8 +250,8 @@ export const Anexo7Details: React.FC<{ worksheet: Worksheet; onClose: () => void
                      </table>
                 </div>
             </div>
-             <div className="space-y-1 mt-2 print:mt-1 print:text-[8pt] print:p-1">
-                 <div className="w-full text-xs mt-1 border border-transparent rounded-md p-2 print:text-[8pt] print:p-1">
+            <div className="space-y-1 mt-2 print:mt-1 print:text-[8pt] print:p-1">
+                 <div className="w-full text-xs border border-transparent rounded-md p-2 print:text-[8pt] print:p-1">
                     <DetailRow label="Bultos Totales" value={bultosTotales > 0 ? bultosTotales.toLocaleString('es-NI') : ''} />
                     <DetailRow label="Peso Total" value={pesoTotal > 0 ? pesoTotal.toLocaleString('es-NI', {minimumFractionDigits: 2, maximumFractionDigits: 2}) : ''} />
                     <DetailRow label="Precinto" value={worksheet.precinto || ''} />
@@ -262,6 +263,8 @@ export const Anexo7Details: React.FC<{ worksheet: Worksheet; onClose: () => void
                 </div>
             </div>
         </div>
+        
+        <div className="h-[50px]"></div>
         
         <div className="mt-4 print:mt-2 grid grid-cols-2 gap-x-8">
             <div className="h-32 print:h-28">
