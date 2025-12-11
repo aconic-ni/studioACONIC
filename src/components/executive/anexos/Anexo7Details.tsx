@@ -1,3 +1,4 @@
+
 "use client";
 import React, { useEffect, useState } from 'react';
 import Image from 'next/image';
@@ -101,6 +102,12 @@ export const Anexo7Details: React.FC<{ worksheet: Worksheet; onClose: () => void
   const valorAduanero = (worksheet.valor || 0) + (worksheet.flete || 0) + (worksheet.seguro || 0) + (worksheet.otrosGastos || 0);
 
   const headerImageSrc = "/AconicExaminer/imagenes/HEADERANEX7DETAIL.svg";
+  
+  const MIN_ROWS = 9;
+  const productRows = worksheet.documents && worksheet.documents.length > 0 ? worksheet.documents : [];
+  const emptyRowsCount = Math.max(0, MIN_ROWS - productRows.length);
+  const emptyRows = Array.from({ length: emptyRowsCount }, (_, i) => ({ id: `empty-${i}` }));
+
 
   return (
     <Card className="w-full max-w-5xl mx-auto shadow-none border-none card-print-styles" id="printable-area">
@@ -142,8 +149,7 @@ export const Anexo7Details: React.FC<{ worksheet: Worksheet; onClose: () => void
                     </tr>
                 </thead>
                 <tbody>
-                    {(worksheet.documents && worksheet.documents.length > 0) ? (
-                        worksheet.documents.map((doc, index) => (
+                    {productRows.map((doc, index) => (
                         <tr key={doc.id || index} className="border-b border-gray-400 h-6 print:h-5">
                             <td className="print:p-0.5 print:text-[8pt] text-center border-r border-black">{doc.cantidad ? Number(doc.cantidad).toLocaleString('es-NI') : ''}</td>
                             <td className="print:p-0.5 print:text-[8pt] text-center border-r border-black">{String((doc as any).origen || '')}</td>
@@ -154,9 +160,19 @@ export const Anexo7Details: React.FC<{ worksheet: Worksheet; onClose: () => void
                             <td className="print:p-0.5 print:text-[8pt] text-center border-r border-black">{doc.bulto ? Number(doc.bulto).toLocaleString('es-NI') : ''}</td>
                             <td className="print:p-0.5 print:text-[8pt] text-right">{doc.total ? Number(doc.total).toLocaleString('es-NI', {minimumFractionDigits: 2, maximumFractionDigits: 2}) : ''}</td>
                         </tr>
-                    ))) : (
-                         <tr className="h-20"><td colSpan={productHeaders.length}></td></tr>
-                    )}
+                    ))}
+                    {emptyRows.map((row) => (
+                        <tr key={row.id} className="border-b border-gray-400 h-6 print:h-5">
+                            <td className="border-r border-black">&nbsp;</td>
+                            <td className="border-r border-black"></td>
+                            <td className="border-r border-black"></td>
+                            <td className="border-r border-black"></td>
+                            <td className="border-r border-black"></td>
+                            <td className="border-r border-black"></td>
+                            <td className="border-r border-black"></td>
+                            <td></td>
+                        </tr>
+                    ))}
                 </tbody>
                 <tfoot>
                   <tr className="border-t-2 border-black font-bold text-xs print:text-[9pt] h-6 print:h-5">
@@ -174,8 +190,7 @@ export const Anexo7Details: React.FC<{ worksheet: Worksheet; onClose: () => void
         <div className="grid grid-cols-2 gap-x-4 mt-2 print:mt-1">
             {/* Left Column */}
             <div className="flex flex-col">
-                <div className="grid grid-cols-[auto_1fr] gap-x-2">
-                    <div className="w-full text-xs p-2 print:text-[8pt] print:p-1 mb-2 print:mb-1">
+                <div className="w-full text-xs p-2 print:text-[8pt] print:p-1 mb-2 print:mb-1">
                      <table className="w-full border-collapse print:text-[9pt]">
                         <thead><tr><th colSpan={2} className="border border-black text-center text-xs p-1 print:text-[8pt] font-bold">Conformación de Valor</th></tr></thead>
                         <tbody>
@@ -195,8 +210,6 @@ export const Anexo7Details: React.FC<{ worksheet: Worksheet; onClose: () => void
                             })}
                         </tbody>
                     </table>
-                    </div>
-                    <div />
                 </div>
                  <div className="border border-black mt-2 print:mt-1">
                      <h4 className="text-sm font-semibold print:text-xs mb-1 border-b border-black p-1 text-center">DATOS DE TRANSPORTE:</h4>
