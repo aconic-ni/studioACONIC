@@ -1,4 +1,3 @@
-
 "use client";
 import React, { useEffect, useState } from 'react';
 import Image from 'next/image';
@@ -187,33 +186,45 @@ export const Anexo7Details: React.FC<{ worksheet: Worksheet; onClose: () => void
             </table>
         </div>
         
-        <div className="grid grid-cols-2 gap-x-4 mt-2 print:mt-1">
+        <div className="grid grid-cols-3 gap-x-4 mt-2 print:mt-1">
             {/* Left Column */}
-            <div className="flex flex-col">
-                <div className="w-full text-xs p-2 print:text-[8pt] print:p-1 mb-2 print:mb-1">
-                     <table className="w-full border-collapse print:text-[9pt]">
-                        <thead><tr><th colSpan={2} className="border border-black text-center text-xs p-1 print:text-[8pt] font-bold">Conformación de Valor</th></tr></thead>
-                        <tbody>
-                            {['Valor $', 'Flete $', 'Seguro $', 'O. Gasto $', 'V. Aduana $'].map(label => {
-                                let value = '';
-                                if (label === 'Valor $') value = worksheet.valor ? `$${Number(worksheet.valor).toLocaleString('es-NI', {minimumFractionDigits: 2, maximumFractionDigits: 2})}` : '';
-                                if (label === 'Flete $') value = worksheet.flete ? `$${Number(worksheet.flete).toLocaleString('es-NI', {minimumFractionDigits: 2, maximumFractionDigits: 2})}` : '';
-                                if (label === 'Seguro $') value = worksheet.seguro ? `$${Number(worksheet.seguro).toLocaleString('es-NI', {minimumFractionDigits: 2, maximumFractionDigits: 2})}` : '';
-                                if (label === 'O. Gasto $') value = worksheet.otrosGastos ? `$${Number(worksheet.otrosGastos).toLocaleString('es-NI', {minimumFractionDigits: 2, maximumFractionDigits: 2})}` : '';
-                                if (label === 'V. Aduana $') value = `$${valorAduanero.toLocaleString('es-NI', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
-                                return (
-                                    <tr key={label}>
-                                        <td className={cn("border border-black p-1 w-[50%] print:p-0.5", label === 'V. Aduana $' ? 'border-t-2' : '')}>{label}</td>
-                                        <td className={`border border-black p-1 w-auto font-semibold text-right ${label === 'V. Aduana $' ? 'border-t-2' : ''}`}>{value}</td>
-                                    </tr>
-                                );
-                            })}
-                        </tbody>
-                    </table>
-                </div>
-                 <div className="border border-black mt-2 print:mt-1">
-                     <h4 className="text-sm font-semibold print:text-xs mb-1 border-b border-black p-1 text-center">DATOS DE TRANSPORTE:</h4>
-                     <table className="w-full border-collapse">
+            <div className="w-full text-xs p-2 print:text-[8pt] print:p-1 mb-2 print:mb-1">
+                <table className="w-full border-collapse print:text-[9pt]">
+                <thead><tr><th colSpan={2} className="border border-black text-center text-xs p-1 print:text-[8pt] font-bold">Conformación de Valor</th></tr></thead>
+                <tbody>
+                    {['Valor $', 'Flete $', 'Seguro $', 'O. Gasto $', 'V. Aduana $'].map(label => {
+                        let value = '';
+                        if (label === 'Valor $') value = worksheet.valor ? `$${Number(worksheet.valor).toLocaleString('es-NI', {minimumFractionDigits: 2, maximumFractionDigits: 2})}` : '';
+                        if (label === 'Flete $') value = worksheet.flete ? `$${Number(worksheet.flete).toLocaleString('es-NI', {minimumFractionDigits: 2, maximumFractionDigits: 2})}` : '';
+                        if (label === 'Seguro $') value = worksheet.seguro ? `$${Number(worksheet.seguro).toLocaleString('es-NI', {minimumFractionDigits: 2, maximumFractionDigits: 2})}` : '';
+                        if (label === 'O. Gasto $') value = worksheet.otrosGastos ? `$${Number(worksheet.otrosGastos).toLocaleString('es-NI', {minimumFractionDigits: 2, maximumFractionDigits: 2})}` : '';
+                        if (label === 'V. Aduana $') value = `$${valorAduanero.toLocaleString('es-NI', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
+                        return (
+                            <tr key={label}>
+                                <td className={cn("border border-black p-1 w-[50%] print:p-0.5", label === 'V. Aduana $' ? 'border-t-2' : '')}>{label}</td>
+                                <td className={`border border-black p-1 w-auto font-semibold text-right ${label === 'V. Aduana $' ? 'border-t-2' : ''}`}>{value}</td>
+                            </tr>
+                        );
+                    })}
+                </tbody>
+                </table>
+            </div>
+            {/* Middle Column */}
+            <div className="p-2 print:p-1">
+                <p className="text-xs font-semibold text-gray-500 print:text-[8pt]">NOTA:</p>
+                <p className="text-sm print:text-xs whitespace-pre-wrap min-h-[42px]">{worksheet.observations}</p>
+            </div>
+            {/* Right Column (Empty) */}
+            <div className="border border-white p-2 print:p-1">
+                 {/* This div is intentionally left blank to create the three-column layout */}
+            </div>
+        </div>
+
+        <div className="grid grid-cols-2 gap-x-8 mt-2 print:mt-1">
+            <div>
+                <h4 className="text-sm font-semibold print:text-xs">DATOS DE TRANSPORTE:</h4>
+                 <div className="space-y-1 mt-1 border p-2 rounded-md print:border-none print:p-0">
+                    <table className="w-full border-collapse">
                         <tbody>
                             <TransportDetailItem label="CODIGO DE ADUANERO" value={worksheet.codigoAduanero} />
                             <TransportDetailItem label="Marca" value={worksheet.marcaVehiculo} />
@@ -229,26 +240,17 @@ export const Anexo7Details: React.FC<{ worksheet: Worksheet; onClose: () => void
                         </tbody>
                      </table>
                 </div>
-                 <div className="h-5 print:h-5 bg-white"></div>
             </div>
-            {/* Right Column */}
-            <div className="flex flex-col">
-                <div className="border border-black rounded-md p-2 print:p-1">
-                    <p className="text-xs font-semibold text-gray-500 print:text-[8pt]">NOTA:</p>
-                    <p className="text-sm print:text-xs whitespace-pre-wrap">{worksheet.observations}</p>
+            <div className="flex flex-col justify-between">
+                <div className="space-y-1 mt-1 border border-gray-400 rounded-md p-2 print:text-[8pt] print:p-1">
+                   <TransportDetailItem label="Bultos Totales" value={bultosTotales > 0 ? bultosTotales.toLocaleString('es-NI') : ''} className="font-bold" />
+                   <TransportDetailItem label="Peso Total" value={pesoTotal > 0 ? pesoTotal.toLocaleString('es-NI', {minimumFractionDigits: 2, maximumFractionDigits: 2}) : ''} className="font-bold" />
+                   <TransportDetailItem label="Precinto" value={worksheet.precinto || ''} />
                 </div>
-                 <div className="flex-grow"></div>
-                 <div className="space-y-1 mt-2 print:mt-1">
-                   <DetailRow label="Bultos Totales" value={bultosTotales > 0 ? bultosTotales.toLocaleString('es-NI') : ''} />
-                   <DetailRow label="Peso Total" value={pesoTotal > 0 ? pesoTotal.toLocaleString('es-NI', {minimumFractionDigits: 2, maximumFractionDigits: 2}) : ''} />
-                   <DetailRow label="Precinto" value={worksheet.precinto || ''} />
-                </div>
-                 <div className="h-8 print:h-8 bg-white"></div>
                  <div className="space-y-1 mt-2 print:mt-1">
                     <DetailRow label="Hora de Salida" />
                     <DetailRow label="Hora de Llegada" />
                 </div>
-                 <div className="h-5 print:h-5 bg-white"></div>
             </div>
         </div>
         
