@@ -163,8 +163,21 @@ export const WorksheetDetails: React.FC<{ worksheet: Worksheet; onClose: () => v
           )}
 
           <div className="grid grid-cols-1 print:grid-cols-2 print:gap-x-4">
+            
+            {/* Transport Document */}
+            {(worksheet.transportDocumentType || worksheet.transportCompany || worksheet.transportDocumentNumber) && (
+              <div className="print:mt-1 mt-4">
+                  <h4 className="text-lg font-medium mb-2 text-foreground print:text-sm print:mb-1">Documento de Transporte</h4>
+                  <div className="p-4 border rounded-md bg-card space-y-2 print:p-2 print:space-y-1">
+                      <DetailItem label="Tipo" value={worksheet.transportDocumentType === 'guia_aerea' ? 'Guía Aérea' : worksheet.transportDocumentType === 'bl' ? 'BL' : 'Carta de Porte'} />
+                      <DetailItem label="Compañía" value={worksheet.transportCompany} />
+                      <DetailItem label="Número" value={worksheet.transportDocumentNumber} />
+                  </div>
+              </div>
+            )}
+            
             {/* Documents */}
-            <div className="print:mt-1">
+            <div className="print:mt-1 mt-4">
                 <h4 className="text-lg font-medium mb-2 text-foreground print:text-sm print:mb-1">Documentos Entregados</h4>
                 <div className="rounded-md border print:border">
                     <Table className="print:text-[8pt]">
