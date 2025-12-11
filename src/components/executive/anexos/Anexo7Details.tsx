@@ -1,4 +1,3 @@
-
 "use client";
 import React, { useEffect, useState } from 'react';
 import Image from 'next/image';
@@ -93,6 +92,15 @@ export const Anexo7Details: React.FC<{ worksheet: Worksheet; onClose: () => void
     window.print();
   };
   
+  const getTransportDocTypeLabel = (type?: string | null) => {
+    switch (type) {
+      case 'guia_aerea': return 'Guía Aérea';
+      case 'bl': return 'BL';
+      case 'carta_porte': return 'Carta de Porte';
+      default: return 'N/A';
+    }
+  };
+
   const productHeaders = ["CANTIDAD", "ORIGEN", "UM", "SAC", "PESO", "DESCRIPCIÓN", "BULTOS", "VALOR"];
   
   const cantidadTotal = Number(worksheet.cantidadTotal) || (worksheet.documents || []).reduce((sum, doc) => sum + (Number((doc as any).cantidad) || 0), 0);
@@ -242,17 +250,15 @@ export const Anexo7Details: React.FC<{ worksheet: Worksheet; onClose: () => void
                 </div>
             </div>
              <div className="space-y-1 mt-2 print:mt-1 print:text-[8pt] print:p-1">
-                 <div className="w-full text-xs mt-1 border border-gray-400 rounded-md p-2 print:text-[8pt] print:p-1">
+                 <div className="w-full text-xs mt-1 border border-transparent rounded-md p-2 print:text-[8pt] print:p-1">
                     <DetailRow label="Bultos Totales" value={bultosTotales > 0 ? bultosTotales.toLocaleString('es-NI') : ''} />
                     <DetailRow label="Peso Total" value={pesoTotal > 0 ? pesoTotal.toLocaleString('es-NI', {minimumFractionDigits: 2, maximumFractionDigits: 2}) : ''} />
                     <DetailRow label="Precinto" value={worksheet.precinto || ''} />
                 </div>
-                <div className="w-full text-xs mt-1 rounded-md p-2 print:text-[8pt] print:p-1">
-                    <div className="h-[50px]"></div>
-                     <div className="space-y-1 mt-2 print:mt-1 print:text-[8pt] print:p-1">
-                        <DetailRow label="Hora de Salida" value={""} />
-                        <DetailRow label="Hora de Llegada" value={""} />
-                    </div>
+                 <div className="h-[50px]"></div>
+                 <div className="space-y-1 mt-2 print:mt-1 print:text-[8pt] print:p-1">
+                    <DetailRow label="Hora de Salida" value={""} />
+                    <DetailRow label="Hora de Llegada" value={""} />
                 </div>
             </div>
         </div>
