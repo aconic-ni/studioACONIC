@@ -227,20 +227,16 @@ export const Anexo7Details: React.FC<{ worksheet: Worksheet; onClose: () => void
             
              <div className="grid grid-cols-2 gap-x-8 mt-1 print:mt-1">
                 <div className="border border-black mt-1 print:mt-1">
-                    <h4 className="text-sm font-semibold print:text-xs mb-1 border-b border-black p-1 text-center">DATOS DE TRANSPORTE:</h4>
-                    <table className="w-full border-collapse">
+                   <table className="w-full border-collapse">
                         <tbody>
-                            <TransportDetailItem label="CODIGO DE ADUANERO" value={worksheet.codigoAduanero} />
+                            <TransportDetailItem label="Codigo del Transporte" value={worksheet.codigoAduanero} />
                             <TransportDetailItem label="Marca" value={worksheet.marcaVehiculo} />
                             <TransportDetailItem label="Placa" value={worksheet.placaVehiculo} />
                             <TransportDetailItem label="Motor" value={worksheet.motorVehiculo} />
                             <TransportDetailItem label="Chasis" value={worksheet.chasisVehiculo} />
-                            <TransportDetailItem label="VIN" value={worksheet.vin} />
                             <TransportDetailItem label="Nombre Conductor" value={worksheet.nombreConductor} />
                             <TransportDetailItem label="Licencia" value={worksheet.licenciaConductor} />
                             <TransportDetailItem label="Cedula" value={worksheet.cedulaConductor} />
-                            <TransportDetailItem label="Tipo de medio" value={worksheet.tipoMedio} />
-                            <TransportDetailItem label="Peso Vacío" value={worksheet.pesoVacioVehiculo} />
                         </tbody>
                     </table>
                 </div>
