@@ -1,3 +1,4 @@
+
 "use client";
 import React, { useEffect, useState } from 'react';
 import Image from 'next/image';
@@ -69,7 +70,7 @@ const SignatureSection: React.FC<{
   const textAlignClass = `text-${align}`;
   return (
     <div className={cn("flex flex-col h-full", className)}>
-      <div className="h-8 border-b-2 border-black print:h-6 mb-1"></div>
+       <div className="flex-grow border-b-2 border-black print:h-6 mb-1"></div>
       <div className={cn("text-xs print:text-[8pt]", textAlignClass)}>
           <p className="font-semibold">Firma y Sello</p>
           <p className="font-bold text-black">{title}</p>
@@ -234,8 +235,8 @@ export const Anexo7Details: React.FC<{ worksheet: Worksheet; onClose: () => void
                 </div>
             </div>
             
-            <div className="grid grid-cols-2 gap-x-8 mt-2 print:mt-1">
-                <div className="border border-black mt-2 print:mt-1">
+            <div className="grid grid-cols-2 gap-x-8 mt-1 print:mt-1">
+                <div className="border border-black mt-1 print:mt-1">
                     <h4 className="text-sm font-semibold print:text-xs mb-1 border-b border-black p-1 text-center">DATOS DE TRANSPORTE:</h4>
                     <table className="w-full border-collapse">
                         <tbody>
@@ -254,43 +255,47 @@ export const Anexo7Details: React.FC<{ worksheet: Worksheet; onClose: () => void
                     </table>
                 </div>
                 <div className="space-y-2 print:space-y-1">
-                    <div className="w-full text-xs mt-2 p-2 print:text-[8pt] print:p-1">
-                      <div className="space-y-1">
-                          <DetailItem label="Bultos Totales" value={bultosTotales > 0 ? bultosTotales.toLocaleString('es-NI') : ''} />
-                          <DetailItem label="Peso Total" value={pesoTotal > 0 ? pesoTotal.toLocaleString('es-NI', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : ''} />
-                          <DetailItem label="Precinto" value={worksheet.precinto || ''} />
-                      </div>
-                    </div>
+                    <table className="w-full border-collapse mt-1 print:mt-1 border border-black">
+                        <tbody>
+                             <TransportDetailItem label="Bultos Totales" value={bultosTotales > 0 ? bultosTotales.toLocaleString('es-NI') : ''} />
+                             <TransportDetailItem label="Peso Total" value={pesoTotal > 0 ? pesoTotal.toLocaleString('es-NI', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : ''} />
+                             <TransportDetailItem label="Precinto" value={worksheet.precinto || ''} />
+                        </tbody>
+                    </table>
                     <div className="h-[50px]"></div>
-                    <div className="space-y-1 mt-2 print:mt-1 print:text-[8pt] print:p-1">
-                        <DetailItem label="Hora de Salida" value={""} />
-                        <DetailItem label="Hora de Llegada" value={""} />
-                    </div>
+                     <table className="w-full border-collapse mt-1 print:mt-1 border border-black">
+                        <tbody>
+                           <TransportDetailItem label="Hora de Salida" value={""} />
+                           <TransportDetailItem label="Hora de Llegada" value={""} />
+                        </tbody>
+                    </table>
                 </div>
             </div>
-        </div>
+            
+            <div className="h-[50px] print:h-12"></div>
 
-        <div className="mt-8 print:mt-4 grid grid-cols-2 gap-x-8">
-            <div className="space-y-8">
-                 <SignatureSection title="CONTROL DE RECINTO ADUANERO" subtitle="Aduana Managua" align="left" />
-                 <SignatureSection title="Aduana de Destino." subtitle="En original y 3 Copias." align="left" />
+             <div className="mt-8 print:mt-4 grid grid-cols-2 gap-x-8">
+                <div className="space-y-8">
+                    <SignatureSection title="CONTROL DE RECINTO ADUANERO" subtitle="Aduana Managua" align="left" />
+                    <SignatureSection title="Aduana de Destino." subtitle="En original y 3 Copias." align="left" />
+                </div>
+                <div className="space-y-8">
+                    <SignatureSection title="ALMACEN DE DEPOSITO" align="center" />
+                    <SignatureSection title="TRAMITANTE" align="center">
+                        {agente && (
+                            <div className="text-black font-semibold">
+                                <p>{agente.displayName || 'N/A'}</p>
+                                <p>Licencia: {agente.agentLicense || 'N/A'}</p>
+                                <p>Cédula: {agente.cedula || 'N/A'}</p>
+                                <p>AGENCIA ADUANERA ACONIC</p>
+                            </div>
+                        )}
+                    </SignatureSection>
+                </div>
             </div>
-            <div className="space-y-8">
-                 <SignatureSection title="ALMACEN DE DEPOSITO" align="center" />
-                 <SignatureSection title="TRAMITANTE" align="center">
-                    {agente && (
-                        <div className="text-black font-semibold">
-                            <p>{agente.displayName || 'N/A'}</p>
-                            <p>Licencia: {agente.agentLicense || 'N/A'}</p>
-                            <p>Cédula: {agente.cedula || 'N/A'}</p>
-                            <p>AGENCIA ADUANERA ACONIC</p>
-                        </div>
-                    )}
-                </SignatureSection>
-            </div>
-        </div>
 
-      <CardFooter className="justify-end gap-2 no-print border-t pt-4 mt-4">
+        </div>
+       <CardFooter className="justify-end gap-2 no-print border-t pt-4 mt-4">
         <Button asChild variant="outline">
           <Link href={`/executive/anexos?type=${worksheet.worksheetType}&id=${worksheet.id}`}>
             <Edit className="mr-2 h-4 w-4" /> Editar
