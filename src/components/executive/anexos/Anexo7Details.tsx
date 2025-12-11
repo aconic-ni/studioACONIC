@@ -240,11 +240,11 @@ export const Anexo7Details: React.FC<{ worksheet: Worksheet; onClose: () => void
                 </div>
                 <div className="space-y-2 print:space-y-1 mt-1 print:mt-1">
                     <div className="space-y-1 p-2 print:p-1">
-                      <LinedDetailItem label="Bultos Totales" value={bultosTotales > 0 ? bultosTotales.toLocaleString('es-NI') : ''} />
-                      <LinedDetailItem label="Peso Total" value={pesoTotal > 0 ? pesoTotal.toLocaleString('es-NI', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : ''} />
-                      <LinedDetailItem label="Precinto" value={worksheet.precinto || ''} />
+                        <LinedDetailItem label="Bultos Totales" value={bultosTotales > 0 ? bultosTotales.toLocaleString('es-NI') : ''} />
+                        <LinedDetailItem label="Peso Total" value={pesoTotal > 0 ? pesoTotal.toLocaleString('es-NI', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : ''} />
+                        <LinedDetailItem label="Precinto" value={worksheet.precinto || ''} />
                     </div>
-                     <div className="h-[50px] print:h-[50px]"></div>
+                     <div className="h-[50px] print:h-[20px]"></div>
                     <table className="w-full border-collapse border-2 border-black mt-2 print:mt-1">
                         <tbody>
                            <TransportDetailItem label="Hora de Salida" value={""} />
@@ -254,7 +254,7 @@ export const Anexo7Details: React.FC<{ worksheet: Worksheet; onClose: () => void
                 </div>
             </div>
             
-            <div className="h-[50px] print:h-[50px]"></div>
+            <div className="h-[50px] print:h-[20px]"></div>
 
             <div className="grid grid-cols-2 gap-x-8 mt-2 print:mt-1">
                 <div className="h-full flex flex-col">
@@ -264,6 +264,7 @@ export const Anexo7Details: React.FC<{ worksheet: Worksheet; onClose: () => void
                     <SignatureSection title="ALMACEN DE DEPOSITO" align="center" />
                 </div>
             </div>
+            <div className="h-[20px]"></div>
             <div className="grid grid-cols-2 gap-x-8 mt-2 print:mt-1">
                 <div className="h-full flex flex-col">
                     <SignatureSection title="Aduana de Destino." subtitle="En original y 3 Copias." align="left" />
