@@ -258,7 +258,9 @@ export const Anexo7Details: React.FC<{ worksheet: Worksheet; onClose: () => void
                 </div>
             </div>
             
-             <div className="h-[20px] print:h-[20px]"></div>
+             <div className="h-[50px] print:h-[20px]"></div>
+            
+             <div className="h-[10px] print:h-[10px]"></div>
 
             <div className="grid grid-cols-2 gap-x-8 mt-2 print:mt-1">
                 <div className="h-full flex flex-col">
