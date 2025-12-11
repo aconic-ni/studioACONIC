@@ -1,0 +1,71 @@
+
+{
+    "indexes": [
+      {
+        "collectionGroup": "users",
+        "queryScope": "COLLECTION",
+        "fields": [
+          { "fieldPath": "role", "order": "ASCENDING" },
+          { "fieldPath": "displayName", "order": "ASCENDING" }
+        ]
+      },
+      {
+        "collectionGroup": "examenesPrevios",
+        "queryScope": "COLLECTION",
+        "fields": [
+          { "fieldPath": "assignedTo", "order": "ASCENDING" },
+          { "fieldPath": "status", "order": "ASCENDING" },
+          { "fieldPath": "assignedAt", "order": "ASCENDING" }
+        ]
+      },
+       {
+        "collectionGroup": "examenesPrevios",
+        "queryScope": "COLLECTION",
+        "fields": [
+          { "fieldPath": "isArchived", "order": "ASCENDING" },
+          { "fieldPath": "ne", "order": "ASCENDING" }
+        ]
+      },
+      {
+        "collectionGroup": "solicitudesExamen",
+        "queryScope": "COLLECTION",
+        "fields": [
+          { "fieldPath": "status", "order": "ASCENDING" },
+          { "fieldPath": "requestedAt", "order": "ASCENDING" }
+        ]
+      },
+      {
+        "collectionGroup": "adminAuditLog",
+        "queryScope": "COLLECTION",
+        "fields": [
+          { "fieldPath": "docId", "order": "ASCENDING" },
+          { "fieldPath": "timestamp", "order": "DESCENDING" }
+        ]
+      },
+      {
+        "collectionGroup": "examenesRecuperados",
+        "queryScope": "COLLECTION",
+        "fields": [
+          { "fieldPath": "examNe", "order": "ASCENDING" },
+          { "fieldPath": "changedAt", "order": "DESCENDING" }
+        ]
+      },
+      {
+        "collectionGroup": "AforoCases",
+        "queryScope": "COLLECTION",
+        "fields": [
+          { "fieldPath": "createdAt", "order": "DESCENDING" }
+        ]
+      },
+      {
+        "collectionGroup": "Validaciones",
+        "queryScope": "COLLECTION",
+        "fields": [
+          { "fieldPath": "resolvedAt", "order": "DESCENDING" }
+        ]
+      }
+    ],
+    "fieldOverrides": []
+  }
+  
+      
