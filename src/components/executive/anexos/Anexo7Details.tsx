@@ -1,3 +1,4 @@
+
 "use client";
 import React, { useEffect, useState } from 'react';
 import Image from 'next/image';
@@ -188,7 +189,7 @@ export const Anexo7Details: React.FC<{ worksheet: Worksheet; onClose: () => void
         
         <div className="grid grid-cols-3 gap-x-4 mt-2 print:mt-1">
             {/* Left Column */}
-            <div className="w-full text-xs p-2 print:text-[8pt] print:p-1 mb-2 print:mb-1">
+            <div className="w-full text-xs p-2 print:text-[8pt] print:p-1">
                 <table className="w-full border-collapse print:text-[9pt]">
                 <thead><tr><th colSpan={2} className="border border-black text-center text-xs p-1 print:text-[8pt] font-bold">Conformación de Valor</th></tr></thead>
                 <tbody>
@@ -241,16 +242,10 @@ export const Anexo7Details: React.FC<{ worksheet: Worksheet; onClose: () => void
                      </table>
                 </div>
             </div>
-            <div className="flex flex-col justify-between">
-                <div className="space-y-1 mt-1 border border-gray-400 rounded-md p-2 print:text-[8pt] print:p-1">
-                   <TransportDetailItem label="Bultos Totales" value={bultosTotales > 0 ? bultosTotales.toLocaleString('es-NI') : ''} className="font-bold" />
-                   <TransportDetailItem label="Peso Total" value={pesoTotal > 0 ? pesoTotal.toLocaleString('es-NI', {minimumFractionDigits: 2, maximumFractionDigits: 2}) : ''} className="font-bold" />
-                   <TransportDetailItem label="Precinto" value={worksheet.precinto || ''} />
-                </div>
-                 <div className="space-y-1 mt-2 print:mt-1">
-                    <DetailRow label="Hora de Salida" />
-                    <DetailRow label="Hora de Llegada" />
-                </div>
+            <div className="space-y-1 mt-2 print:mt-1 border border-gray-400 rounded-md p-2 print:text-[8pt] print:p-1">
+                <DetailRow label="Bultos Totales" value={bultosTotales > 0 ? bultosTotales.toLocaleString('es-NI') : ''} />
+                <DetailRow label="Peso Total" value={pesoTotal > 0 ? pesoTotal.toLocaleString('es-NI', {minimumFractionDigits: 2, maximumFractionDigits: 2}) : ''} />
+                <DetailRow label="Precinto" value={worksheet.precinto || ''} />
             </div>
         </div>
         
