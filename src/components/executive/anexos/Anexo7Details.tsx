@@ -215,9 +215,8 @@ export const Anexo7Details: React.FC<{ worksheet: Worksheet; onClose: () => void
                 <p className="text-xs font-semibold text-gray-500 print:text-[8pt]">NOTA:</p>
                 <p className="text-sm print:text-xs whitespace-pre-wrap min-h-[42px]">{worksheet.observations}</p>
             </div>
-            {/* Right Column (Empty) */}
+             {/* Right Column (Empty) */}
             <div className="p-2 print:p-1">
-                 {/* This div is intentionally left blank to create the three-column layout */}
             </div>
         </div>
 
@@ -242,10 +241,19 @@ export const Anexo7Details: React.FC<{ worksheet: Worksheet; onClose: () => void
                      </table>
                 </div>
             </div>
-            <div className="space-y-1 mt-2 print:mt-1 print:text-[8pt] print:p-1">
-                <DetailRow label="Bultos Totales" value={bultosTotales > 0 ? bultosTotales.toLocaleString('es-NI') : ''} />
-                <DetailRow label="Peso Total" value={pesoTotal > 0 ? pesoTotal.toLocaleString('es-NI', {minimumFractionDigits: 2, maximumFractionDigits: 2}) : ''} />
-                <DetailRow label="Precinto" value={worksheet.precinto || ''} />
+             <div className="space-y-1 mt-2 print:mt-1 print:text-[8pt] print:p-1">
+                 <div className="space-y-1 mt-2 print:mt-1 print:text-[8pt] print:p-1">
+                    <DetailRow label="Bultos Totales" value={bultosTotales > 0 ? bultosTotales.toLocaleString('es-NI') : ''} />
+                    <DetailRow label="Peso Total" value={pesoTotal > 0 ? pesoTotal.toLocaleString('es-NI', {minimumFractionDigits: 2, maximumFractionDigits: 2}) : ''} />
+                    <DetailRow label="Precinto" value={worksheet.precinto || ''} />
+                </div>
+                <div className="w-full text-xs mt-1 p-2 print:text-[8pt] print:p-1">
+                    <h4 className="text-sm font-semibold text-center mb-2 print:text-xs print:mb-1">TRÁNSITO</h4>
+                     <div className="space-y-1 mt-2 print:mt-1 print:text-[8pt] print:p-1">
+                        <DetailRow label="Hora de Salida" value={""} />
+                        <DetailRow label="Hora de Llegada" value={""} />
+                    </div>
+                </div>
             </div>
         </div>
         
