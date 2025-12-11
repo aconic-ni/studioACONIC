@@ -186,8 +186,8 @@ export const Anexo7Details: React.FC<{ worksheet: Worksheet; onClose: () => void
                     </tbody>
                     <tfoot>
                         <tr className="border-t-2 border-black font-bold text-xs print:text-[9pt] h-6 print:h-5">
-                            <td className="p-1 print:p-0.5 text-left pr-2" colSpan={3}>CANTIDAD TOTAL: {cantidadTotal > 0 ? cantidadTotal.toLocaleString('es-NI') : ''} {worksheet.unidadMedidaTotal}</td>
-                            <td className="p-1 print:p-0.5 text-right pr-2">PESO TOTAL:</td>
+                            <td className="p-1 print:p-0.5 text-left pr-2" colSpan={3}>TOTAL: {cantidadTotal > 0 ? cantidadTotal.toLocaleString('es-NI') : ''} {worksheet.unidadMedidaTotal}</td>
+                            <td className="p-1 print:p-0.5 text-right pr-2"></td>
                             <td className="p-1 print:p-0.5 text-center">{pesoTotal > 0 ? pesoTotal.toLocaleString('es-NI', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : ''}</td>
                             <td className="p-1 print:p-0.5 text-right">TOTALES:</td>
                             <td className="p-1 print:p-0.5 text-center border-l border-black">{bultosTotales > 0 ? bultosTotales.toLocaleString('es-NI') : ''}</td>
