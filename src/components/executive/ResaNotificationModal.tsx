@@ -12,8 +12,8 @@ import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/context/AuthContext';
 import { db } from '@/lib/firebase';
-import { doc, updateDoc, writeBatch, collection, Timestamp } from 'firebase/firestore';
-import type { AforoCase, AforoCaseUpdate } from '@/types';
+import { doc, updateDoc, writeBatch, collection, Timestamp, getDoc } from 'firebase/firestore';
+import type { AforoCase, AforoCaseUpdate, Worksheet } from '@/types';
 import { Loader2, Bell } from 'lucide-react';
 import { DatePicker } from '../reports/DatePicker';
 import { calculateDueDate } from '@/lib/date-utils';
@@ -43,10 +43,35 @@ export function ResaNotificationModal({ isOpen, onClose, caseData }: ResaNotific
   const form = useForm<ResaFormData>({
     resolver: zodResolver(resaSchema),
     defaultValues: {
-      resaNumber: caseData.resaNumber || '',
-      resaNotificationDate: caseData.resaNotificationDate?.toDate(),
+      resaNumber: '',
+      resaNotificationDate: undefined,
     },
   });
+
+  useEffect(() => {
+    const fetchWorksheetData = async () => {
+        if (caseData.worksheetId) {
+            const wsDocRef = doc(db, 'worksheets', caseData.worksheetId);
+            const wsSnap = await getDoc(wsDocRef);
+            if (wsSnap.exists()) {
+                const wsData = wsSnap.data() as Worksheet;
+                form.reset({
+                    resaNumber: wsData.resa || '',
+                    resaNotificationDate: wsData.resaNotificationDate?.toDate(),
+                });
+            }
+        } else {
+             form.reset({
+                resaNumber: caseData.resaNumber || '',
+                resaNotificationDate: caseData.resaNotificationDate?.toDate(),
+            });
+        }
+    };
+
+    if (isOpen) {
+        fetchWorksheetData();
+    }
+  }, [isOpen, caseData, form]);
 
   const watchNotificationDate = form.watch('resaNotificationDate');
 
@@ -82,6 +107,12 @@ export function ResaNotificationModal({ isOpen, onClose, caseData }: ResaNotific
             resaNotificationDate: Timestamp.fromDate(data.resaNotificationDate),
             resaDueDate: Timestamp.fromDate(calculatedDueDate),
         };
+        
+        // Also update the worksheet if it exists
+        if (caseData.worksheetId) {
+            const worksheetDocRef = doc(db, 'worksheets', caseData.worksheetId);
+            batch.update(worksheetDocRef, updatePayload);
+        }
 
         batch.update(caseDocRef, updatePayload);
 
