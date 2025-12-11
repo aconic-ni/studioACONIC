@@ -30,6 +30,14 @@ const getAduanaLabel = (code: string | undefined) => {
     return aduana ? aduana.label.substring(5) : code;
 };
 
+const DetailItem: React.FC<{ label: string; value?: string | number | null; className?: string }> = ({ label, value, className }) => (
+    <div className={cn("border-b border-black flex justify-between items-baseline py-1 print:py-0.5", className)}>
+        <span className="text-xs font-semibold text-gray-700 print:text-[8pt]">{label}</span>
+        <p className="text-xs font-medium text-gray-800 print:text-[9pt]">{value || ''}</p>
+    </div>
+);
+
+
 const LinedDetailItem: React.FC<{ label: string; value?: string | number | null; className?: string }> = ({ label, value, className }) => (
     <div className={cn("border-b border-black flex justify-between items-baseline py-1 print:py-0.5", className)}>
         <span className="text-xs font-semibold text-gray-700 print:text-[8pt]">{label}</span>
@@ -66,13 +74,6 @@ const SignatureSection: React.FC<{
     </div>
   );
 };
-
-const DetailRow: React.FC<{ label: string; value?: string | number | null; className?: string }> = ({ label, value, className }) => (
-    <div className={cn("border-b border-black flex justify-between items-baseline py-1 print:py-0.5", className)}>
-        <span className="text-xs font-semibold text-gray-700 print:text-[8pt]">{label}</span>
-        <p className="text-xs font-medium text-gray-800 print:text-[9pt]">{value || ''}</p>
-    </div>
-);
 
 
 export const Anexo7Details: React.FC<{ worksheet: Worksheet; onClose: () => void; }> = ({ worksheet, onClose }) => {
@@ -113,6 +114,7 @@ export const Anexo7Details: React.FC<{ worksheet: Worksheet; onClose: () => void
 
 
   return (
+    <>
     <Card className="w-full max-w-5xl mx-auto shadow-none border-none card-print-styles" id="printable-area">
         <div className="p-4 print:p-2 bg-white">
             <div className="hidden print:block">
@@ -127,18 +129,18 @@ export const Anexo7Details: React.FC<{ worksheet: Worksheet; onClose: () => void
 
             <div className="grid grid-cols-2 gap-x-8 mb-2 print:mb-1">
               <div className="space-y-1">
-                <DetailRow label="Fecha" value={formatShortDate(new Date())} />
-                <DetailRow label="Empresa que solicita" value={worksheet.consignee} />
-                <DetailRow label="RUC" value={worksheet.ruc} />
-                <DetailRow label="Almacén de Salida" value={worksheet.almacenSalida} />
-                <DetailRow label="Código de Almacén" value={worksheet.codigoAlmacen} />
+                <DetailItem label="Fecha" value={formatShortDate(new Date())} />
+                <DetailItem label="Empresa que solicita" value={worksheet.consignee} />
+                <DetailItem label="RUC" value={worksheet.ruc} />
+                <DetailItem label="Almacén de Salida" value={worksheet.almacenSalida} />
+                <DetailItem label="Código de Almacén" value={worksheet.codigoAlmacen} />
               </div>
               <div className="space-y-1">
-                <DetailRow label="RESA No" value={worksheet.resa} />
-                <DetailRow label="Factura No" value={worksheet.facturaNumber} />
-                <DetailRow label="Documento de Transporte" value={worksheet.transportDocumentNumber} />
-                <DetailRow label="Delegación de Aduana Destino" value={getAduanaLabel(worksheet.dispatchCustoms)} />
-                <DetailRow label="Código de Aduana" value={worksheet.dispatchCustoms} />
+                <DetailItem label="RESA No" value={worksheet.resa} />
+                <DetailItem label="Factura No" value={worksheet.facturaNumber} />
+                <DetailItem label="Documento de Transporte" value={worksheet.transportDocumentNumber} />
+                <DetailItem label="Delegación de Aduana Destino" value={getAduanaLabel(worksheet.dispatchCustoms)} />
+                <DetailItem label="Código de Aduana" value={worksheet.dispatchCustoms} />
               </div>
             </div>
 
@@ -236,13 +238,14 @@ export const Anexo7Details: React.FC<{ worksheet: Worksheet; onClose: () => void
                         </tbody>
                     </table>
                 </div>
-                <div className="space-y-1 mt-1 print:mt-1">
-                     <div className="space-y-1 p-2 print:p-1">
-                        <LinedDetailItem label="Bultos Totales" value={bultosTotales > 0 ? bultosTotales.toLocaleString('es-NI') : ''} />
-                        <LinedDetailItem label="Peso Total" value={pesoTotal > 0 ? pesoTotal.toLocaleString('es-NI', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : ''} />
-                        <LinedDetailItem label="Precinto" value={worksheet.precinto || ''} />
+                <div className="space-y-2 print:space-y-1 mt-1 print:mt-1">
+                    <div className="space-y-1 p-2 print:p-1">
+                      <LinedDetailItem label="Bultos Totales" value={bultosTotales > 0 ? bultosTotales.toLocaleString('es-NI') : ''} />
+                      <LinedDetailItem label="Peso Total" value={pesoTotal > 0 ? pesoTotal.toLocaleString('es-NI', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : ''} />
+                      <LinedDetailItem label="Precinto" value={worksheet.precinto || ''} />
                     </div>
-                     <table className="w-full border-collapse border border-black mt-2 print:mt-1">
+                     <div className="h-[50px] print:h-[50px]"></div>
+                    <table className="w-full border-collapse border-2 border-black mt-2 print:mt-1">
                         <tbody>
                            <TransportDetailItem label="Hora de Salida" value={""} />
                            <TransportDetailItem label="Hora de Llegada" value={""} />
@@ -293,5 +296,6 @@ export const Anexo7Details: React.FC<{ worksheet: Worksheet; onClose: () => void
         </Button>
       </CardFooter>
     </Card>
+    </>
   );
 };
