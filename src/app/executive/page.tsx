@@ -144,6 +144,7 @@ function ExecutivePageContent() {
     noFacturado: true,
     dateFilterType: 'range' as DateFilterType,
     dateRange: undefined as DateRange | undefined,
+    isSearchActive: false, // New flag to track if a search has been performed
   });
   
   const [neFilter, setNeFilter] = useState('');
@@ -152,6 +153,10 @@ function ExecutivePageContent() {
   const [facturaFilter, setFacturaFilter] = useState('');
   const [selectividadFilter, setSelectividadFilter] = useState('');
   const [incidentTypeFilter, setIncidentTypeFilter] = useState('');
+
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage] = useState(15);
 
 
   useEffect(() => {
@@ -386,7 +391,9 @@ function ExecutivePageContent() {
       ...facturadoFilter,
       dateFilterType: dateFilterType,
       dateRange: dateRange,
+      isSearchActive: true, // Mark search as active
     });
+    setCurrentPage(1); // Reset to first page on new search
   };
   
   const handleExport = async () => {
@@ -400,21 +407,10 @@ function ExecutivePageContent() {
         if (activeTab === 'corporate') {
             await downloadCorporateReportAsExcel(filteredCases.map(c => c.worksheet).filter(ws => ws !== null) as Worksheet[]);
         } else {
-            const casesWithDetails: (AforoCase & { dispatchCustoms?: string })[] = [];
+            const casesToExport = paginatedCases;
             const auditLogs: (AforoCaseUpdate & { caseNe: string })[] = [];
 
-            for (const caseItem of filteredCases) {
-                let caseDetails: AforoCase & { dispatchCustoms?: string } = { ...caseItem };
-
-                if (caseItem.worksheetId) {
-                    const wsDocRef = doc(db, 'worksheets', caseItem.worksheetId);
-                    const wsSnap = await getDoc(wsDocRef);
-                    if (wsSnap.exists()) {
-                        caseDetails.dispatchCustoms = (wsSnap.data() as Worksheet).dispatchCustoms;
-                    }
-                }
-                casesWithDetails.push(caseDetails);
-
+            for (const caseItem of casesToExport) {
                 const logsQuery = query(collection(db, 'AforoCases', caseItem.id, 'actualizaciones'), orderBy('updatedAt', 'asc'));
                 const logSnapshot = await getDocs(logsQuery);
                 logSnapshot.forEach(logDoc => {
@@ -424,7 +420,7 @@ function ExecutivePageContent() {
                     });
                 });
             }
-            await downloadExecutiveReportAsExcel(casesWithDetails, auditLogs);
+            await downloadExecutiveReportAsExcel(casesToExport, auditLogs);
         }
     } catch (e) {
         console.error("Error exporting data: ", e);
@@ -479,7 +475,8 @@ function ExecutivePageContent() {
     setFacturaFilter('');
     setSelectividadFilter('');
     setIncidentTypeFilter('');
-    setAppliedFilters({ searchTerm: '', facturado: false, noFacturado: true, dateFilterType: 'range', dateRange: undefined });
+    setAppliedFilters({ searchTerm: '', facturado: false, noFacturado: true, dateFilterType: 'range', dateRange: undefined, isSearchActive: false });
+    setCurrentPage(1);
   };
   
   const handleSendToFacturacion = async (caseId: string) => {
@@ -512,7 +509,13 @@ function ExecutivePageContent() {
 
 
   const filteredCases = useMemo(() => {
-    let filtered = allCases;
+    let baseCases = allCases.slice().sort((a, b) => (b.createdAt?.toMillis() ?? 0) - (a.createdAt?.toMillis() ?? 0));
+
+    if (!appliedFilters.isSearchActive) {
+      return baseCases.slice(0, 15);
+    }
+    
+    let filtered = baseCases;
     
     if (activeTab === 'worksheets') {
       filtered = filtered.filter(c => c.worksheet?.worksheetType === 'hoja_de_trabajo' || c.worksheet?.worksheetType === undefined);
@@ -537,24 +540,7 @@ function ExecutivePageContent() {
         filtered = filtered.filter(c => c.facturado === true);
     }
 
-    if (appliedFilters.dateFilterType === 'today') {
-        const today = new Date();
-        const todaysCases = new Map<string, WorksheetWithCase>();
-        
-        allCases.forEach(c => {
-            if (c.createdAt && isSameDay(c.createdAt.toDate(), today)) {
-                todaysCases.set(c.id, c);
-            }
-            if (!c.facturado) {
-                todaysCases.set(c.id, c);
-            }
-            if (c.facturadoAt && isSameDay(c.facturadoAt.toDate(), today)) {
-                todaysCases.set(c.id, c);
-            }
-        });
-        filtered = Array.from(todaysCases.values()).filter(c => !c.isArchived);
-
-    } else if (appliedFilters.dateRange?.from) {
+    if (appliedFilters.dateRange?.from) {
         const start = startOfDay(appliedFilters.dateRange.from);
         const end = appliedFilters.dateRange.to ? endOfDay(appliedFilters.dateRange.to) : endOfDay(appliedFilters.dateRange.from);
         
@@ -565,7 +551,6 @@ function ExecutivePageContent() {
         });
     }
 
-    // Apply column filters
     if (neFilter) filtered = filtered.filter(c => c.ne.toLowerCase().includes(neFilter.toLowerCase()));
     if (ejecutivoFilter) filtered = filtered.filter(c => c.executive.toLowerCase().includes(ejecutivoFilter.toLowerCase()));
     if (consignatarioFilter) filtered = filtered.filter(c => c.consignee.toLowerCase().includes(consignatarioFilter.toLowerCase()));
@@ -581,9 +566,11 @@ function ExecutivePageContent() {
     if (selectividadFilter) filtered = filtered.filter(c => (c.selectividad || 'N/A').toLowerCase().includes(selectividadFilter.toLowerCase()));
     if (incidentTypeFilter) filtered = filtered.filter(c => getIncidentTypeDisplay(c).toLowerCase().includes(incidentTypeFilter.toLowerCase()));
 
-
-    return filtered.sort((a, b) => (b.createdAt?.toMillis() ?? 0) - (a.createdAt?.toMillis() ?? 0));
+    return filtered;
   }, [allCases, appliedFilters, activeTab, neFilter, ejecutivoFilter, consignatarioFilter, facturaFilter, selectividadFilter, incidentTypeFilter]);
+  
+  const totalPages = Math.ceil(filteredCases.length / itemsPerPage);
+  const paginatedCases = appliedFilters.isSearchActive ? filteredCases.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage) : filteredCases;
   
   const getRevisorStatusBadgeVariant = (status?: AforoCaseStatus) => {
     switch (status) { case 'Aprobado': return 'default'; case 'Rechazado': return 'destructive'; case 'Revalidación Solicitada': return 'secondary'; default: return 'outline'; }
@@ -659,13 +646,13 @@ function ExecutivePageContent() {
       if (isLoading) {
         return <div className="flex justify-center items-center py-10"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>;
       }
-      if (filteredCases.length === 0) {
+      if (paginatedCases.length === 0) {
         return <p className="text-muted-foreground text-center py-10">No se encontraron casos con los filtros actuales.</p>;
       }
       if (isMobile) {
         return (
           <div className="space-y-4">
-              {filteredCases.map(c => (
+              {paginatedCases.map(c => (
                   <MobileCaseCard
                       key={c.id}
                       caseData={c}
@@ -695,7 +682,7 @@ function ExecutivePageContent() {
                 <TableHead>Facturado</TableHead>
             </TableRow></TableHeader>
             <TableBody>
-                {filteredCases.map(c => {
+                {paginatedCases.map(c => {
                     const facturas = c.worksheet?.worksheetType === 'corporate_report' 
                         ? (c.worksheet.documents?.filter(d => d.type === 'FACTURA').map(d => d.number) || [])
                         : (c.facturaNumber ? c.facturaNumber.split(';').map(f => f.trim()) : []);
@@ -1001,9 +988,9 @@ function ExecutivePageContent() {
                         <Button variant="outline" onClick={fetchCases}>
                           <RefreshCw className="mr-2 h-4 w-4" /> Actualizar
                       </Button>
-                      <Button onClick={handleExport} disabled={allCases.length === 0 || isExporting}>
+                      <Button onClick={handleExport} disabled={paginatedCases.length === 0 || isExporting}>
                         {isExporting ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : <Download className="mr-2 h-4 w-4" />}
-                        {isExporting ? 'Exportando...' : 'Exportar'}
+                        {isExporting ? 'Exportando...' : 'Exportar Vista Actual'}
                       </Button>
                       </div>
                   </div>
@@ -1022,14 +1009,31 @@ function ExecutivePageContent() {
                   )}
                   </div>
               </div>
+               {!appliedFilters.isSearchActive && (
+                <div className="mt-4 p-3 bg-blue-500/10 text-blue-700 border border-blue-500/30 rounded-md text-sm">
+                    <Info className="inline h-4 w-4 mr-2" />
+                    Mostrando las 15 operaciones más recientes. Utilice los filtros para buscar y ver más resultados.
+                </div>
+                )}
               <div className="mt-6">
                 {renderTable()}
               </div>
+                {appliedFilters.isSearchActive && totalPages > 1 && (
+                    <div className="flex items-center justify-between mt-4">
+                        <span className="text-sm text-muted-foreground">
+                            Página {currentPage} de {totalPages} ({filteredCases.length} resultados)
+                        </span>
+                        <div className="flex gap-2">
+                            <Button onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1}>Anterior</Button>
+                            <Button onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages}>Siguiente</Button>
+                        </div>
+                    </div>
+                )}
             </CardContent>
         </Card>
       </div>
     </AppShell>
-    {selectedCaseForDocs && (<ManageDocumentsForm isOpen={!!selectedCaseForDocs} onClose={() => setSelectedCaseForDocs(null)} caseData={selectedCaseForDocs} />)}
+    {selectedCaseForDocs && (<ManageDocumentsModal isOpen={!!selectedCaseForDocs} onClose={() => setSelectedCaseForDocs(null)} caseData={selectedCaseForDocs} />)}
     {selectedCaseForHistory && (<AforoCaseHistoryModal isOpen={!!selectedCaseForHistory} onClose={() => setSelectedCaseForHistory(null)} caseData={selectedCaseForHistory} />)}
     {selectedCaseForIncident && (<IncidentReportModal isOpen={!!selectedCaseForIncident} onClose={() => setSelectedCaseForIncident(null)} caseData={selectedCaseForIncident} />)}
     {selectedCaseForValueDoubt && (<ValueDoubtModal isOpen={!!selectedCaseForValueDoubt} onClose={() => setSelectedCaseForValueDoubt(null)} caseData={selectedCaseForValueDoubt} />)}
