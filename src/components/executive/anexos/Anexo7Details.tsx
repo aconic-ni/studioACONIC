@@ -287,7 +287,6 @@ export const Anexo7Details: React.FC<{ worksheet: Worksheet; onClose: () => void
                   </SignatureSection>
               </div>
               </div>
-        </div> {/* cierre del div className="p-4 print:p-2 bg-white" */}
 
         <CardFooter className="justify-end gap-2 no-print border-t pt-4 mt-4">
           <Button asChild variant="outline">
@@ -302,6 +301,6 @@ export const Anexo7Details: React.FC<{ worksheet: Worksheet; onClose: () => void
             <Printer className="mr-2 h-4 w-4" /> Imprimir
           </Button>
         </CardFooter>
-      </Card>
+    </Card>   
   );
 };
