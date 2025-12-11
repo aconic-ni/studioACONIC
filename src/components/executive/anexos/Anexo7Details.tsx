@@ -1,3 +1,4 @@
+
 "use client";
 import React, { useEffect, useState } from 'react';
 import Image from 'next/image';
@@ -53,7 +54,7 @@ const SignatureSection: React.FC<{
 }> = ({ title, subtitle, className, children, align = 'left' }) => {
   const textAlignClass = `text-${align}`;
   return (
-    <div className={cn("flex flex-col h-full", className)}>
+    <div className={cn("flex flex-col", className)}>
        <div className="flex-grow border-b-2 border-black print:h-6 mb-1"></div>
       <div className={cn("text-xs print:text-[8pt]", textAlignClass)}>
           <p className="font-semibold">Firma y Sello</p>
@@ -210,7 +211,7 @@ export const Anexo7Details: React.FC<{ worksheet: Worksheet; onClose: () => void
                 </div>
             </div>
             
-            <div className="grid grid-cols-2 gap-x-8 mt-1 print:mt-1">
+             <div className="grid grid-cols-2 gap-x-8 mt-1 print:mt-1">
                 <div className="border border-black mt-1 print:mt-1">
                     <h4 className="text-sm font-semibold print:text-xs mb-1 border-b border-black p-1 text-center">DATOS DE TRANSPORTE:</h4>
                     <table className="w-full border-collapse">
@@ -229,14 +230,12 @@ export const Anexo7Details: React.FC<{ worksheet: Worksheet; onClose: () => void
                         </tbody>
                     </table>
                 </div>
-                 <div className="space-y-2 print:space-y-1 mt-1 print:mt-1">
-                    <table className="w-full border-collapse border border-black">
-                        <tbody>
-                             <TransportDetailItem label="Bultos Totales" value={bultosTotales > 0 ? bultosTotales.toLocaleString('es-NI') : ''} />
-                             <TransportDetailItem label="Peso Total" value={pesoTotal > 0 ? pesoTotal.toLocaleString('es-NI', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : ''} />
-                             <TransportDetailItem label="Precinto" value={worksheet.precinto || ''} />
-                        </tbody>
-                    </table>
+                 <div className="space-y-1 mt-1 print:mt-1">
+                    <div className="space-y-1 border border-black p-2 rounded-md print:border">
+                        <LinedDetailItem label="Bultos Totales" value={bultosTotales > 0 ? bultosTotales.toLocaleString('es-NI') : ''} />
+                        <LinedDetailItem label="Peso Total" value={pesoTotal > 0 ? pesoTotal.toLocaleString('es-NI', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : ''} />
+                        <LinedDetailItem label="Precinto" value={worksheet.precinto || ''} />
+                    </div>
                      <table className="w-full border-collapse border border-black mt-2 print:mt-1">
                         <tbody>
                            <TransportDetailItem label="Hora de Salida" value={""} />
@@ -245,10 +244,10 @@ export const Anexo7Details: React.FC<{ worksheet: Worksheet; onClose: () => void
                     </table>
                 </div>
             </div>
-
-            <div className="h-[50px] print:h-[50px]"></div>
             
-            <div className="grid grid-cols-2 gap-x-8 mt-4 print:mt-2">
+            <div className="h-[50px] print:h-[50px]"></div>
+
+            <div className="grid grid-cols-2 gap-x-8 mt-2 print:mt-1">
                 <div className="h-full flex flex-col">
                     <SignatureSection title="CONTROL DE RECINTO ADUANERO" subtitle="Aduana Managua" align="left" />
                 </div>
@@ -256,7 +255,7 @@ export const Anexo7Details: React.FC<{ worksheet: Worksheet; onClose: () => void
                     <SignatureSection title="ALMACEN DE DEPOSITO" align="center" />
                 </div>
             </div>
-            <div className="grid grid-cols-2 gap-x-8 mt-12 print:mt-8">
+            <div className="grid grid-cols-2 gap-x-8 mt-2 print:mt-1">
                 <div className="h-full flex flex-col">
                     <SignatureSection title="Aduana de Destino." subtitle="En original y 3 Copias." align="left" />
                 </div>
