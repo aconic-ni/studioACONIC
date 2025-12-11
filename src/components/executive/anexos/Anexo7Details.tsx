@@ -1,4 +1,3 @@
-
 "use client";
 import React, { useEffect, useState } from 'react';
 import Image from 'next/image';
@@ -65,20 +64,23 @@ const SignatureSection: React.FC<{
   subtitle?: string;
   className?: string;
   children?: React.ReactNode;
-  align?: 'left' | 'center';
-}> = ({ title, subtitle, className, children, align = 'left' }) => (
-  <div className={cn("flex flex-col h-full", className)}>
-    <div className="h-8 border-b-2 border-black print:h-6 mb-1"></div>
-    <div className={cn("text-xs print:text-[8pt]", align === 'center' ? 'text-center' : 'text-left')}>
-        <p className="font-semibold">Firma y Sello</p>
-        <p className="font-bold text-black">{title}</p>
-        {subtitle && <p className="text-gray-600 print:text-[7pt]">{subtitle}</p>}
-        <div className="min-h-[30px] print:min-h-[20px] text-black font-semibold">
-         {children}
-        </div>
+  align?: 'left' | 'center' | 'right';
+}> = ({ title, subtitle, className, children, align = 'left' }) => {
+  const textAlignClass = `text-${align}`;
+  return (
+    <div className={cn("flex flex-col h-full", className)}>
+      <div className="h-8 border-b-2 border-black print:h-6 mb-1"></div>
+      <div className={cn("text-xs print:text-[8pt]", textAlignClass)}>
+          <p className="font-semibold">Firma y Sello</p>
+          <p className="font-bold text-black">{title}</p>
+          {subtitle && <p className="text-gray-600 print:text-[7pt]">{subtitle}</p>}
+          <div className="min-h-[30px] print:min-h-[20px] text-black font-semibold">
+           {children}
+          </div>
+      </div>
     </div>
-  </div>
-);
+  );
+};
 
 
 export const Anexo7Details: React.FC<{ worksheet: Worksheet; onClose: () => void; }> = ({ worksheet, onClose }) => {
@@ -205,7 +207,6 @@ export const Anexo7Details: React.FC<{ worksheet: Worksheet; onClose: () => void
             </div>
 
             <div className="grid grid-cols-3 gap-x-4 mt-2 print:mt-1">
-                {/* Left Column */}
                 <div className="w-full text-xs p-2 print:text-[8pt] print:p-1">
                     <table className="w-full border-collapse print:text-[9pt]">
                         <thead><tr><th colSpan={2} className="border border-black text-center text-xs p-1 print:text-[8pt] font-bold">Conformación de Valor</th></tr></thead>
@@ -227,13 +228,9 @@ export const Anexo7Details: React.FC<{ worksheet: Worksheet; onClose: () => void
                         </tbody>
                     </table>
                 </div>
-                {/* Middle Column */}
-                <div className="p-2 print:p-1">
+                <div className="p-2 print:p-1 col-span-2">
                     <p className="text-xs font-semibold text-gray-500 print:text-[8pt]">NOTA:</p>
                     <p className="text-sm print:text-xs whitespace-pre-wrap min-h-[42px]">{worksheet.observations}</p>
-                </div>
-                {/* Right Column (Empty) */}
-                <div className="p-2 print:p-1">
                 </div>
             </div>
             
@@ -257,16 +254,15 @@ export const Anexo7Details: React.FC<{ worksheet: Worksheet; onClose: () => void
                     </table>
                 </div>
                 <div className="space-y-2 print:space-y-1">
-                    <div className="w-full text-xs mt-2 border border-transparent rounded-md p-2 print:text-[8pt] print:p-1">
+                    <div className="w-full text-xs mt-2 p-2 print:text-[8pt] print:p-1">
                       <div className="space-y-1">
                           <DetailItem label="Bultos Totales" value={bultosTotales > 0 ? bultosTotales.toLocaleString('es-NI') : ''} />
                           <DetailItem label="Peso Total" value={pesoTotal > 0 ? pesoTotal.toLocaleString('es-NI', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : ''} />
                           <DetailItem label="Precinto" value={worksheet.precinto || ''} />
                       </div>
                     </div>
-                     <div className="h-[50px]"></div>
+                    <div className="h-[50px]"></div>
                     <div className="space-y-1 mt-2 print:mt-1 print:text-[8pt] print:p-1">
-                      <div className="h-[50px]"></div>
                         <DetailItem label="Hora de Salida" value={""} />
                         <DetailItem label="Hora de Llegada" value={""} />
                     </div>
@@ -274,18 +270,14 @@ export const Anexo7Details: React.FC<{ worksheet: Worksheet; onClose: () => void
             </div>
         </div>
 
-        <div className="mt-4 print:mt-2 grid grid-cols-2 gap-x-8">
-            <div className="h-32 print:h-28">
-                <SignatureSection title="CONTROL DE RECINTO ADUANERO" subtitle="Aduana Managua" align="left" />
+        <div className="mt-8 print:mt-4 grid grid-cols-2 gap-x-8">
+            <div className="space-y-8">
+                 <SignatureSection title="CONTROL DE RECINTO ADUANERO" subtitle="Aduana Managua" align="left" />
+                 <SignatureSection title="Aduana de Destino." subtitle="En original y 3 Copias." align="left" />
             </div>
-            <div className="h-32 print:h-28">
-                <SignatureSection title="ALMACEN DE DEPOSITO" align="center" />
-            </div>
-            <div className="h-32 print:h-28">
-                <SignatureSection title="Aduana de Destino." subtitle="En original y 3 Copias." align="left" />
-            </div>
-            <div className="h-32 print:h-28">
-                <SignatureSection title="TRAMITANTE" align="center">
+            <div className="space-y-8">
+                 <SignatureSection title="ALMACEN DE DEPOSITO" align="center" />
+                 <SignatureSection title="TRAMITANTE" align="center">
                     {agente && (
                         <div className="text-black font-semibold">
                             <p>{agente.displayName || 'N/A'}</p>
