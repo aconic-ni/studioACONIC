@@ -106,7 +106,11 @@ export const Anexo7Details: React.FC<{ worksheet: Worksheet; onClose: () => void
   const valorAduanero = (worksheet.valor || 0) + (worksheet.flete || 0) + (worksheet.seguro || 0) + (worksheet.otrosGastos || 0);
 
   const headerImageSrc = "/AconicExaminer/imagenes/HEADERANEX7DETAIL.svg";
-  
+
+  if (worksheet.worksheetType === 'hoja_de_trabajo' || !worksheet.worksheetType) {
+    return <WorksheetDetails worksheet={worksheet} onClose={onClose} />;
+  }
+
   const MIN_ROWS = 9;
   const productRows = worksheet.documents && worksheet.documents.length > 0 ? worksheet.documents : [];
   const emptyRowsCount = Math.max(0, MIN_ROWS - productRows.length);
@@ -127,21 +131,23 @@ export const Anexo7Details: React.FC<{ worksheet: Worksheet; onClose: () => void
                     priority />
             </div>
 
-            <div className="grid grid-cols-2 gap-x-8 mb-2 print:mb-1">
-              <div className="space-y-1">
-                <DetailItem label="Fecha" value={formatShortDate(new Date())} />
-                <DetailItem label="Empresa que solicita" value={worksheet.consignee} />
-                <DetailItem label="RUC" value={worksheet.ruc} />
-                <DetailItem label="Almacén de Salida" value={worksheet.almacenSalida} />
-                <DetailItem label="Código de Almacén" value={worksheet.codigoAlmacen} />
-              </div>
-              <div className="space-y-1">
-                <DetailItem label="RESA No" value={worksheet.resa} />
-                <DetailItem label="Factura No" value={worksheet.facturaNumber} />
-                <DetailItem label="Documento de Transporte" value={worksheet.transportDocumentNumber} />
-                <DetailItem label="Delegación de Aduana Destino" value={getAduanaLabel(worksheet.dispatchCustoms)} />
-                <DetailItem label="Código de Aduana" value={worksheet.dispatchCustoms} />
-              </div>
+             <div className="grid grid-cols-2 gap-x-8 mb-2 print:mb-1">
+                <div className="space-y-1">
+                    <DetailItem label="Fecha" value={formatShortDate(new Date())} />
+                    <DetailItem label="Empresa que solicita" value={worksheet.consignee} />
+                    <DetailItem label="RUC" value={worksheet.ruc} />
+                    <DetailItem label="Almacén de Salida" value={worksheet.almacenSalida} />
+                    <DetailItem label="Código de Almacén" value={worksheet.codigoAlmacen} />
+                </div>
+                <div className="space-y-1">
+                    <DetailItem label="RESA No" value={worksheet.resa} />
+                    <DetailItem label="Factura No" value={worksheet.facturaNumber} />
+                    {worksheet.worksheetType === 'anexo_7' && worksheet.transportDocumentNumber && (
+                    <DetailItem label="Documento de Transporte" value={worksheet.transportDocumentNumber} />
+                    )}
+                    <DetailItem label="Delegación de Aduana Destino" value={getAduanaLabel(worksheet.dispatchCustoms)} />
+                    <DetailItem label="Código de Aduana" value={worksheet.dispatchCustoms} />
+                </div>
             </div>
 
             <div className="border-2 border-black">
@@ -245,16 +251,14 @@ export const Anexo7Details: React.FC<{ worksheet: Worksheet; onClose: () => void
                         <LinedDetailItem label="Precinto" value={worksheet.precinto || ''} />
                     </div>
                      <div className="h-[50px] print:h-[20px]"></div>
-                    <table className="w-full border-collapse border-2 border-black mt-2 print:mt-1">
-                        <tbody>
-                           <TransportDetailItem label="Hora de Salida" value={""} />
-                           <TransportDetailItem label="Hora de Llegada" value={""} />
-                        </tbody>
-                    </table>
+                    <div className="space-y-1 p-2 print:p-1">
+                        <LinedDetailItem label="Hora de Salida" value="" />
+                        <LinedDetailItem label="Hora de Llegada" value="" />
+                    </div>
                 </div>
             </div>
             
-            <div className="h-[50px] print:h-[20px]"></div>
+             <div className="h-[20px] print:h-[20px]"></div>
 
             <div className="grid grid-cols-2 gap-x-8 mt-2 print:mt-1">
                 <div className="h-full flex flex-col">
@@ -264,7 +268,7 @@ export const Anexo7Details: React.FC<{ worksheet: Worksheet; onClose: () => void
                     <SignatureSection title="ALMACEN DE DEPOSITO" align="center" />
                 </div>
             </div>
-            <div className="h-[20px]"></div>
+             <div className="h-[20px]"></div>
             <div className="grid grid-cols-2 gap-x-8 mt-2 print:mt-1">
                 <div className="h-full flex flex-col">
                     <SignatureSection title="Aduana de Destino." subtitle="En original y 3 Copias." align="left" />
