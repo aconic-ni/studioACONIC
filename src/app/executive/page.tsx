@@ -1,3 +1,4 @@
+
 "use client";
 import React, { useEffect, useState, useMemo, useCallback, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
@@ -6,7 +7,7 @@ import { useAuth } from '@/context/AuthContext';
 import { AppShell } from '@/components/layout/AppShell';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Loader2, FilePlus, Search, Edit, Eye, History, PlusSquare, UserCheck, Inbox, AlertTriangle, Download, ChevronsUpDown, Info, CheckCircle, CalendarRange, Calendar, CalendarDays, ShieldAlert, BookOpen, FileCheck2, MessageSquare, View, Banknote, Bell as BellIcon, RefreshCw, Send, StickyNote, Scale, Briefcase } from 'lucide-react';
+import { Loader2, FilePlus, Search, Edit, Eye, History, PlusSquare, UserCheck, Inbox, AlertTriangle, Download, ChevronsUpDown, Info, CheckCircle, CalendarRange, Calendar, CalendarDays, ShieldAlert, BookOpen, FileCheck2, MessageSquare, View, Banknote, Bell as BellIcon, RefreshCw, Send, StickyNote, Scale, Briefcase, KeyRound } from 'lucide-react';
 import { db } from '@/lib/firebase';
 import { collection, query, where, onSnapshot, orderBy, Timestamp, doc, getDoc, updateDoc, writeBatch, addDoc, getDocs, collectionGroup, serverTimestamp } from 'firebase/firestore';
 import type { Worksheet, AforoCase, AforadorStatus, AforoCaseStatus, DigitacionStatus, WorksheetWithCase, AforoCaseUpdate, PreliquidationStatus, IncidentType, LastUpdateInfo, ExecutiveComment, InitialDataContext, AppUser, SolicitudRecord, ExamDocument, FacturacionStatus } from '@/types';
@@ -49,6 +50,7 @@ import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { StatusProcessModal } from '@/components/executive/StatusProcessModal';
+import { Dialog, DialogHeader, DialogTitle, DialogDescription, DialogContent, DialogFooter } from '@/components/ui/dialog';
 
 
 type DateFilterType = 'range' | 'month' | 'today';
@@ -140,6 +142,8 @@ function ExecutivePageContent() {
   const [selectedCaseForViewIncidents, setSelectedCaseForViewIncidents] = useState<AforoCase | null>(null);
   const [caseToArchive, setCaseToArchive] = useState<WorksheetWithCase | null>(null);
   const [selectedCaseForProcess, setSelectedCaseForProcess] = useState<AforoCase | null>(null);
+  const [isDeathkeyModalOpen, setIsDeathkeyModalOpen] = useState(false);
+  const [pinInput, setPinInput] = useState('');
 
   const [searchTerm, setSearchTerm] = useState('');
   const [savingState, setSavingState] = useState<{ [key: string]: boolean }>({});
@@ -651,6 +655,51 @@ function ExecutivePageContent() {
       setSelectedRows(selectableIds);
     }
   };
+  
+  const handleDeathkey = async () => {
+    if (pinInput !== "192438") {
+        toast({ title: "PIN Incorrecto", variant: "destructive" });
+        return;
+    }
+    if (selectedRows.length === 0) return;
+
+    setIsLoading(true);
+    const batch = writeBatch(db);
+
+    for (const caseId of selectedRows) {
+        const caseItem = filteredCases.find(c => c.id === caseId);
+        if (caseItem && caseItem.worksheetId) {
+            const worksheetRef = doc(db, 'worksheets', caseItem.worksheetId);
+            batch.update(worksheetRef, { worksheetType: 'hoja_de_trabajo' });
+
+            const caseRef = doc(db, 'AforoCases', caseId);
+            const updatesSubcollectionRef = collection(caseRef, 'actualizaciones');
+            const updateLog: AforoCaseUpdate = {
+                updatedAt: Timestamp.now(),
+                updatedBy: user?.displayName || 'Sistema',
+                field: 'worksheetType',
+                oldValue: 'corporate_report',
+                newValue: 'hoja_de_trabajo',
+                comment: 'Caso reclasificado a Hoja de Trabajo via Deathkey.'
+            };
+            batch.set(doc(updatesSubcollectionRef), updateLog);
+        }
+    }
+
+    try {
+        await batch.commit();
+        toast({ title: "Éxito", description: `${selectedRows.length} casos han sido reclasificados.` });
+        setSelectedRows([]);
+        setIsDeathkeyModalOpen(false);
+        setPinInput('');
+    } catch (error) {
+        console.error("Error with Deathkey action:", error);
+        toast({ title: "Error", description: "No se pudieron reclasificar los casos.", variant: "destructive" });
+    } finally {
+        setIsLoading(false);
+    }
+  };
+
 
 
   const welcomeName = user?.displayName ? user.displayName.split(' ')[0] : 'Usuario';
@@ -742,12 +791,12 @@ function ExecutivePageContent() {
                     const isResaCritical = daysUntilDue !== null && daysUntilDue < -15;
 
                     return (
-                    <TableRow key={c.id} className={savingState[c.id] ? "bg-amber-100" : (isResaCritical ? "bg-red-200 hover:bg-red-200/80" : "")}>
+                    <TableRow key={c.id} className={savingState[c.id] ? "bg-amber-100" : (isResaCritical ? "bg-red-200 hover:bg-red-200/80" : "")} data-state={selectedRows.includes(c.id) ? 'selected' : undefined}>
                          <TableCell>
                             <Checkbox
                               checked={selectedRows.includes(c.id)}
                               onCheckedChange={() => setSelectedRows(prev => prev.includes(c.id) ? prev.filter(id => id !== c.id) : [...prev, c.id])}
-                              disabled={c.revisorStatus !== 'Aprobado' || c.preliquidationStatus === 'Aprobada'}
+                              aria-label={`Seleccionar caso ${c.ne}`}
                             />
                          </TableCell>
                         <TableCell>
@@ -1052,6 +1101,11 @@ function ExecutivePageContent() {
                                 <Button variant="outline" onClick={fetchCases}>
                                 <RefreshCw className="mr-2 h-4 w-4" /> Actualizar
                             </Button>
+                            {activeTab === 'corporate' && (
+                                <Button variant="destructive" size="sm" onClick={() => setIsDeathkeyModalOpen(true)} disabled={selectedRows.length === 0}>
+                                    <KeyRound className="mr-2 h-4 w-4"/> Reclasificar ({selectedRows.length})
+                                </Button>
+                            )}
                             <Button onClick={handleExport} disabled={paginatedCases.length === 0 || isExporting}>
                                {isExporting ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : <Download className="mr-2 h-4 w-4" />}
                                {isExporting ? 'Exportando...' : 'Exportar Vista Actual'}
@@ -1147,6 +1201,34 @@ function ExecutivePageContent() {
             caseData={selectedCaseForProcess}
         />
      )}
+      <Dialog open={isDeathkeyModalOpen} onOpenChange={setIsDeathkeyModalOpen}>
+        <DialogContent>
+            <DialogHeader>
+                <DialogTitle>Confirmar Acción "Deathkey"</DialogTitle>
+                <DialogDescription>
+                    Esta acción reclasificará {selectedRows.length} caso(s) a "Hoja de Trabajo", excluyéndolos de la lógica de Reporte Corporativo.
+                    Esta acción es irreversible. Por favor ingrese el PIN para confirmar.
+                </DialogDescription>
+            </DialogHeader>
+            <div className="py-4 space-y-2">
+                <Label htmlFor="pin-input" className="flex items-center gap-2"><KeyRound/>PIN de Seguridad</Label>
+                <Input
+                    id="pin-input"
+                    type="password"
+                    value={pinInput}
+                    onChange={(e) => setPinInput(e.target.value)}
+                    placeholder="Ingrese el PIN de 6 dígitos"
+                />
+            </div>
+            <DialogFooter>
+                <Button variant="outline" onClick={() => setIsDeathkeyModalOpen(false)}>Cancelar</Button>
+                <Button variant="destructive" onClick={handleDeathkey} disabled={isLoading}>
+                    {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin"/>}
+                    Confirmar y Ejecutar
+                </Button>
+            </DialogFooter>
+        </DialogContent>
+    </Dialog>
     </>
   );
 }
