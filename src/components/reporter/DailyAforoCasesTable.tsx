@@ -231,6 +231,7 @@ export function DailyAforoCasesTable({ filters, setAllFetchedCases, displayCases
         comment: comment
       };
       batch.set(doc(updatesSubcollectionRef), updateLog);
+      batch.update(caseDocRef, { acuseDeRecibido: true });
     });
 
     try {
@@ -419,9 +420,8 @@ export function DailyAforoCasesTable({ filters, setAllFetchedCases, displayCases
     // PSMT Supervisor Logic for single case
     const isPsmtCase = caseItem.consignee.toUpperCase().trim() === "PSMT NICARAGUA, SOCIEDAD ANONIMA";
     const isPsmtSupervisor = user.role === 'supervisor' && user.roleTitle === 'PSMT';
-    const acuseLog = caseAuditLogs.get(caseItem.id)?.find(log => log.newValue === 'worksheet_received');
     
-    if (isPsmtSupervisor && isPsmtCase && acuseLog && !force) {
+    if (isPsmtSupervisor && isPsmtCase && caseItem.acuseDeRecibido && !force) {
         // Automatically approve and send
         setIsLoading(true);
         const batch = writeBatch(db);
@@ -518,8 +518,9 @@ export function DailyAforoCasesTable({ filters, setAllFetchedCases, displayCases
             const caseItem = displayCases.find(c => c.id === caseId);
             if (!caseItem) continue;
             
-            const acuseLog = caseAuditLogs.get(caseId)?.find(log => log.newValue === 'worksheet_received');
-            if (acuseLog) {
+            const hasAcuse = caseItem.acuseDeRecibido === true || caseAuditLogs.get(caseId)?.some(log => log.newValue === 'worksheet_received');
+            
+            if (hasAcuse) {
                 const caseDocRef = doc(db, 'AforoCases', caseId);
                 const updatesSubcollectionRef = collection(caseDocRef, 'actualizaciones');
                 batch.update(caseDocRef, {
@@ -666,7 +667,7 @@ export function DailyAforoCasesTable({ filters, setAllFetchedCases, displayCases
     );
   }
   
-  const canEdit = user?.role === 'admin' || user?.role === 'coordinadora' || user?.role === 'supervisor';
+  const canEdit = user?.role === 'admin' || user?.role === 'coordinadora' || user?.roleTitle === 'supervisor';
   const isDigitador = user?.role === 'aforador';
   
   if (isMobile) {

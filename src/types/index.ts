@@ -245,6 +245,8 @@ export interface AforoCase {
   resaNumber?: string | null;
   resaNotificationDate?: Timestamp | null;
   resaDueDate?: Timestamp | null;
+  
+  isArchived?: boolean;
 }
 
 export interface AforoCaseUpdate {
@@ -346,10 +348,6 @@ export interface Worksheet {
   cedulaConductor?: string;
   tipoMedio?: string;
   pesoVacioVehiculo?: string;
-  valor?: number;
-  flete?: number;
-  seguro?: number;
-  otrosGastos?: number;
   aforador?: string;
   precinto?: string;
   precintoLateral?: string;
@@ -368,10 +366,13 @@ export interface Worksheet {
   unidadMedidaTotal?: string;
   resaNotificationDate?: Timestamp | null;
   resaDueDate?: Timestamp | null;
+  isArchived?: boolean;
 }
 
 export interface WorksheetWithCase extends AforoCase {
     worksheet: Worksheet | null;
+    acuseDeRecibido?: boolean;
+    acuseLog?: AforoCaseUpdate | null;
 }
 
 export interface PreliquidacionItem {
