@@ -52,7 +52,6 @@ import { StatusProcessModal } from '@/components/executive/StatusProcessModal';
 
 
 type DateFilterType = 'range' | 'month' | 'today';
-type TabValue = 'worksheets' | 'anexos' | 'corporate';
 
 const months = [
     { value: 0, label: 'Enero' }, { value: 1, label: 'Febrero' }, { value: 2, label: 'Marzo' },
@@ -354,8 +353,8 @@ function ExecutivePageContent() {
             updatedAt: Timestamp.now(),
             updatedBy: user.displayName,
             field: field as keyof AforoCase,
-            oldValue: oldValue ?? null,
-            newValue: value,
+            oldValue: oldValue === undefined ? null : oldValue,
+            newValue: value === undefined ? null : value,
         };
         batch.set(doc(updatesSubcollectionRef), updateLog);
 
@@ -1081,4 +1080,6 @@ export default function ExecutivePage() {
         </Suspense>
     )
 }
+    
+
     
