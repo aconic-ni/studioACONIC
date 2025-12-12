@@ -331,7 +331,11 @@ export function DailyAforoCasesTable({ filters, setAllFetchedCases, displayCases
     if (isPsmtSupervisor) {
       qCases = query(collection(db, "AforoCases"), where('consignee', '==', 'PSMT NICARAGUA, SOCIEDAD ANONIMA'), orderBy('createdAt', 'desc'));
     } else {
-      qCases = query(collection(db, "AforoCases"), orderBy('createdAt', 'desc'));
+      qCases = query(
+          collection(db, 'AforoCases'), 
+          where('worksheet.worksheetType', 'in', ['hoja_de_trabajo', null]),
+          orderBy('createdAt', 'desc')
+      );
     }
     
     const unsubscribe = onSnapshot(qCases, async (aforoSnapshot) => {
@@ -344,11 +348,7 @@ export function DailyAforoCasesTable({ filters, setAllFetchedCases, displayCases
             .map(caseItem => ({
                 ...caseItem,
                 worksheet: worksheetsMap.get(caseItem.worksheetId || '') || null,
-            }))
-             .filter(c => 
-                c.worksheet?.worksheetType === 'hoja_de_trabajo' || 
-                c.worksheet?.worksheetType === undefined
-            );
+            }));
             
         const auditLogPromises = combinedData.map(async (caseItem) => {
             const updatesRef = collection(db, 'AforoCases', caseItem.id, 'actualizaciones');
@@ -369,7 +369,6 @@ export function DailyAforoCasesTable({ filters, setAllFetchedCases, displayCases
         let filtered = combinedData;
         const isSearchActive = !!(filters.ne?.trim() || filters.consignee?.trim() || filters.dateRange?.from);
         
-        // If no search is active, filter out cases sent to digitization.
         if (!isSearchActive) {
             filtered = filtered.filter(c => 
                 !c.digitacionStatus || c.digitacionStatus === 'Pendiente'

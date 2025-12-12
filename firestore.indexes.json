@@ -58,6 +58,14 @@
         ]
       },
       {
+        "collectionGroup": "AforoCases",
+        "queryScope": "COLLECTION",
+        "fields": [
+          { "fieldPath": "worksheet.worksheetType", "order": "ASCENDING" },
+          { "fieldPath": "createdAt", "order": "DESCENDING" }
+        ]
+      },
+      {
         "collectionGroup": "Validaciones",
         "queryScope": "COLLECTION",
         "fields": [
