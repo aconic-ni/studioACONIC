@@ -1,6 +1,6 @@
 
 "use client";
-import { useEffect, useState, useCallback, useMemo } from 'react';
+import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
 import { AppShell } from '@/components/layout/AppShell';
@@ -27,7 +27,7 @@ import { collection, getDocs, query, where, collectionGroup, orderBy, writeBatch
 import { db } from '@/lib/firebase';
 import { downloadAforoReportAsExcel } from '@/lib/fileExporterAforo';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { startOfMonth, endOfMonth } from 'date-fns';
+import { startOfMonth, endOfMonth, isSameDay, startOfDay, endOfDay } from 'date-fns';
 import { useToast } from '@/hooks/use-toast';
 import { useIsMobile } from '@/hooks/use-mobile';
 
@@ -61,12 +61,27 @@ export default function TheReporterPage() {
   const [showPendingOnly, setShowPendingOnly] = useState(false);
   
   // State for applied filters that trigger re-fetch
-  const [appliedDbFilters, setAppliedDbFilters] = useState({
-    ne: '',
-    consignee: '',
-    dateRange: undefined as DateRange | undefined,
-    dateFilterType: 'range' as DateFilterType,
+  const [appliedDbFilters, setAppliedDbFilters] = useState<{
+    ne: string;
+    consignee: string;
+    dateRange: DateRange | undefined;
+    dateFilterType: DateFilterType;
+    neCol: string;
+    ejecutivoCol: string;
+    consignatarioCol: string;
+    aforadorCol: string;
+    revisorCol: string;
+  }>({
+    ne: '', consignee: '', dateRange: undefined, dateFilterType: 'range',
+    neCol: '', ejecutivoCol: '', consignatarioCol: '', aforadorCol: '', revisorCol: ''
   });
+
+  // Column filter states
+  const [neColFilter, setNeColFilter] = useState('');
+  const [ejecutivoColFilter, setEjecutivoColFilter] = useState('');
+  const [consignatarioColFilter, setConsignatarioColFilter] = useState('');
+  const [aforadorColFilter, setAforadorColFilter] = useState('');
+  const [revisorColFilter, setRevisorColFilter] = useState('');
 
   const [allFetchedCases, setAllFetchedCases] = useState<WorksheetWithCase[]>([]);
   const [isExporting, setIsExporting] = useState(false);
@@ -104,15 +119,32 @@ export default function TheReporterPage() {
       consignee: consigneeInput,
       dateRange: dateRange,
       dateFilterType: dateFilterType,
+      // Also apply column filters on general search
+      neCol: neColFilter,
+      ejecutivoCol: ejecutivoColFilter,
+      consignatarioCol: consignatarioColFilter,
+      aforadorCol: aforadorColFilter,
+      revisorCol: revisorColFilter,
     });
   };
 
   const filteredCases = useMemo(() => {
+    let filtered = allFetchedCases;
+
     if (showPendingOnly) {
       return allFetchedCases.filter(c => !c.declaracionAduanera);
     }
-    return allFetchedCases;
-  }, [allFetchedCases, showPendingOnly]);
+    
+    // Apply column filters if active
+    if (appliedDbFilters.neCol) filtered = filtered.filter(c => c.ne.toLowerCase().includes(appliedDbFilters.neCol.toLowerCase()));
+    if (appliedDbFilters.ejecutivoCol) filtered = filtered.filter(c => c.executive.toLowerCase().includes(appliedDbFilters.ejecutivoCol.toLowerCase()));
+    if (appliedDbFilters.consignatarioCol) filtered = filtered.filter(c => c.consignee.toLowerCase().includes(appliedDbFilters.consignatarioCol.toLowerCase()));
+    if (appliedDbFilters.aforadorCol) filtered = filtered.filter(c => (c.aforador || '').toLowerCase().includes(appliedDbFilters.aforadorCol.toLowerCase()));
+    if (appliedDbFilters.revisorCol) filtered = filtered.filter(c => (c.revisorAsignado || '').toLowerCase().includes(appliedDbFilters.revisorCol.toLowerCase()));
+
+    return filtered;
+
+  }, [allFetchedCases, showPendingOnly, appliedDbFilters]);
 
   const handleExport = async () => {
     if (filteredCases.length === 0) {
@@ -207,7 +239,15 @@ export default function TheReporterPage() {
     setConsigneeInput('');
     setDateRangeInput(undefined);
     setShowPendingOnly(false);
-    setAppliedDbFilters({ ne: '', consignee: '', dateRange: undefined, dateFilterType: 'range' });
+    setNeColFilter('');
+    setEjecutivoColFilter('');
+    setConsignatarioColFilter('');
+    setAforadorColFilter('');
+    setRevisorColFilter('');
+    setAppliedDbFilters({ 
+        ne: '', consignee: '', dateRange: undefined, dateFilterType: 'range',
+        neCol: '', ejecutivoCol: '', consignatarioCol: '', aforadorCol: '', revisorCol: ''
+    });
   }
 
   if (loading || !user || !user.hasReportsAccess) {
@@ -318,3 +358,5 @@ export default function TheReporterPage() {
     </AppShell>
   );
 }
+
+    

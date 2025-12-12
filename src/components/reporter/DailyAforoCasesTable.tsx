@@ -1,3 +1,4 @@
+
 "use client";
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { db } from '@/lib/firebase';
@@ -47,13 +48,11 @@ interface DailyAforoCasesTableProps {
     consignee?: string;
     dateRange?: DateRange;
     dateFilterType: 'range' | 'month' | 'today';
-    showPendingOnly?: boolean;
-    // Column filters
-    neCol: string;
-    ejecutivoCol: string;
-    consignatarioCol: string;
-    aforadorCol: string;
-    revisorCol: string;
+    neCol?: string;
+    ejecutivoCol?: string;
+    consignatarioCol?: string;
+    aforadorCol?: string;
+    revisorCol?: string;
   };
   setAllFetchedCases: (cases: WorksheetWithCase[]) => void;
   displayCases: WorksheetWithCase[];
@@ -366,8 +365,6 @@ export function DailyAforoCasesTable({ filters, setAllFetchedCases, displayCases
 
         let filtered = combinedData;
         
-        // This is a simplified client-side filter.
-        // A more robust solution would add these filters to the Firestore query.
         if (filters.ne) {
           filtered = filtered.filter(c => c.ne.toUpperCase().includes(filters.ne!.toUpperCase()));
         }
@@ -382,13 +379,6 @@ export function DailyAforoCasesTable({ filters, setAllFetchedCases, displayCases
             return caseDate && caseDate >= start && caseDate <= end;
           });
         }
-        
-        // Column Filters
-        if (filters.neCol) filtered = filtered.filter(c => c.ne.toLowerCase().includes(filters.neCol.toLowerCase()));
-        if (filters.ejecutivoCol) filtered = filtered.filter(c => c.executive.toLowerCase().includes(filters.ejecutivoCol.toLowerCase()));
-        if (filters.consignatarioCol) filtered = filtered.filter(c => c.consignee.toLowerCase().includes(filters.consignatarioCol.toLowerCase()));
-        if (filters.aforadorCol) filtered = filtered.filter(c => (c.aforador || '').toLowerCase().includes(filters.aforadorCol.toLowerCase()));
-        if (filters.revisorCol) filtered = filtered.filter(c => (c.revisorAsignado || '').toLowerCase().includes(filters.revisorCol.toLowerCase()));
       
         setAllFetchedCases(filtered);
         setIsLoading(false);
@@ -431,7 +421,7 @@ export function DailyAforoCasesTable({ filters, setAllFetchedCases, displayCases
      }
   }
 
-  const handleAssignToDigitization = async (caseItem: AforoCase, force: boolean = false) => {
+  const handleAssignToDigitization = async (caseItem: AforoCase) => {
     if (!user || !user.displayName) return;
 
     if (caseItem.revisorStatus !== 'Aprobado' || caseItem.preliquidationStatus !== 'Aprobada') {
@@ -520,7 +510,7 @@ export function DailyAforoCasesTable({ filters, setAllFetchedCases, displayCases
             const hasAcuse = caseItem.acuseDeRecibido === true || caseAuditLogs.get(caseId)?.some(log => log.newValue === 'worksheet_received');
             if (hasAcuse) {
                 shouldProcess = true;
-                logComment = 'Envío masivo a digitación.';
+                logComment = 'Aprobación y envío automático para caso PSMT con acuse';
             } else {
                 skippedCases.push(caseItem.ne);
             }
@@ -638,7 +628,7 @@ export function DailyAforoCasesTable({ filters, setAllFetchedCases, displayCases
     );
   }
   
-  const canEdit = user?.role === 'admin' || user?.role === 'coordinadora' || user?.roleTitle === 'supervisor';
+  const canEdit = user?.role === 'admin' || user?.role === 'coordinadora' || user?.role === 'supervisor';
   const isDigitador = user?.role === 'aforador';
   
   if (isMobile) {
@@ -695,14 +685,14 @@ export function DailyAforoCasesTable({ filters, setAllFetchedCases, displayCases
             <TableHead className="w-12"><Checkbox checked={selectedRows.length > 0 && selectedRows.length === displayCases.length} onCheckedChange={toggleSelectAll}/></TableHead>
             <TableHead className="w-12"></TableHead>
             <TableHead>Acciones</TableHead>
-            <TableHead><Input placeholder="NE..." className="h-8 text-xs" value={filters.neCol} onChange={(e) => { /* Logic is in parent */ }} /></TableHead>
+            <TableHead><Input placeholder="NE..." className="h-8 text-xs" value={filters.neCol} onChange={(e) => { /* Logic in parent */ }} /></TableHead>
             <TableHead>Insignias</TableHead>
-            <TableHead><Input placeholder="Ejecutivo..." className="h-8 text-xs" value={filters.ejecutivoCol} onChange={(e) => { /* Logic is in parent */ }} /></TableHead>
-            <TableHead><Input placeholder="Consignatario..." className="h-8 text-xs" value={filters.consignatarioCol} onChange={(e) => { /* Logic is in parent */ }} /></TableHead>
-            <TableHead><Input placeholder="Aforador..." className="h-8 text-xs" value={filters.aforadorCol} onChange={(e) => { /* Logic is in parent */ }} /></TableHead>
+            <TableHead><Input placeholder="Ejecutivo..." className="h-8 text-xs" value={filters.ejecutivoCol} onChange={(e) => { /* Logic in parent */ }} /></TableHead>
+            <TableHead><Input placeholder="Consignatario..." className="h-8 text-xs" value={filters.consignatarioCol} onChange={(e) => { /* Logic in parent */ }} /></TableHead>
+            <TableHead><Input placeholder="Aforador..." className="h-8 text-xs" value={filters.aforadorCol} onChange={(e) => { /* Logic in parent */ }} /></TableHead>
             <TableHead>Fecha Asignación</TableHead>
             <TableHead>Estatus Aforador</TableHead>
-            <TableHead><Input placeholder="Revisor..." className="h-8 text-xs" value={filters.revisorCol} onChange={(e) => { /* Logic is in parent */ }} /></TableHead>
+            <TableHead><Input placeholder="Revisor..." className="h-8 text-xs" value={filters.revisorCol} onChange={(e) => { /* Logic in parent */ }} /></TableHead>
             <TableHead>Estatus Revisor</TableHead>
             <TableHead>Preliquidación</TableHead>
             <TableHead>Digitador Asignado</TableHead>
