@@ -1,4 +1,5 @@
 
+      
 "use client";
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { db } from '@/lib/firebase';
@@ -36,11 +37,10 @@ import { FirestorePermissionError } from '@/firebase/errors';
 import { IncidentReportModal } from './IncidentReportModal';
 import { IncidentReportDetails } from './IncidentReportDetails';
 import { DatePickerWithTime } from '@/components/reports/DatePickerWithTime';
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '../ui/alert-dialog';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, Dialog } from '../ui/alert-dialog';
 import { WorksheetDetailModal } from './WorksheetDetailModal';
 import { ScrollArea } from '../ui/scroll-area';
 import { Anexo5Details } from '../executive/anexos/Anexo5Details';
-import { Dialog, DialogDescription, DialogHeader, DialogTitle, DialogContent } from '../ui/dialog';
 
 
 interface DailyAforoCasesTableProps {
@@ -365,6 +365,15 @@ export function DailyAforoCasesTable({ filters, setAllFetchedCases, displayCases
         setCaseAuditLogs(newAuditLogs);
 
         let filtered = combinedData;
+        const isSearchActive = !!(filters.ne?.trim() || filters.consignee?.trim() || filters.dateRange?.from);
+        
+        // If no search is active, filter out cases sent to digitization.
+        if (!isSearchActive) {
+            filtered = filtered.filter(c => 
+                !c.digitacionStatus || 
+                c.digitacionStatus === 'Pendiente'
+            );
+        }
         
         if (filters.ne) {
           filtered = filtered.filter(c => c.ne.toUpperCase().includes(filters.ne!.toUpperCase()));
@@ -1066,25 +1075,23 @@ export function DailyAforoCasesTable({ filters, setAllFetchedCases, displayCases
             description={assignmentModal.case ? `Seleccione un usuario para asignar al caso NE: ${assignmentModal.case.ne}` : `Seleccione un usuario para asignar a los ${selectedRows.length} casos seleccionados.`}
         />
     )}
-    {statusModal.isOpen && (
-      <Dialog open={statusModal.isOpen} onOpenChange={() => setStatusModal({isOpen: false})}>
-          <DialogContent>
-              <DialogHeader>
-                  <DialogTitle>Asignar Estatus de Aforador Masivo</DialogTitle>
-                  <DialogDescription>Seleccione el estatus a aplicar a los {selectedRows.length} casos seleccionados.</DialogDescription>
-              </DialogHeader>
-              <Select onValueChange={(value) => { handleBulkAction('aforadorStatus', value); }}>
-                <SelectTrigger><SelectValue placeholder="Seleccionar estatus..." /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="Pendiente ">Pendiente </SelectItem>
-                  <SelectItem value="En proceso">En proceso</SelectItem>
-                  <SelectItem value="Incompleto">Incompleto</SelectItem>
-                  <SelectItem value="En revisión">En revisión</SelectItem>
-                </SelectContent>
-              </Select>
-          </DialogContent>
-      </Dialog>
-    )}
+     <Dialog open={statusModal.isOpen} onOpenChange={() => setStatusModal({isOpen: false})}>
+        <DialogContent>
+            <DialogHeader>
+                <DialogTitle>Asignar Estatus de Aforador Masivo</DialogTitle>
+                <DialogDescription>Seleccione el estatus a aplicar a los {selectedRows.length} casos seleccionados.</DialogDescription>
+            </DialogHeader>
+            <Select onValueChange={(value) => { handleBulkAction('aforadorStatus', value); }}>
+              <SelectTrigger><SelectValue placeholder="Seleccionar estatus..." /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="Pendiente ">Pendiente </SelectItem>
+                <SelectItem value="En proceso">En proceso</SelectItem>
+                <SelectItem value="Incompleto">Incompleto</SelectItem>
+                <SelectItem value="En revisión">En revisión</SelectItem>
+              </SelectContent>
+            </Select>
+        </DialogContent>
+    </Dialog>
     {involvedUsersModal.isOpen && involvedUsersModal.caseData && (
         <InvolvedUsersModal
           isOpen={involvedUsersModal.isOpen}
@@ -1126,3 +1133,5 @@ export function DailyAforoCasesTable({ filters, setAllFetchedCases, displayCases
     </>
   );
 }
+
+    
