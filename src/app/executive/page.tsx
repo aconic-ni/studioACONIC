@@ -52,7 +52,6 @@ import { StatusProcessModal } from '@/components/executive/StatusProcessModal';
 
 
 type DateFilterType = 'range' | 'month' | 'today';
-type TabValue = 'worksheets' | 'anexos' | 'corporate';
 
 const months = [
     { value: 0, label: 'Enero' }, { value: 1, label: 'Febrero' }, { value: 2, label: 'Marzo' },
@@ -174,9 +173,10 @@ function ExecutivePageContent() {
   const [selectividadFilter, setSelectividadFilter] = useState('');
   const [incidentTypeFilter, setIncidentTypeFilter] = useState('');
 
-  // Pagination state
+  // Pagination and selection state
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage] = useState(15);
+  const [selectedRows, setSelectedRows] = useState<string[]>([]);
 
 
   useEffect(() => {
@@ -631,6 +631,38 @@ function ExecutivePageContent() {
     setIsRequestPaymentModalOpen(true);
   };
   
+  const handleBulkApprovePreliquidation = async () => {
+    if (!user || selectedRows.length === 0) return;
+    const batch = writeBatch(db);
+    selectedRows.forEach(id => {
+      const caseRef = doc(db, 'AforoCases', id);
+      batch.update(caseRef, { preliquidationStatus: 'Aprobada', preliquidationStatusLastUpdate: { by: user.displayName, at: Timestamp.now() } });
+      const logRef = doc(collection(caseRef, 'actualizaciones'));
+      const updateLog: AforoCaseUpdate = {
+        updatedAt: Timestamp.now(),
+        updatedBy: user.displayName || 'sistema',
+        field: 'preliquidationStatus',
+        oldValue: 'Pendiente',
+        newValue: 'Aprobada',
+        comment: 'Aprobación masiva de preliquidación'
+      };
+      batch.set(logRef, updateLog);
+    });
+    await batch.commit();
+    toast({ title: 'Éxito', description: `${selectedRows.length} preliquidaciones aprobadas.` });
+    setSelectedRows([]);
+  };
+
+  const handleSelectAllForPreliquidation = () => {
+    const selectableIds = filteredCases.filter(c => c.revisorStatus === 'Aprobado' && c.preliquidationStatus !== 'Aprobada').map(c => c.id);
+    if (selectedRows.length === selectableIds.length) {
+      setSelectedRows([]);
+    } else {
+      setSelectedRows(selectableIds);
+    }
+  };
+
+
   const welcomeName = user?.displayName ? user.displayName.split(' ')[0] : 'Usuario';
 
   if (authLoading || !user) {
@@ -684,6 +716,13 @@ function ExecutivePageContent() {
         <div className="overflow-x-auto table-container rounded-lg border">
             <TooltipProvider>
             <Table><TableHeader><TableRow>
+                 <TableHead>
+                    <Checkbox
+                      checked={selectedRows.length === filteredCases.filter(c => c.revisorStatus === 'Aprobado' && c.preliquidationStatus !== 'Aprobada').length && filteredCases.filter(c => c.revisorStatus === 'Aprobado' && c.preliquidationStatus !== 'Aprobada').length > 0}
+                      onCheckedChange={handleSelectAllForPreliquidation}
+                      aria-label="Seleccionar todo para preliquidación"
+                    />
+                 </TableHead>
                 <TableHead>Acciones</TableHead>
                 <TableHead><Input placeholder="NE..." className="h-8 text-xs" value={neFilter} onChange={e => setNeFilter(e.target.value)}/></TableHead>
                 <TableHead>Insignias</TableHead>
@@ -710,6 +749,13 @@ function ExecutivePageContent() {
 
                     return (
                     <TableRow key={c.id} className={savingState[c.id] ? "bg-amber-100" : (isResaCritical ? "bg-red-200 hover:bg-red-200/80" : "")}>
+                         <TableCell>
+                            <Checkbox
+                              checked={selectedRows.includes(c.id)}
+                              onCheckedChange={() => setSelectedRows(prev => prev.includes(c.id) ? prev.filter(id => id !== c.id) : [...prev, c.id])}
+                              disabled={c.revisorStatus !== 'Aprobado' || c.preliquidationStatus === 'Aprobada'}
+                            />
+                         </TableCell>
                         <TableCell>
                           <div className="flex items-center gap-0.5">
                             <DropdownMenu>
@@ -908,146 +954,133 @@ function ExecutivePageContent() {
     <AppShell>
       <div className="py-2 md:py-5 space-y-6">
         <AnnouncementsCarousel />
-        <Card>
-            <CardHeader>
-              <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-4">
-                    <div>
-                      <CardTitle className="flex items-center gap-2 text-2xl"><Inbox/> Panel Ejecutivo</CardTitle>
-                      <CardDescription>Seguimiento de operaciones, desde la hoja de trabajo hasta la facturación.</CardDescription>
-                  </div>
-                  <div className="flex flex-col sm:flex-row items-center gap-3">
-                        <AlertDialog>
-                          <AlertDialogTrigger asChild>
-                              <Button size="lg" variant="secondary" className="h-12 text-md">
-                                  <Banknote className="mr-2 h-5 w-5" /> Solicitud de Pago General
-                              </Button>
-                          </AlertDialogTrigger>
-                          <AlertDialogContent>
-                              <AlertDialogHeader>
-                              <AlertDialogTitle>¿Está seguro?</AlertDialogTitle>
-                              <AlertDialogDescription>
-                                  Esta acción iniciará una solicitud de pago no vinculada a un Número de Entrada (NE) específico. Se generará un ID único en su lugar.
-                              </AlertDialogDescription>
-                              </AlertDialogHeader>
-                              <AlertDialogFooter>
-                              <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                              <AlertDialogAction onClick={handleOpenPaymentRequest}>Sí, continuar</AlertDialogAction>
-                              </AlertDialogFooter>
-                          </AlertDialogContent>
-                      </AlertDialog>
+        <Tabs defaultValue="worksheets" className="w-full" onValueChange={setActiveTab}>
+            <Card>
+                 <CardHeader>
+                    <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-4">
+                         <div>
+                            <CardTitle className="flex items-center gap-2 text-2xl"><Inbox/> Panel Ejecutivo</CardTitle>
+                            <CardDescription>Seguimiento de operaciones, desde la hoja de trabajo hasta la facturación.</CardDescription>
+                        </div>
+                        <div className="flex flex-col sm:flex-row items-center gap-3">
+                             <AlertDialog>
+                                <AlertDialogTrigger asChild>
+                                    <Button size="lg" variant="secondary" className="h-12 text-md">
+                                        <Banknote className="mr-2 h-5 w-5" /> Solicitud de Pago General
+                                    </Button>
+                                </AlertDialogTrigger>
+                                <AlertDialogContent>
+                                    <AlertDialogHeader>
+                                    <AlertDialogTitle>¿Está seguro?</AlertDialogTitle>
+                                    <AlertDialogDescription>
+                                        Esta acción iniciará una solicitud de pago no vinculada a un Número de Entrada (NE) específico. Se generará un ID único en su lugar.
+                                    </AlertDialogDescription>
+                                    </AlertDialogHeader>
+                                    <AlertDialogFooter>
+                                    <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                                    <AlertDialogAction onClick={handleOpenPaymentRequest}>Sí, continuar</AlertDialogAction>
+                                    </AlertDialogFooter>
+                                </AlertDialogContent>
+                            </AlertDialog>
 
-                      <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                              <Button size="lg" variant="default" className="h-12 text-md">
-                              <Edit className="mr-2 h-5 w-5" />Crear Registro
-                              </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent>
-                              <DropdownMenuLabel>Tipo de Documento</DropdownMenuLabel>
-                              <DropdownMenuSeparator />
-                              <DropdownMenuItem asChild>
-                                  <Link href="/executive/worksheet">
-                                      <FilePlus className="mr-2 h-4 w-4" /> Hoja de Trabajo
-                                  </Link>
-                              </DropdownMenuItem>
-                              <DropdownMenuItem asChild>
-                                  <Link href="/executive/corporate-report">
-                                      <Briefcase className="mr-2 h-4 w-4" /> Reporte Consignatario
-                                  </Link>
-                              </DropdownMenuItem>
-                              <DropdownMenuItem asChild>
-                                  <Link href="/executive/anexos?type=anexo_5">
-                                      <StickyNote className="mr-2 h-4 w-4" /> Anexo 5
-                                  </Link>
-                              </DropdownMenuItem>
-                                <DropdownMenuItem asChild>
-                                    <Link href="/executive/anexos?type=anexo_7">
-                                      <StickyNote className="mr-2 h-4 w-4" /> Anexo 7
-                                    </Link>
-                                </DropdownMenuItem>
-                          </DropdownMenuContent>
-                      </DropdownMenu>
+                            <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                    <Button size="lg" variant="default" className="h-12 text-md">
+                                    <Edit className="mr-2 h-5 w-5" />Crear Registro
+                                    </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent>
+                                    <DropdownMenuLabel>Tipo de Documento</DropdownMenuLabel>
+                                    <DropdownMenuSeparator />
+                                    <DropdownMenuItem asChild>
+                                        <Link href="/executive/worksheet">
+                                            <FilePlus className="mr-2 h-4 w-4" /> Hoja de Trabajo
+                                        </Link>
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem asChild>
+                                        <Link href="/executive/corporate-report">
+                                            <Briefcase className="mr-2 h-4 w-4" /> Reporte Consignatario
+                                        </Link>
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem asChild>
+                                        <Link href="/executive/anexos?type=anexo_5">
+                                            <StickyNote className="mr-2 h-4 w-4" /> Anexo 5
+                                        </Link>
+                                    </DropdownMenuItem>
+                                     <DropdownMenuItem asChild>
+                                         <Link href="/executive/anexos?type=anexo_7">
+                                            <StickyNote className="mr-2 h-4 w-4" /> Anexo 7
+                                         </Link>
+                                     </DropdownMenuItem>
+                                </DropdownMenuContent>
+                            </DropdownMenu>
 
-                  </div>
-              </div>
-              <div className="border-t pt-4 mt-2">
-                <Tabs value={activeTab} onValueChange={handleTabChange}>
-                  <TabsList>
-                      <TabsTrigger value="worksheets">Hojas de Trabajo</TabsTrigger>
-                      <TabsTrigger value="anexos">Anexos</TabsTrigger>
-                      <TabsTrigger value="corporate">Reportes Corporativos</TabsTrigger>
-                  </TabsList>
-                </Tabs>
-              </div>
-            </CardHeader>
-            <CardContent>
-              {/* Filtering UI - Common for all tabs */}
-              <div className="flex flex-col gap-4">
-                  <div className="flex flex-wrap items-center justify-between gap-4">
-                      <div className="relative w-full sm:max-w-xs">
-                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
-                      <Input placeholder="Buscar por NE o Consignatario..." className="pl-10" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
-                      </div>
-                      <div className="flex items-center flex-wrap gap-4">
-                      <Popover>
-                          <PopoverTrigger asChild>
-                              <Button variant="outline" className="w-[200px] justify-start"><ChevronsUpDown className="mr-2 h-4 w-4"/> Filtrar Visibilidad</Button>
-                          </PopoverTrigger>
-                          <PopoverContent className="w-56 p-2" align="end">
-                              <div className="grid gap-2">
-                                <label className="flex items-center gap-2 text-sm font-normal"><Checkbox checked={facturadoFilter.noFacturado} onCheckedChange={(checked) => setFacturadoFilter(f => ({...f, noFacturado: !!checked}))}/>No Facturados</label>
-                                <label className="flex items-center gap-2 text-sm font-normal"><Checkbox checked={facturadoFilter.facturado} onCheckedChange={(checked) => setFacturadoFilter(f => ({...f, facturado: !!checked}))}/>Facturados</label>
-                              </div>
-                          </PopoverContent>
-                      </Popover>
-                      <Button onClick={handleSearch}><Search className="mr-2 h-4 w-4" /> Buscar</Button>
-                      <Button variant="outline" onClick={clearFilters}>Limpiar Filtros</Button>
-                        <Button variant="outline" onClick={fetchCases}>
-                          <RefreshCw className="mr-2 h-4 w-4" /> Actualizar
-                      </Button>
-                      <Button onClick={handleExport} disabled={paginatedCases.length === 0 || isExporting}>
-                        {isExporting ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : <Download className="mr-2 h-4 w-4" />}
-                        {isExporting ? 'Exportando...' : 'Exportar Vista Actual'}
-                      </Button>
-                      </div>
-                  </div>
-                  <div className="flex flex-wrap items-center gap-4">
-                  <div className="flex flex-wrap items-center gap-2">
-                      <Button variant={dateFilterType === 'range' ? 'default' : 'ghost'} size="sm" onClick={() => setDateFilterType('range')}><CalendarRange className="mr-2 h-4 w-4"/> Rango</Button>
-                      <Button variant={dateFilterType === 'month' ? 'default' : 'ghost'} size="sm" onClick={() => setDateFilterType('month')}><Calendar className="mr-2 h-4 w-4"/> Mes</Button>
-                      <Button variant={dateFilterType === 'today' ? 'default' : 'ghost'} size="sm" onClick={() => setDateFilterType('today')}><CalendarDays className="mr-2 h-4 w-4"/> Hoy</Button>
-                  </div>
-                  {dateFilterType === 'range' && <DatePickerWithRange date={dateRangeInput} onDateChange={setDateRangeInput} />}
-                  {dateFilterType === 'month' && (
-                      <div className="flex gap-2">
-                          <Select value={String(selectedMonth)} onValueChange={(val) => setSelectedMonth(Number(val))}><SelectTrigger className="w-[180px]"><SelectValue /></SelectTrigger><SelectContent>{months.map(m => <SelectItem key={m.value} value={String(m.value)}>{m.label}</SelectItem>)}</SelectContent></Select>
-                          <Select value={String(selectedYear)} onValueChange={(val) => setSelectedYear(Number(val))}><SelectTrigger className="w-[120px]"><SelectValue /></SelectTrigger><SelectContent>{years.map(y => <SelectItem key={y} value={String(y)}>{y}</SelectItem>)}</SelectContent></Select>
-                      </div>
-                  )}
-                  </div>
-              </div>
-               {!appliedFilters.isSearchActive && (
-                <div className="mt-4 p-3 bg-blue-500/10 text-blue-700 border border-blue-500/30 rounded-md text-sm">
-                    <Info className="inline h-4 w-4 mr-2" />
-                    Mostrando las 15 operaciones más recientes de la pestaña actual. Utilice los filtros para buscar y ver más resultados.
-                </div>
-                )}
-              <div className="mt-6">
-                {renderTable()}
-              </div>
-                {appliedFilters.isSearchActive && totalPages > 1 && (
-                    <div className="flex items-center justify-between mt-4">
-                        <span className="text-sm text-muted-foreground">
-                            Página {currentPage} de {totalPages} ({filteredCases.length} resultados)
-                        </span>
-                        <div className="flex gap-2">
-                            <Button onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1}>Anterior</Button>
-                            <Button onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages}>Siguiente</Button>
                         </div>
                     </div>
-                )}
-            </CardContent>
-        </Card>
+                    <div className="border-t pt-4 mt-2">
+                       <TabsList>
+                            <TabsTrigger value="worksheets">Hojas de Trabajo</TabsTrigger>
+                            <TabsTrigger value="anexos">Anexos</TabsTrigger>
+                            <TabsTrigger value="corporate">Reportes Corporativos</TabsTrigger>
+                        </TabsList>
+                    </div>
+                </CardHeader>
+                 <CardContent>
+                    {/* Filtering UI - Common for all tabs */}
+                    <div className="flex flex-col gap-4">
+                        <div className="flex flex-wrap items-center justify-between gap-4">
+                            <div className="relative w-full sm:max-w-xs">
+                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+                            <Input placeholder="Buscar por NE o Consignatario..." className="pl-10" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
+                            </div>
+                            <div className="flex items-center flex-wrap gap-4">
+                            <Button onClick={handleBulkApprovePreliquidation} disabled={selectedRows.length === 0} variant="outline">
+                                <CheckCircle className="mr-2 h-4 w-4" /> Aprobar Preliquidación ({selectedRows.length})
+                            </Button>
+                            <Popover>
+                                <PopoverTrigger asChild>
+                                    <Button variant="outline" className="w-[200px] justify-start"><ChevronsUpDown className="mr-2 h-4 w-4"/> Filtrar Visibilidad</Button>
+                                </PopoverTrigger>
+                                <PopoverContent className="w-56 p-2" align="end">
+                                    <div className="grid gap-2">
+                                      <label className="flex items-center gap-2 text-sm font-normal"><Checkbox checked={facturadoFilter.noFacturado} onCheckedChange={(checked) => setFacturadoFilter(f => ({...f, noFacturado: !!checked}))}/>No Facturados</label>
+                                      <label className="flex items-center gap-2 text-sm font-normal"><Checkbox checked={facturadoFilter.facturado} onCheckedChange={(checked) => setFacturadoFilter(f => ({...f, facturado: !!checked}))}/>Facturados</label>
+                                    </div>
+                                </PopoverContent>
+                            </Popover>
+                            <Button onClick={handleSearch}><Search className="mr-2 h-4 w-4" /> Buscar</Button>
+                            <Button variant="outline" onClick={clearFilters}>Limpiar Filtros</Button>
+                                <Button variant="outline" onClick={fetchCases}>
+                                <RefreshCw className="mr-2 h-4 w-4" /> Actualizar
+                            </Button>
+                            <Button onClick={handleExport} disabled={paginatedCases.length === 0 || isExporting}>
+                               {isExporting ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : <Download className="mr-2 h-4 w-4" />}
+                               {isExporting ? 'Exportando...' : 'Exportar Vista Actual'}
+                            </Button>
+                            </div>
+                        </div>
+                        <div className="flex flex-wrap items-center gap-4">
+                        <div className="flex flex-wrap items-center gap-2">
+                            <Button variant={dateFilterType === 'range' ? 'default' : 'ghost'} size="sm" onClick={() => setDateFilterType('range')}><CalendarRange className="mr-2 h-4 w-4"/> Rango</Button>
+                            <Button variant={dateFilterType === 'month' ? 'default' : 'ghost'} size="sm" onClick={() => setDateFilterType('month')}><Calendar className="mr-2 h-4 w-4"/> Mes</Button>
+                            <Button variant={dateFilterType === 'today' ? 'default' : 'ghost'} size="sm" onClick={() => setDateFilterType('today')}><CalendarDays className="mr-2 h-4 w-4"/> Hoy</Button>
+                        </div>
+                        {dateFilterType === 'range' && <DatePickerWithRange date={dateRangeInput} onDateChange={setDateRangeInput} />}
+                        {dateFilterType === 'month' && (
+                            <div className="flex gap-2">
+                                <Select value={String(selectedMonth)} onValueChange={(val) => setSelectedMonth(Number(val))}><SelectTrigger className="w-[180px]"><SelectValue /></SelectTrigger><SelectContent>{months.map(m => <SelectItem key={m.value} value={String(m.value)}>{m.label}</SelectItem>)}</SelectContent></Select>
+                                <Select value={String(selectedYear)} onValueChange={(val) => setSelectedYear(Number(val))}><SelectTrigger className="w-[120px]"><SelectValue /></SelectTrigger><SelectContent>{years.map(y => <SelectItem key={y} value={String(y)}>{y}</SelectItem>)}</SelectContent></Select>
+                            </div>
+                        )}
+                        </div>
+                    </div>
+                    
+                    <TabsContent value="worksheets" className="mt-6">{renderTable()}</TabsContent>
+                    <TabsContent value="anexos" className="mt-6">{renderTable()}</TabsContent>
+                    <TabsContent value="corporate" className="mt-6">{renderTable()}</TabsContent>
+                </CardContent>
+            </Card>
+        </Tabs>
       </div>
     </AppShell>
     {selectedCaseForHistory && (<AforoCaseHistoryModal isOpen={!!selectedCaseForHistory} onClose={() => setSelectedCaseForHistory(null)} caseData={selectedCaseForHistory} />)}
@@ -1105,4 +1138,5 @@ export default function ExecutivePage() {
     
 
     
+
 
