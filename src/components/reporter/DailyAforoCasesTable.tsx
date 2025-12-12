@@ -14,7 +14,8 @@ import { useToast } from '@/hooks/use-toast';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 import { AforoCaseHistoryModal } from './AforoCaseHistoryModal';
-import { AforadorCommentModal } from './AforadorCommentModal';
+import { DigitizationCommentModal } from './DigitizationCommentModal';
+import { CompleteDigitizationModal } from './CompleteDigitizationModal';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '../ui/dropdown-menu';
 import { Tooltip, TooltipProvider, TooltipContent, TooltipTrigger } from '../ui/tooltip';
@@ -48,7 +49,6 @@ interface DailyAforoCasesTableProps {
     ne?: string;
     consignee?: string;
     dateRange?: DateRange;
-    dateFilterType: 'range' | 'month' | 'today';
   };
   setAllFetchedCases: (cases: WorksheetWithCase[]) => void;
   displayCases: WorksheetWithCase[];
@@ -287,82 +287,77 @@ export function DailyAforoCasesTable({ filters, setAllFetchedCases, displayCases
     setError(null);
   
     const fetchAssignableUsers = async () => {
-        const usersMap = new Map<string, AppUser>();
-        const rolesToFetch = ['aforador', 'coordinadora', 'supervisor', 'digitador', 'agente'];
-        
-        try {
-            const usersQuery = query(collection(db, 'users'), where('role', 'in', rolesToFetch));
-            const querySnapshot = await getDocs(usersQuery);
-            querySnapshot.forEach(doc => {
-                const userData = { uid: doc.id, ...doc.data() } as AppUser;
-                if (!usersMap.has(userData.uid) && userData.displayName) {
-                    usersMap.set(userData.uid, userData);
-                }
-            });
-            setAssignableUsers(Array.from(usersMap.values()));
-        } catch(e) {
-            console.error("Error fetching users for aforo table", e);
-        }
+      const usersMap = new Map<string, AppUser>();
+      const rolesToFetch = ['aforador', 'coordinadora', 'supervisor', 'digitador', 'agente'];
+      const roleQueries = rolesToFetch.map(role => query(collection(db, 'users'), where('role', '==', role)));
+      
+      try {
+          const querySnapshots = await Promise.all(roleQueries.map(q => getDocs(q)));
+          querySnapshots.forEach(snapshot => {
+              snapshot.forEach(doc => {
+                  const userData = { uid: doc.id, ...doc.data() } as AppUser;
+                  if (!usersMap.has(userData.uid) && userData.displayName) {
+                      usersMap.set(userData.uid, userData);
+                  }
+              });
+          });
+          const agentsSnapshot = await getDocs(query(collection(db, 'users'), where('roleTitle', '==', 'agente aduanero')));
+          agentsSnapshot.forEach(doc => {
+             const userData = { uid: doc.id, ...doc.data() } as AppUser;
+             if (!usersMap.has(userData.uid) && userData.displayName) {
+                 usersMap.set(userData.uid, userData);
+             }
+          });
+          setAssignableUsers(Array.from(usersMap.values()));
+      } catch(e) {
+          console.error("Error fetching users for digitization table", e);
+      }
     };
     fetchAssignableUsers();
     
     let q;
 
-    if (filters.ne?.trim() || filters.consignee?.trim()) {
-      q = query(collection(db, 'AforoCases'), orderBy('createdAt', 'desc'));
-    } else {
-      q = query(
+    const excludedTypes = ['anexo_5', 'anexo_7', 'corporate_report'];
+    let mainQuery = query(
         collection(db, 'worksheets'),
-        where('worksheetType', 'in', ['hoja_de_trabajo', null, undefined]),
-        orderBy('createdAt', 'desc')
-      );
-    }
-  
-    const unsubscribe = onSnapshot(q, 
-      async (snapshot) => {
-        let caseIdsToFetch: string[];
-        const worksheetsMap = new Map<string, Worksheet>();
-        let aforoCasesData: AforoCase[] = [];
+        where('worksheetType', 'not-in', excludedTypes)
+    );
 
-        if (filters.ne?.trim() || filters.consignee?.trim()) {
-            aforoCasesData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as AforoCase));
-            caseIdsToFetch = aforoCasesData.map(c => c.id);
-        } else {
-            caseIdsToFetch = snapshot.docs.map(doc => doc.id);
-            snapshot.forEach(doc => {
-                worksheetsMap.set(doc.id, { id: doc.id, ...doc.data() } as Worksheet);
-            });
+    if (filters.ne?.trim()) {
+        mainQuery = query(collection(db, 'worksheets'), where('ne', '>=', filters.ne.trim().toUpperCase()), where('ne', '<=', filters.ne.trim().toUpperCase() + '\uf8ff'));
+    } else if (filters.consignee?.trim()) {
+        mainQuery = query(collection(db, 'worksheets'), where('consignee', '>=', filters.consignee.trim()), where('consignee', '<=', filters.consignee.trim() + '\uf8ff'));
+    }
+
+    mainQuery = query(mainQuery, orderBy('createdAt', 'desc'));
+  
+    const unsubscribe = onSnapshot(mainQuery, 
+      async (snapshot) => {
+        if (snapshot.empty) {
+            setAllFetchedCases([]);
+            setIsLoading(false);
+            return;
         }
-        
-        if (caseIdsToFetch.length === 0) {
-          setAllFetchedCases([]);
-          setIsLoading(false);
-          return;
-        }
+
+        const worksheetIds = snapshot.docs.map(doc => doc.id);
+        const worksheetsMap = new Map<string, Worksheet>();
+        snapshot.forEach(doc => {
+            worksheetsMap.set(doc.id, { id: doc.id, ...doc.data() } as Worksheet);
+        });
 
         const casePromises = [];
-        for (let i = 0; i < caseIdsToFetch.length; i += 30) {
-            const chunk = caseIdsToFetch.slice(i, i + 30);
-            casePromises.push(
-                getDocs(query(collection(db, 'AforoCases'), where(documentId(), 'in', chunk)))
-            );
+        for (let i = 0; i < worksheetIds.length; i += 30) {
+            const chunk = worksheetIds.slice(i, i + 30);
+            if (chunk.length > 0) {
+              casePromises.push(
+                  getDocs(query(collection(db, 'AforoCases'), where(documentId(), 'in', chunk)))
+              );
+            }
         }
         
         try {
             const caseSnapshots = await Promise.all(casePromises);
-            
-            if (filters.ne?.trim() || filters.consignee?.trim()) {
-                 caseSnapshots.forEach(snap => {
-                     snap.forEach(doc => {
-                        const existingIndex = aforoCasesData.findIndex(c => c.id === doc.id);
-                        if (existingIndex === -1) {
-                           aforoCasesData.push({ id: doc.id, ...doc.data() } as AforoCase);
-                        }
-                    });
-                 });
-            } else {
-                aforoCasesData = caseSnapshots.flatMap(snap => snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as AforoCase)));
-            }
+            const aforoCasesData = caseSnapshots.flatMap(snap => snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as AforoCase)));
 
             const combinedData = aforoCasesData.map(caseItem => ({
                 ...caseItem,
@@ -371,12 +366,6 @@ export function DailyAforoCasesTable({ filters, setAllFetchedCases, displayCases
 
             let filtered = combinedData;
             
-            if (filters.ne) {
-                filtered = filtered.filter(c => c.ne.toUpperCase().includes(filters.ne!.toUpperCase()));
-            }
-            if (filters.consignee) {
-                filtered = filtered.filter(c => c.consignee.toLowerCase().includes(filters.consignee!.toLowerCase()));
-            }
             if (filters.dateRange?.from) {
                 const start = filters.dateRange.from;
                 const end = endOfDay(filters.dateRange.to || filters.dateRange.from);
@@ -397,14 +386,12 @@ export function DailyAforoCasesTable({ filters, setAllFetchedCases, displayCases
       (error: any) => {
         console.error("ERROR FETCHING DATA:", error);
         try {
-            // Attempt to create a rich error for developers.
             const permissionError = new FirestorePermissionError({
                 path: 'worksheets or AforoCases',
                 operation: 'list',
             }, error);
             errorEmitter.emit('permission-error', permissionError);
         } catch (e) {
-            // Fallback for any other error.
             setError(`Error de Firestore: ${error.message}. Es probable que necesite un índice. Revise la consola (F12).`);
             toast({ 
                 title: "Error al Cargar Datos de Aforo", 

@@ -106,11 +106,11 @@ export default function TheReporterPage() {
 
     const filtersToApply: typeof appliedDbFilters = {
         dateFilterType: dateFilterType,
+        dateRange: dateRange,
     };
 
     if (neInput.trim()) filtersToApply.ne = neInput.trim();
     if (consigneeInput.trim()) filtersToApply.consignee = consigneeInput.trim();
-    if (dateRange) filtersToApply.dateRange = dateRange;
 
     setAppliedDbFilters(filtersToApply);
 };
