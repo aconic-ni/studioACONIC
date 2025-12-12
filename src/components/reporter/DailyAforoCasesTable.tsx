@@ -36,8 +36,8 @@ import { FirestorePermissionError } from '@/firebase/errors';
 import { IncidentReportModal } from './IncidentReportModal';
 import { IncidentReportDetails } from './IncidentReportDetails';
 import { DatePickerWithTime } from '@/components/reports/DatePickerWithTime';
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '../ui/alert-dialog';
-import { Dialog, DialogHeader, DialogTitle, DialogDescription, DialogContent, DialogFooter } from '../ui/dialog';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
+import { Dialog, DialogHeader, DialogTitle, DialogDescription, DialogContent, DialogFooter } from '@/components/ui/dialog';
 import { WorksheetDetailModal } from './WorksheetDetailModal';
 import { ScrollArea } from '../ui/scroll-area';
 import { Anexo5Details } from '../executive/anexos/Anexo5Details';
@@ -289,7 +289,7 @@ export function DailyAforoCasesTable({ filters, setAllFetchedCases, displayCases
   useEffect(() => {
     if (!user) return;
     setIsLoading(true);
-  
+
     const fetchAssignableUsers = async () => {
         const usersMap = new Map<string, AppUser>();
         const rolesToFetch = ['aforador', 'coordinadora', 'supervisor', 'digitador'];
@@ -306,11 +306,9 @@ export function DailyAforoCasesTable({ filters, setAllFetchedCases, displayCases
                 snapshot.forEach(doc => {
                     const userData = { uid: doc.id, ...doc.data() } as AppUser;
                     if (!usersMap.has(userData.uid) && userData.displayName) {
-                         // Condition to add to revisor list
-                        if (userData.roleTitle === agentRoleTitle || (userData.role === 'supervisor' && userData.roleTitle === psmtSupervisorTitle)) {
+                         if (userData.roleTitle === agentRoleTitle || (userData.role === 'supervisor' && userData.roleTitle === psmtSupervisorTitle)) {
                            usersMap.set(userData.uid, userData);
                         }
-                        // General condition for other roles
                         else if (rolesToFetch.includes(userData.role as string)) {
                            usersMap.set(userData.uid, userData);
                         }
@@ -338,67 +336,72 @@ export function DailyAforoCasesTable({ filters, setAllFetchedCases, displayCases
       );
     }
     
-    const unsubscribe = onSnapshot(qCases, async (aforoSnapshot) => {
-        const aforoCasesData: AforoCase[] = aforoSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as AforoCase));
-        
-        const worksheetsSnap = await getDocs(collection(db, 'worksheets'));
-        const worksheetsMap = new Map(worksheetsSnap.docs.map(doc => [doc.id, { id: doc.id, ...doc.data() } as Worksheet]));
-
-        const combinedData = aforoCasesData
-            .map(caseItem => ({
-                ...caseItem,
-                worksheet: worksheetsMap.get(caseItem.worksheetId || '') || null,
-            }));
+    try {
+        const unsubscribe = onSnapshot(qCases, async (aforoSnapshot) => {
+            const aforoCasesData: AforoCase[] = aforoSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as AforoCase));
             
-        const auditLogPromises = combinedData.map(async (caseItem) => {
-            const updatesRef = collection(db, 'AforoCases', caseItem.id, 'actualizaciones');
-            const updatesSnapshot = await getDocs(query(updatesRef, orderBy('updatedAt', 'desc')));
-            return {
-                caseId: caseItem.id,
-                logs: updatesSnapshot.docs.map(doc => doc.data() as AforoCaseUpdate)
-            };
-        });
-        
-        const auditLogsResults = await Promise.all(auditLogPromises);
-        const newAuditLogs = new Map<string, AforoCaseUpdate[]>();
-        auditLogsResults.forEach(result => {
-            newAuditLogs.set(result.caseId, result.logs);
-        });
-        setCaseAuditLogs(newAuditLogs);
+            const worksheetsSnap = await getDocs(collection(db, 'worksheets'));
+            const worksheetsMap = new Map(worksheetsSnap.docs.map(doc => [doc.id, { id: doc.id, ...doc.data() } as Worksheet]));
 
-        let filtered = combinedData;
-        const isSearchActive = !!(filters.ne?.trim() || filters.consignee?.trim() || filters.dateRange?.from);
-        
-        if (!isSearchActive) {
-            filtered = filtered.filter(c => 
-                !c.digitacionStatus || c.digitacionStatus === 'Pendiente'
-            );
-        }
-        
-        if (filters.ne) {
-          filtered = filtered.filter(c => c.ne.toUpperCase().includes(filters.ne!.toUpperCase()));
-        }
-        if (filters.consignee) {
-          filtered = filtered.filter(c => c.consignee.toLowerCase().includes(filters.consignee!.toLowerCase()));
-        }
-        if (filters.dateRange?.from) {
-          const start = filters.dateRange.from;
-          const end = endOfDay(filters.dateRange.to || filters.dateRange.from);
-          filtered = filtered.filter(c => {
-            const caseDate = (c.createdAt as Timestamp)?.toDate();
-            return caseDate && caseDate >= start && caseDate <= end;
-          });
-        }
-      
-        setAllFetchedCases(filtered);
-        setIsLoading(false);
-    }, (error) => {
-        console.error("Error fetching cases:", error);
-        toast({ title: "Error de Carga", description: "No se pudieron cargar los casos. Verifique los índices de Firestore.", variant: "destructive" });
-        setIsLoading(false);
-    });
+            const combinedData = aforoCasesData
+                .map(caseItem => ({
+                    ...caseItem,
+                    worksheet: worksheetsMap.get(caseItem.worksheetId || '') || null,
+                }));
+                
+            const auditLogPromises = combinedData.map(async (caseItem) => {
+                const updatesRef = collection(db, 'AforoCases', caseItem.id, 'actualizaciones');
+                const updatesSnapshot = await getDocs(query(updatesRef, orderBy('updatedAt', 'desc')));
+                return {
+                    caseId: caseItem.id,
+                    logs: updatesSnapshot.docs.map(doc => doc.data() as AforoCaseUpdate)
+                };
+            });
+            
+            const auditLogsResults = await Promise.all(auditLogPromises);
+            const newAuditLogs = new Map<string, AforoCaseUpdate[]>();
+            auditLogsResults.forEach(result => {
+                newAuditLogs.set(result.caseId, result.logs);
+            });
+            setCaseAuditLogs(newAuditLogs);
 
-    return () => unsubscribe();
+            let filtered = combinedData;
+            const isSearchActive = !!(filters.ne?.trim() || filters.consignee?.trim() || filters.dateRange?.from);
+            
+            if (!isSearchActive) {
+                filtered = filtered.filter(c => 
+                    !c.digitacionStatus || c.digitacionStatus === 'Pendiente'
+                );
+            }
+            
+            if (filters.ne) {
+              filtered = filtered.filter(c => c.ne.toUpperCase().includes(filters.ne!.toUpperCase()));
+            }
+            if (filters.consignee) {
+              filtered = filtered.filter(c => c.consignee.toLowerCase().includes(filters.consignee!.toLowerCase()));
+            }
+            if (filters.dateRange?.from) {
+              const start = filters.dateRange.from;
+              const end = endOfDay(filters.dateRange.to || filters.dateRange.from);
+              filtered = filtered.filter(c => {
+                const caseDate = (c.createdAt as Timestamp)?.toDate();
+                return caseDate && caseDate >= start && caseDate <= end;
+              });
+            }
+          
+            setAllFetchedCases(filtered);
+            setIsLoading(false);
+        }, (error) => {
+            console.error("Error fetching cases:", error);
+            toast({ title: "Error de Carga", description: "No se pudieron cargar los casos. Verifique los índices de Firestore.", variant: "destructive" });
+            setIsLoading(false);
+        });
+        return () => unsubscribe();
+    } catch (error: any) {
+        console.error("Error setting up Firestore listener:", error);
+        toast({ title: "Error de Consulta", description: "La consulta a Firestore falló. Es posible que falte un índice. Revise la consola del navegador.", variant: "destructive", duration: 10000 });
+        setIsLoading(false);
+    }
   }, [user, filters, setAllFetchedCases, toast]);
   
   const handleRequestRevalidation = async (caseItem: AforoCase) => {
