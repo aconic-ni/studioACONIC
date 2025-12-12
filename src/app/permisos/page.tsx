@@ -1,24 +1,25 @@
-
 "use client";
 
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
 import { AppShell } from '@/components/layout/AppShell';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Loader2, Search, SlidersHorizontal, MessageSquare } from 'lucide-react';
+import { Loader2, Search, SlidersHorizontal, MessageSquare, Download, Upload } from 'lucide-react';
 import { db } from '@/lib/firebase';
-import { collection, query, onSnapshot, orderBy, Timestamp, where, type Query, getDocs, collectionGroup } from 'firebase/firestore';
+import { collection, query, onSnapshot, orderBy, Timestamp, where, type Query, getDocs, collectionGroup, doc, getDoc, writeBatch } from 'firebase/firestore';
 import type { Worksheet, RequiredPermit, AppUser } from '@/types';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { format } from 'date-fns';
+import { format, parse } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { MobilePermitCard } from '@/components/permisos/MobilePermitCard';
-import { PermitCommentModal } from '@/components/executive/PermitCommentModal';
+import { PermitCommentModal } from '../executive/PermitCommentModal';
+import { useToast } from '@/hooks/use-toast';
+import * as XLSX from 'xlsx';
 
 
 export interface PermitRow extends RequiredPermit {
@@ -38,6 +39,7 @@ export default function PermisosPage() {
   const { user, loading: authLoading } = useAuth();
   const router = useRouter();
   const isMobile = useIsMobile();
+  const { toast } = useToast();
   
   const [allPermits, setAllPermits] = useState<PermitRow[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -45,6 +47,8 @@ export default function PermisosPage() {
   const [focusMode, setFocusMode] = useState(true);
   const [userConsigneeDirectory, setUserConsigneeDirectory] = useState<string[]>([]);
   const [selectedPermitForComment, setSelectedPermitForComment] = useState<PermitRow | null>(null);
+  const [isImporting, setIsImporting] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -88,7 +92,7 @@ export default function PermisosPage() {
         if (user.role === 'admin' || user.role === 'supervisor' || user.role === 'coordinadora') {
             q = query(worksheetsRef, orderBy('createdAt', 'desc'));
         } else if (user.role === 'ejecutivo' && user.visibilityGroup && user.visibilityGroup.length > 0) {
-            const uidsToQuery = Array.from(new Set([user.uid, ...user.visibilityGroup]));
+            const uidsToQuery = Array.from(new Set([user.uid, ...user.visibilityGroup.map(m => m.uid)]));
             
             const usersQuery = query(collection(db, 'users'), where('__name__', 'in', uidsToQuery));
             const userDocs = await getDocs(usersQuery);
@@ -158,6 +162,96 @@ export default function PermisosPage() {
             return 'outline';
     }
   }
+
+  const handleDownloadTemplate = () => {
+    const headers = ["NE", "Permiso", "Factura", "Estado", "FechaTramite", "FechaEntregaEstimada", "AsignadoA"];
+    const ws = XLSX.utils.aoa_to_sheet([headers]);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Plantilla Permisos");
+    XLSX.writeFile(wb, "plantilla_permisos.xlsx");
+  };
+
+  const handleFileImport = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    setIsImporting(true);
+    toast({ title: "Importando...", description: "Procesando el archivo Excel." });
+
+    const reader = new FileReader();
+    reader.onload = async (e) => {
+        try {
+            const data = new Uint8Array(e.target?.result as ArrayBuffer);
+            const workbook = XLSX.read(data, { type: 'array' });
+            const sheetName = workbook.SheetNames[0];
+            const worksheet = workbook.Sheets[sheetName];
+            const json: any[] = XLSX.utils.sheet_to_json(worksheet);
+
+            const batch = writeBatch(db);
+            let updatedCount = 0;
+
+            for (const row of json) {
+                const ne = row['NE']?.toString().trim();
+                const permitName = row['Permiso']?.toString().trim();
+                
+                if (!ne || !permitName) continue;
+
+                const wsRef = doc(db, 'worksheets', ne);
+                const wsSnap = await getDoc(wsRef);
+
+                if (wsSnap.exists()) {
+                    const wsData = wsSnap.data() as Worksheet;
+                    const permits = wsData.requiredPermits || [];
+                    const existingPermitIndex = permits.findIndex(p => p.name === permitName);
+
+                    const parseDate = (dateStr: string | number) => {
+                        if (!dateStr) return null;
+                        const parsed = typeof dateStr === 'number' 
+                            ? new Date(Date.UTC(0, 0, dateStr - 1))
+                            : parse(dateStr, 'dd/MM/yyyy', new Date());
+                        return isNaN(parsed.getTime()) ? null : Timestamp.fromDate(parsed);
+                    };
+
+                    const permitData: Partial<RequiredPermit> = {
+                        name: permitName,
+                        facturaNumber: row['Factura'] || undefined,
+                        status: row['Estado'] || 'Pendiente',
+                        tramiteDate: parseDate(row['FechaTramite']),
+                        estimatedDeliveryDate: parseDate(row['FechaEntregaEstimada']),
+                        assignedExecutive: row['AsignadoA'] || wsData.executive,
+                    };
+                    
+                    if (existingPermitIndex !== -1) {
+                        permits[existingPermitIndex] = { ...permits[existingPermitIndex], ...permitData };
+                    } else {
+                        permits.push({ id: uuidv4(), ...permitData } as RequiredPermit);
+                    }
+                    
+                    batch.update(wsRef, { requiredPermits: permits });
+                    updatedCount++;
+                }
+            }
+
+            if (updatedCount > 0) {
+                await batch.commit();
+                toast({ title: "Importación Completa", description: `${updatedCount} registros de permisos han sido actualizados/añadidos.` });
+            } else {
+                 toast({ title: "Sin Cambios", description: "No se encontraron NEs coincidentes en el archivo para actualizar." });
+            }
+
+        } catch (error: any) {
+            console.error("Error al importar el archivo: ", error);
+            toast({ title: "Error de Importación", description: error.message || "Hubo un problema al leer el archivo Excel.", variant: "destructive" });
+        } finally {
+            setIsImporting(false);
+            if (fileInputRef.current) {
+                fileInputRef.current.value = "";
+            }
+        }
+    };
+    reader.readAsArrayBuffer(file);
+  };
+
 
   if (authLoading || !user) {
     return <div className="min-h-screen flex items-center justify-center bg-background"><Loader2 className="h-12 w-12 animate-spin text-primary" /></div>;
@@ -245,25 +339,36 @@ export default function PermisosPage() {
                     <CardTitle className="text-2xl font-semibold">Gestión de Permisos</CardTitle>
                     <CardDescription>Seguimiento del estado de todos los permisos requeridos.</CardDescription>
                 </div>
-                 <div className="relative w-full sm:max-w-md">
+                 <div className="flex flex-col sm:flex-row gap-2">
+                    <input type="file" ref={fileInputRef} onChange={handleFileImport} className="hidden" accept=".xlsx, .xls" />
+                    <Button onClick={() => fileInputRef.current?.click()} variant="outline" disabled={isImporting}>
+                        {isImporting ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : <Upload className="mr-2 h-4 w-4" />}
+                        Importar Permisos
+                    </Button>
+                    <Button onClick={handleDownloadTemplate} variant="outline">
+                        <Download className="mr-2 h-4 w-4" /> Descargar Plantilla
+                    </Button>
+                </div>
+            </div>
+             <div className="flex flex-col sm:flex-row items-center space-x-4 pt-4 border-t mt-4">
+                 <div className="relative flex-grow w-full sm:w-auto">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
                     <Input 
                         placeholder="Buscar por NE, Referencia, Factura, Ejecutivo, Permiso o Consignatario..."
-                        className="pl-10"
+                        className="pl-10 w-full"
                         value={searchTerm}
                         onChange={e => setSearchTerm(e.target.value)}
                     />
                  </div>
-            </div>
-             <div className="flex items-center space-x-4 pt-4 border-t mt-4">
                 <Button 
                     variant={focusMode ? 'secondary' : 'ghost'} 
                     onClick={() => setFocusMode(!focusMode)}
+                    className="w-full sm:w-auto"
                 >
                     <SlidersHorizontal className="mr-2 h-4 w-4"/>
                     {focusMode ? 'Pendientes' : 'Viendo Todos'}
                 </Button>
-                <p className="text-sm text-muted-foreground">
+                <p className="text-sm text-muted-foreground w-full sm:w-auto text-center sm:text-left">
                     Total de permisos: {filteredPermits.length}
                 </p>
             </div>
@@ -280,9 +385,7 @@ export default function PermisosPage() {
             onClose={() => setSelectedPermitForComment(null)}
             permit={selectedPermitForComment}
             worksheetId={selectedPermitForComment.ne}
-            onCommentsUpdate={(newComments) => {
-                 setAllPermits(prev => prev.map(p => p.id === selectedPermitForComment.id ? {...p, comments: newComments} : p));
-            }}
+            onCommentsUpdate={() => {}}
         />
     )}
     </>
