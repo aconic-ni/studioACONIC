@@ -1,4 +1,3 @@
-
 "use client";
 import React, { useEffect, useState, useMemo, useCallback, Suspense } from 'react';
 import { useForm, Controller, useFieldArray } from 'react-hook-form';
@@ -194,18 +193,31 @@ function WorksheetForm() {
       setEditingWorksheetId(id);
       const fetchWorksheet = async () => {
         const wsDocRef = doc(db, 'worksheets', id);
-        const wsSnap = await getDoc(wsDocRef);
+        const aforoCaseDocRef = doc(db, 'AforoCases', id);
+  
+        const [wsSnap, aforoCaseSnap] = await Promise.all([
+          getDoc(wsDocRef),
+          getDoc(aforoCaseDocRef)
+        ]);
+  
         if (wsSnap.exists()) {
-          const data = {id: wsSnap.id, ...wsSnap.data()} as Worksheet;
-          setOriginalWorksheet(data);
-          // Convert Firestore Timestamps to JS Dates for the form
+          const wsData = {id: wsSnap.id, ...wsSnap.data()} as Worksheet;
+          const aforoCaseData = aforoCaseSnap.exists() ? aforoCaseSnap.data() as AforoCase : null;
+          
+          setOriginalWorksheet(wsData);
+  
+          // Prioritize AforoCase data for RESA if it exists
+          const resaNumber = aforoCaseData?.resaNumber || wsData.resa;
+          const resaNotificationDate = aforoCaseData?.resaNotificationDate?.toDate() || wsData.resaNotificationDate?.toDate();
+          const resaDueDate = aforoCaseData?.resaDueDate?.toDate() || wsData.resaDueDate?.toDate();
+  
           const formData: Partial<WorksheetFormData> = {
-            ...data,
-            eta: data.eta?.toDate(),
-            resa: data.resa || '',
-            resaNotificationDate: data.resaNotificationDate?.toDate() || null,
-            resaDueDate: data.resaDueDate?.toDate() || null,
-            requiredPermits: (data.requiredPermits || []).map((p: any) => ({
+            ...wsData,
+            eta: wsData.eta?.toDate(),
+            resa: resaNumber || '',
+            resaNotificationDate: resaNotificationDate || null,
+            resaDueDate: resaDueDate || null,
+            requiredPermits: (wsData.requiredPermits || []).map((p: any) => ({
               ...p,
               tramiteDate: p.tramiteDate?.toDate(),
               estimatedDeliveryDate: p.estimatedDeliveryDate?.toDate(),
@@ -896,36 +908,14 @@ function WorksheetForm() {
             </div>
              
              <div className="lg:col-span-3 pt-4 border-t">
-                 <FormField
-                    control={form.control}
-                    name="resa"
-                    render={({ field }) => (
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
-                            <FormItem className="md:col-span-1">
-                                <FormLabel>RESA No</FormLabel>
-                                <FormControl><Input {...field} placeholder="Número de RESA" /></FormControl>
-                                <FormMessage />
-                            </FormItem>
-                            <FormField
-                                control={form.control}
-                                name="resaNotificationDate"
-                                render={({ field: dateField }) => (
-                                    <FormItem className="flex flex-col">
-                                        <FormLabel>Fecha Notificación RESA</FormLabel>
-                                        <FormControl>
-                                            <DatePicker date={dateField.value ?? undefined} onDateChange={dateField.onChange} />
-                                        </FormControl>
-                                        <FormMessage />
-                                    </FormItem>
-                                )}
-                            />
-                            <FormItem>
-                                <FormLabel>Fecha Vencimiento RESA</FormLabel>
-                                <Input value={form.getValues('resaDueDate')?.toLocaleDateString('es-NI') || 'N/A'} readOnly className="bg-muted/50" />
-                            </FormItem>
-                        </div>
-                    )}
-                />
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
+                    <FormField control={form.control} name="resa" render={({ field }) => (<FormItem><FormLabel>RESA No</FormLabel><FormControl><Input {...field} placeholder="Número de RESA" /></FormControl><FormMessage /></FormItem>)} />
+                    <FormField control={form.control} name="resaNotificationDate" render={({ field: dateField }) => (<FormItem className="flex flex-col"><FormLabel>Fecha Notificación RESA</FormLabel><FormControl><DatePicker date={dateField.value ?? undefined} onDateChange={dateField.onChange} /></FormControl><FormMessage /></FormItem>)} />
+                    <FormItem>
+                        <FormLabel>Fecha Vencimiento RESA</FormLabel>
+                        <Input value={form.getValues('resaDueDate')?.toLocaleDateString('es-NI') || 'N/A'} readOnly className="bg-muted/50" />
+                    </FormItem>
+                </div>
              </div>
             
             <div className="lg:col-span-3 pt-4 border-t">
@@ -1249,5 +1239,3 @@ export default function WorksheetPage() {
         </AppShell>
     )
 }
-
-    
