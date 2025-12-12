@@ -34,7 +34,7 @@ export default function DashboardPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const allowedRoles = ['aforador', 'coordinadora', 'admin', 'ejecutivo'];
+  const allowedRoles = ['aforador', 'coordinadora', 'admin', 'ejecutivo', 'supervisor'];
 
   const fetchData = async () => {
     setIsLoading(true);
@@ -146,7 +146,7 @@ export default function DashboardPage() {
   
   const getDefaultTab = () => {
     if(user.role === 'ejecutivo') return 'ejecutivo';
-    if(user.role === 'admin') return 'ejecutivo';
+    if(user.role === 'admin' || user.role === 'supervisor') return 'ejecutivo';
     if(user.role === 'coordinadora' || user.role === 'aforador') return 'previos';
     return 'ejecutivo';
   }
@@ -156,12 +156,12 @@ export default function DashboardPage() {
         <Tabs defaultValue={getDefaultTab()} className="space-y-4">
             <div className="flex items-center justify-between">
                 <TabsList>
-                    {(user.role === 'ejecutivo' || user.role === 'admin' || user.role === 'coordinadora') && <TabsTrigger value="ejecutivo">Dashboard Ejecutivo</TabsTrigger>}
-                    {(user.role === 'coordinadora' || user.role === 'aforador' || user.role === 'admin') && <TabsTrigger value="previos">Dashboard de Previos</TabsTrigger>}
-                    {(user.role === 'coordinadora' || user.role === 'aforador' || user.role === 'admin') && <TabsTrigger value="aforo">Dashboard de Aforo</TabsTrigger>}
+                    {(user.role === 'ejecutivo' || user.role === 'admin' || user.role === 'coordinadora' || user.role === 'supervisor') && <TabsTrigger value="ejecutivo">Dashboard Ejecutivo</TabsTrigger>}
+                    {(user.role === 'coordinadora' || user.role === 'aforador' || user.role === 'admin' || user.role === 'supervisor') && <TabsTrigger value="previos">Dashboard de Previos</TabsTrigger>}
+                    {(user.role === 'coordinadora' || user.role === 'aforador' || user.role === 'admin' || user.role === 'supervisor') && <TabsTrigger value="aforo">Dashboard de Aforo</TabsTrigger>}
                 </TabsList>
             </div>
-            {(user.role === 'ejecutivo' || user.role === 'admin' || user.role === 'coordinadora') && (
+            {(user.role === 'ejecutivo' || user.role === 'admin' || user.role === 'coordinadora' || user.role === 'supervisor') && (
               <TabsContent value="ejecutivo">
                   <ExecutiveDashboard 
                     allCases={allAforoCases} 
@@ -170,7 +170,7 @@ export default function DashboardPage() {
                   />
               </TabsContent>
             )}
-            {(user.role === 'coordinadora' || user.role === 'aforador' || user.role === 'admin') && (
+            {(user.role === 'coordinadora' || user.role === 'aforador' || user.role === 'admin' || user.role === 'supervisor') && (
               <>
                 <TabsContent value="previos">
                     <PrevioDashboard allExams={allExams} />
