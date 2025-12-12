@@ -40,6 +40,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { WorksheetDetailModal } from './WorksheetDetailModal';
 import { ScrollArea } from '../ui/scroll-area';
 import { Anexo5Details } from '../executive/anexos/Anexo5Details';
+import { Dialog, DialogDescription, DialogHeader, DialogTitle } from '../ui/dialog';
 
 
 interface DailyAforoCasesTableProps {
@@ -1071,7 +1072,7 @@ export function DailyAforoCasesTable({ filters, setAllFetchedCases, displayCases
                   <DialogTitle>Asignar Estatus de Aforador Masivo</DialogTitle>
                   <DialogDescription>Seleccione el estatus a aplicar a los {selectedRows.length} casos seleccionados.</DialogDescription>
               </DialogHeader>
-              <Select onValueChange={(value) => { handleBulkAction('aforadorStatus', value); setStatusModal({isOpen: false}); }}>
+              <Select onValueChange={(value) => { handleBulkAction('aforadorStatus', value); }}>
                 <SelectTrigger><SelectValue placeholder="Seleccionar estatus..." /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="Pendiente ">Pendiente </SelectItem>
