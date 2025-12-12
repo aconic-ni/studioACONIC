@@ -238,20 +238,26 @@ export function AddProductModal() {
 
       if (editingSolicitud) {
         const montoForForm = editingSolicitud.monto ?? 0;
-
+        
         const populatedEditingSolicitud: SolicitudFormData = {
-          ...initialValues, 
-          ...editingSolicitud, 
-          monto: montoForForm, 
-          correo: editingSolicitud.correo || defaultCorreo, 
-          soporte: editingSolicitud.soporte ?? false, 
+          ...initialValues,
+          ...editingSolicitud,
+          monto: montoForForm,
+          correo: editingSolicitud.correo || defaultCorreo,
+          soporte: editingSolicitud.soporte ?? false,
           pagoServicios: editingSolicitud.pagoServicios ?? false,
+          impuestosPagadosCliente: editingSolicitud.impuestosPagadosCliente ?? false,
+          impuestosPendientesCliente: editingSolicitud.impuestosPendientesCliente ?? false,
+          documentosAdjuntos: editingSolicitud.documentosAdjuntos ?? false,
+          constanciasNoRetencion: editingSolicitud.constanciasNoRetencion ?? false,
+          constanciasNoRetencion1: editingSolicitud.constanciasNoRetencion1 ?? false,
+          constanciasNoRetencion2: editingSolicitud.constanciasNoRetencion2 ?? false,
+          banco: editingSolicitud.banco || undefined,
+          monedaCuenta: editingSolicitud.monedaCuenta || undefined,
           tipoServicio: editingSolicitud.tipoServicio as SolicitudFormData['tipoServicio'] || undefined,
-          otrosTipoServicio: editingSolicitud.otrosTipoServicio || '',
-          facturaServicio: editingSolicitud.facturaServicio || '',
-          institucionServicio: editingSolicitud.institucionServicio || '',
           memorandumCollaborators: editingSolicitud.memorandumCollaborators || [],
         };
+
         form.reset(populatedEditingSolicitud);
         setShowBancoOtros(editingSolicitud.banco === 'Otros');
         setShowMonedaCuentaOtros(editingSolicitud.monedaCuenta === 'Otros');
