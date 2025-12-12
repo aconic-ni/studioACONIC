@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Loader2, FilePlus, Search, Edit, Eye, History, PlusSquare, UserCheck, Inbox, AlertTriangle, Download, ChevronsUpDown, Info, CheckCircle, CalendarRange, Calendar, CalendarDays, ShieldAlert, BookOpen, FileCheck2, MessageSquare, View, Banknote, Bell as BellIcon, RefreshCw, Send, StickyNote, Scale, Briefcase } from 'lucide-react';
 import { db } from '@/lib/firebase';
-import { collection, query, where, onSnapshot, orderBy, Timestamp, doc, getDoc, updateDoc, writeBatch, addDoc, getDocs, collectionGroup, serverTimestamp } from 'firebase/firestore';
+import { collection, query, where, onSnapshot, orderBy, Timestamp, doc, getDoc, updateDoc, writeBatch, addDoc, getDocs, collectionGroup, serverTimestamp, limit } from 'firebase/firestore';
 import type { Worksheet, AforoCase, AforadorStatus, AforoCaseStatus, DigitacionStatus, WorksheetWithCase, AforoCaseUpdate, PreliquidationStatus, IncidentType, LastUpdateInfo, ExecutiveComment, InitialDataContext, AppUser, SolicitudRecord, ExamDocument, FacturacionStatus } from '@/types';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { format, toDate, isSameDay, startOfDay, endOfDay, startOfMonth, endOfMonth, differenceInDays } from 'date-fns';
@@ -164,7 +164,7 @@ function ExecutivePageContent() {
     noFacturado: true,
     dateFilterType: 'range' as DateFilterType,
     dateRange: undefined as DateRange | undefined,
-    isSearchActive: false, // New flag to track if a search has been performed
+    isSearchActive: false, // Flag to track if a search has been performed
   });
   
   const [neFilter, setNeFilter] = useState('');
@@ -186,29 +186,45 @@ function ExecutivePageContent() {
     }
   }, [user, authLoading, router]);
 
-   const fetchCases = useCallback(async () => {
-    if (!user) return () => {};
+   const fetchCases = useCallback(async (isSearch: boolean = false, searchFilters?: typeof appliedFilters) => {
+    if (!user) return;
     setIsLoading(true);
-    
-    const globalVisibilityRoles = ['admin', 'supervisor', 'coordinadora'];
-    const groupVisibilityRoles = ['ejecutivo'];
-    let aforoQuery;
 
-    if (user.role && globalVisibilityRoles.includes(user.role)) {
-      aforoQuery = query(collection(db, 'AforoCases'));
-    } else if (user.role && groupVisibilityRoles.includes(user.role)) {
-      const groupDisplayNames = Array.from(new Set([user.displayName, ...(user.visibilityGroup?.map(m => m.displayName) || [])])).filter(Boolean) as string[];
-             if (groupDisplayNames.length > 0) {
-                aforoQuery = query(collection(db, 'AforoCases'), where("executive", "in", groupDisplayNames));
-            } else {
-                aforoQuery = query(collection(db, 'AforoCases'), where('executive', '==', user.displayName));
+    const constructQuery = () => {
+        let q = query(collection(db, 'AforoCases'), orderBy('createdAt', 'desc'));
+
+        const currentFilters = isSearch ? searchFilters : appliedFilters;
+
+        // Visibility filter based on role
+        const globalVisibilityRoles = ['admin', 'supervisor', 'coordinadora'];
+        const groupVisibilityRoles = ['ejecutivo'];
+        if (user.role && groupVisibilityRoles.includes(user.role) && user.visibilityGroup) {
+            const groupDisplayNames = Array.from(new Set([user.displayName, ...user.visibilityGroup.map(m => m.displayName)].filter(Boolean) as string[]));
+            if (groupDisplayNames.length > 0) {
+                q = query(q, where("executive", "in", groupDisplayNames));
             }
-    } else {
-      aforoQuery = query(collection(db, 'AforoCases'), where('executive', '==', user.displayName));
-    }
+        } else if (user.role === 'ejecutivo') {
+            q = query(q, where('executive', '==', user.displayName));
+        }
+        // Admin/Supervisor/Coord see all, no extra where clause needed for them
 
+        if (isSearch && currentFilters) {
+            if (currentFilters.dateRange?.from) {
+                const start = startOfDay(currentFilters.dateRange.from);
+                const end = currentFilters.dateRange.to ? endOfDay(currentFilters.dateRange.to) : endOfDay(start);
+                q = query(q, where('createdAt', '>=', start), where('createdAt', '<=', end));
+            }
+        } else {
+             q = query(q, limit(15));
+        }
 
-    const unsubscribe = onSnapshot(aforoQuery, async (aforoSnapshot) => {
+        return q;
+    };
+    
+    const aforoQuery = constructQuery();
+
+    try {
+        const aforoSnapshot = await getDocs(aforoQuery);
         const aforoCasesData = aforoSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as AforoCase));
         
         const [worksheetsSnap, examenesSnap, solicitudesSnap, memorandumSnap] = await Promise.all([
@@ -251,23 +267,17 @@ function ExecutivePageContent() {
         const combinedData = await Promise.all(combinedDataPromises);
         
         setAllCases(combinedData);
-        setIsLoading(false);
-    }, (error) => {
+    } catch (error) {
         console.error("Error fetching aforo cases:", error);
         toast({ title: "Error de Carga", description: "No se pudieron cargar los datos de los casos.", variant: "destructive" });
+    } finally {
         setIsLoading(false);
-    });
-
-    return () => unsubscribe();
-}, [user, toast]);
+    }
+}, [user, toast, appliedFilters]);
   
 
   useEffect(() => {
-    let unsubscribe: () => void;
-    fetchCases().then(unsub => {
-        if(unsub) unsubscribe = unsub;
-    });
-
+    fetchCases();
     const fetchAssignableUsers = async () => {
         const usersQuery = query(collection(db, 'users'), where('role', 'in', ['aforador', 'coordinadora']));
         const querySnapshot = await getDocs(usersQuery);
@@ -275,10 +285,6 @@ function ExecutivePageContent() {
         setAssignableUsers(users);
     };
     fetchAssignableUsers();
-
-    return () => {
-        if(unsubscribe) unsubscribe();
-    };
   }, [fetchCases]);
   
   const handleAssignAforador = async (caseId: string, aforadorName: string) => {
@@ -334,6 +340,7 @@ function ExecutivePageContent() {
     try {
       await batch.commit();
       toast({ title: "Caso Archivado", description: "El caso ha sido movido al archivo." });
+      fetchCases(); // Refresh data
       setCaseToArchive(null); // Close the dialog
     } catch (error) {
       console.error("Error archiving case:", error);
@@ -404,14 +411,16 @@ function ExecutivePageContent() {
         dateRange = { from: today, to: today };
     }
 
-    setAppliedFilters({
+    const newFilters = {
       searchTerm,
       ...facturadoFilter,
       dateFilterType: dateFilterType,
       dateRange: dateRange,
-      isSearchActive: true, // Mark search as active
-    });
-    setCurrentPage(1); // Reset to first page on new search
+      isSearchActive: true,
+    };
+    setAppliedFilters(newFilters);
+    setCurrentPage(1); 
+    fetchCases(true, newFilters);
   };
   
   const handleExport = async () => {
@@ -495,6 +504,7 @@ function ExecutivePageContent() {
     setIncidentTypeFilter('');
     setAppliedFilters({ searchTerm: '', facturado: false, noFacturado: true, dateFilterType: 'range', dateRange: undefined, isSearchActive: false });
     setCurrentPage(1);
+    fetchCases(); // Fetch initial 15
   };
   
   const handleSendToFacturacion = async (caseId: string) => {
@@ -538,32 +548,10 @@ function ExecutivePageContent() {
     } else if (activeTab === 'corporate') {
         filtered = filtered.filter(c => c.worksheet?.worksheetType === 'corporate_report');
     }
-
+    
     if (appliedFilters.isSearchActive) {
-      if (appliedFilters.searchTerm) {
-          filtered = filtered.filter(c =>
-            c.ne.toLowerCase().includes(appliedFilters.searchTerm.toLowerCase()) ||
-            c.consignee.toLowerCase().includes(appliedFilters.searchTerm.toLowerCase())
-          );
-      }
-      
-      if (appliedFilters.noFacturado && !appliedFilters.facturado) {
-          filtered = filtered.filter(c => !c.facturado);
-      } else if (appliedFilters.facturado && !appliedFilters.noFacturado) {
-          filtered = filtered.filter(c => c.facturado === true);
-      }
-  
-      if (appliedFilters.dateRange?.from) {
-          const start = startOfDay(appliedFilters.dateRange.from);
-          const end = appliedFilters.dateRange.to ? endOfDay(appliedFilters.dateRange.to) : endOfDay(appliedFilters.dateRange.from);
-          
-          filtered = filtered.filter(c => {
-              if (!c.createdAt) return false;
-              const createdAtDate = c.createdAt.toDate();
-              return createdAtDate >= start && createdAtDate <= end;
-          });
-      }
-  
+      // These filters are now applied on the backend for the initial fetch.
+      // We apply them again on the client side for refinement and column filtering.
       if (neFilter) filtered = filtered.filter(c => c.ne.toLowerCase().includes(neFilter.toLowerCase()));
       if (ejecutivoFilter) filtered = filtered.filter(c => c.executive.toLowerCase().includes(ejecutivoFilter.toLowerCase()));
       if (consignatarioFilter) filtered = filtered.filter(c => c.consignee.toLowerCase().includes(consignatarioFilter.toLowerCase()));
@@ -580,14 +568,16 @@ function ExecutivePageContent() {
       if (incidentTypeFilter) filtered = filtered.filter(c => getIncidentTypeDisplay(c).toLowerCase().includes(incidentTypeFilter.toLowerCase()));
       
       return filtered;
-    } else {
-        // Not searching, return top 15 of the current tab
-        return filtered;
     }
+    
+    return filtered;
+
   }, [allCases, appliedFilters, activeTab, neFilter, ejecutivoFilter, consignatarioFilter, facturaFilter, selectividadFilter, incidentTypeFilter]);
   
   const totalPages = Math.ceil(filteredCases.length / itemsPerPage);
-  const paginatedCases = appliedFilters.isSearchActive ? filteredCases.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage) : filteredCases.slice(0, 15);
+  const paginatedCases = useMemo(() => {
+    return filteredCases.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
+  }, [filteredCases, currentPage, itemsPerPage]);
   
   const getDigitacionBadge = (status?: DigitacionStatus, declaracion?: string | null) => {
     const isCompleted = status === 'Trámite Completo';
@@ -641,6 +631,7 @@ function ExecutivePageContent() {
     await batch.commit();
     toast({ title: 'Éxito', description: `${selectedRows.length} preliquidaciones aprobadas.` });
     setSelectedRows([]);
+    fetchCases(); // Refresh
   };
 
   const handleSelectAllForPreliquidation = () => {
@@ -1046,7 +1037,7 @@ function ExecutivePageContent() {
                             </Popover>
                             <Button onClick={handleSearch}><Search className="mr-2 h-4 w-4" /> Buscar</Button>
                             <Button variant="outline" onClick={clearFilters}>Limpiar Filtros</Button>
-                                <Button variant="outline" onClick={fetchCases}>
+                                <Button variant="outline" onClick={() => fetchCases()}>
                                 <RefreshCw className="mr-2 h-4 w-4" /> Actualizar
                             </Button>
                             <Button onClick={handleExport} disabled={paginatedCases.length === 0 || isExporting}>
@@ -1155,13 +1146,4 @@ export default function ExecutivePage() {
         </Suspense>
     )
 }
-    
-
-    
-
-
-
-
-    
-
     

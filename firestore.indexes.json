@@ -71,6 +71,23 @@
         "fields": [
           { "fieldPath": "resolvedAt", "order": "DESCENDING" }
         ]
+      },
+      {
+        "collectionGroup": "AforoCases",
+        "queryScope": "COLLECTION",
+        "fields": [
+          { "fieldPath": "executive", "order": "ASCENDING" },
+          { "fieldPath": "createdAt", "order": "DESCENDING" }
+        ]
+      },
+      {
+        "collectionGroup": "AforoCases",
+        "queryScope": "COLLECTION",
+        "fields": [
+          { "fieldPath": "executive", "order": "ASCENDING" },
+          { "fieldPath": "facturacionStatus", "order": "ASCENDING" },
+          { "fieldPath": "createdAt", "order": "DESCENDING" }
+        ]
       }
     ],
     "fieldOverrides": []
