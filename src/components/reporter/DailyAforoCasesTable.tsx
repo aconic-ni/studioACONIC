@@ -290,71 +290,100 @@ export function DailyAforoCasesTable({ filters, setAllFetchedCases, displayCases
     if (!user) return;
     setIsLoading(true);
     setError(null);
-
+  
     const fetchAssignableUsers = async () => {
-      // This part can remain as is, it's not the primary source of slowness.
+      // Logic to fetch users...
     };
     fetchAssignableUsers();
-
-    const qCases = query(
-        collection(db, 'AforoCases'),
-        where('worksheet.worksheetType', 'in', ['hoja_de_trabajo', null]),
-        orderBy('createdAt', 'desc')
+  
+    const worksheetsQuery = query(
+      collection(db, 'worksheets'),
+      where('worksheetType', 'in', ['hoja_de_trabajo', null])
     );
+  
+    const unsubscribe = onSnapshot(worksheetsQuery, 
+      async (worksheetsSnapshot) => {
+        const worksheetIds = worksheetsSnapshot.docs.map(doc => doc.id);
+        const worksheetsMap = new Map(worksheetsSnapshot.docs.map(doc => [doc.id, { id: doc.id, ...doc.data() } as Worksheet]));
+        
+        if (worksheetIds.length === 0) {
+          setAllFetchedCases([]);
+          setIsLoading(false);
+          return;
+        }
 
-    const unsubscribe = onSnapshot(qCases, 
-      async (snapshot) => {
-        const aforoCasesData: AforoCase[] = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as AforoCase));
-        
-        const worksheetsSnap = await getDocs(collection(db, 'worksheets'));
-        const worksheetsMap = new Map(worksheetsSnap.docs.map(doc => [doc.id, { id: doc.id, ...doc.data() } as Worksheet]));
-
-        const combinedData = aforoCasesData.map(caseItem => ({
-                ...caseItem,
-                worksheet: worksheetsMap.get(caseItem.worksheetId || '') || null,
-            }));
-        
-        let filtered = combinedData;
-        const isSearchActive = !!(filters.ne?.trim() || filters.consignee?.trim() || filters.dateRange?.from);
-        
-        if (!isSearchActive) {
-            filtered = filtered.filter(c => 
-                !c.digitacionStatus || c.digitacionStatus === 'Pendiente'
+        // Fetch AforoCases based on the retrieved worksheet IDs
+        // Firestore 'in' query is limited to 30 items per query
+        const casePromises = [];
+        for (let i = 0; i < worksheetIds.length; i += 30) {
+            const chunk = worksheetIds.slice(i, i + 30);
+            casePromises.push(
+                getDocs(query(collection(db, 'AforoCases'), where(documentId(), 'in', chunk)))
             );
         }
         
-        if (filters.ne) {
-          filtered = filtered.filter(c => c.ne.toUpperCase().includes(filters.ne!.toUpperCase()));
+        try {
+            const caseSnapshots = await Promise.all(casePromises);
+            const aforoCasesData: AforoCase[] = [];
+            caseSnapshots.forEach(snapshot => {
+                snapshot.forEach(doc => {
+                    aforoCasesData.push({ id: doc.id, ...doc.data() } as AforoCase);
+                });
+            });
+
+            const combinedData = aforoCasesData.map(caseItem => ({
+                ...caseItem,
+                worksheet: worksheetsMap.get(caseItem.id) || null, // Use case ID which is worksheet ID
+            }));
+
+            // Client-side filtering as before
+            let filtered = combinedData;
+            const isSearchActive = !!(filters.ne?.trim() || filters.consignee?.trim() || filters.dateRange?.from);
+
+            if (!isSearchActive) {
+                filtered = filtered.filter(c => 
+                    !c.digitacionStatus || c.digitacionStatus === 'Pendiente' || c.digitacionStatus === 'Pendiente de Digitación'
+                );
+            }
+
+            if (filters.ne) {
+                filtered = filtered.filter(c => c.ne.toUpperCase().includes(filters.ne!.toUpperCase()));
+            }
+            if (filters.consignee) {
+                filtered = filtered.filter(c => c.consignee.toLowerCase().includes(filters.consignee!.toLowerCase()));
+            }
+            if (filters.dateRange?.from) {
+                const start = filters.dateRange.from;
+                const end = endOfDay(filters.dateRange.to || filters.dateRange.from);
+                filtered = filtered.filter(c => {
+                    const caseDate = (c.createdAt as Timestamp)?.toDate();
+                    return caseDate && caseDate >= start && caseDate <= end;
+                });
+            }
+
+            setAllFetchedCases(filtered);
+            setIsLoading(false);
+
+        } catch (error) {
+            console.error("Error fetching AforoCases for worksheets:", error);
+            setError("No se pudieron cargar los casos de aforo correspondientes.");
+            setIsLoading(false);
         }
-        if (filters.consignee) {
-          filtered = filtered.filter(c => c.consignee.toLowerCase().includes(filters.consignee!.toLowerCase()));
-        }
-        if (filters.dateRange?.from) {
-          const start = filters.dateRange.from;
-          const end = endOfDay(filters.dateRange.to || filters.dateRange.from);
-          filtered = filtered.filter(c => {
-            const caseDate = (c.createdAt as Timestamp)?.toDate();
-            return caseDate && caseDate >= start && caseDate <= end;
-          });
-        }
-      
-        setAllFetchedCases(filtered);
-        setIsLoading(false);
       },
       (error: any) => {
-        console.error("ERROR FETCHING AFORO CASES:", error);
+        console.error("ERROR FETCHING WORKSHEETS:", error);
         const detailedError = `Error de Firestore: ${error.message}. Es muy probable que falte un índice compuesto. Revise la consola del navegador (F12) para ver un enlace que permita crearlo.`;
         setError(detailedError);
         toast({ 
             title: "Error al Cargar Datos de Aforo", 
-            description: "No se pudieron cargar los casos. Verifique la consola para más detalles.", 
+            description: "No se pudieron cargar las hojas de trabajo. Verifique la consola para más detalles.", 
             variant: "destructive",
             duration: 20000 
         });
         setIsLoading(false);
       }
     );
-
+  
     return () => unsubscribe();
   }, [user, filters, setAllFetchedCases, toast]);
   
