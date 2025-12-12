@@ -1056,13 +1056,33 @@ function WorksheetForm() {
                  </div>
                  {permitFields.length > 0 && (
                     <div className="rounded-md border mt-4"><Table>
-                        <TableHeader><TableRow><TableHead>Permiso</TableHead><TableHead>Factura Asociada</TableHead><TableHead>Estado</TableHead><TableHead className="text-right">Acción</TableHead></TableRow></TableHeader>
+                        <TableHeader><TableRow><TableHead>Permiso</TableHead><TableHead>Factura Asociada</TableHead><TableHead>Asignado A</TableHead><TableHead>Estado</TableHead><TableHead className="text-right">Acción</TableHead></TableRow></TableHeader>
                         <TableBody>{permitFields.map((field, index) => {
                             const needsDetails = ['Dictamen Tecnico INE', 'IPSA', 'MINSA', 'TELCOR'].includes(field.name);
                             return (
                             <TableRow key={field.id}>
                                 <TableCell>{field.name}</TableCell>
                                 <TableCell>{field.facturaNumber || 'N/A'}</TableCell>
+                                <TableCell>
+                                    <Controller
+                                        control={form.control}
+                                        name={`requiredPermits.${index}.assignedExecutive`}
+                                        render={({ field: controllerField }) => (
+                                        <Select onValueChange={controllerField.onChange} value={controllerField.value || user?.displayName || ''}>
+                                            <FormControl>
+                                                <SelectTrigger className="w-[180px] text-xs h-8">
+                                                    <SelectValue placeholder="Asignar..."/>
+                                                </SelectTrigger>
+                                            </FormControl>
+                                            <SelectContent>
+                                            {groupMembers.map(member => (
+                                                <SelectItem key={member.uid} value={member.displayName || ''}>{member.displayName}</SelectItem>
+                                            ))}
+                                            </SelectContent>
+                                        </Select>
+                                        )}
+                                    />
+                                </TableCell>
                                 <TableCell>
                                     {field.status === 'Rechazado' ? (
                                         <div className="flex items-center gap-2">
