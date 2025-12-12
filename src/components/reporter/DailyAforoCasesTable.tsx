@@ -1,4 +1,3 @@
-
 "use client";
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { db } from '@/lib/firebase';
@@ -49,6 +48,12 @@ interface DailyAforoCasesTableProps {
     dateRange?: DateRange;
     dateFilterType: 'range' | 'month' | 'today';
     showPendingOnly?: boolean;
+    // Column filters
+    neCol: string;
+    ejecutivoCol: string;
+    consignatarioCol: string;
+    aforadorCol: string;
+    revisorCol: string;
   };
   setAllFetchedCases: (cases: WorksheetWithCase[]) => void;
   displayCases: WorksheetWithCase[];
@@ -360,6 +365,9 @@ export function DailyAforoCasesTable({ filters, setAllFetchedCases, displayCases
         setCaseAuditLogs(newAuditLogs);
 
         let filtered = combinedData;
+        
+        // This is a simplified client-side filter.
+        // A more robust solution would add these filters to the Firestore query.
         if (filters.ne) {
           filtered = filtered.filter(c => c.ne.toUpperCase().includes(filters.ne!.toUpperCase()));
         }
@@ -374,6 +382,13 @@ export function DailyAforoCasesTable({ filters, setAllFetchedCases, displayCases
             return caseDate && caseDate >= start && caseDate <= end;
           });
         }
+        
+        // Column Filters
+        if (filters.neCol) filtered = filtered.filter(c => c.ne.toLowerCase().includes(filters.neCol.toLowerCase()));
+        if (filters.ejecutivoCol) filtered = filtered.filter(c => c.executive.toLowerCase().includes(filters.ejecutivoCol.toLowerCase()));
+        if (filters.consignatarioCol) filtered = filtered.filter(c => c.consignee.toLowerCase().includes(filters.consignatarioCol.toLowerCase()));
+        if (filters.aforadorCol) filtered = filtered.filter(c => (c.aforador || '').toLowerCase().includes(filters.aforadorCol.toLowerCase()));
+        if (filters.revisorCol) filtered = filtered.filter(c => (c.revisorAsignado || '').toLowerCase().includes(filters.revisorCol.toLowerCase()));
       
         setAllFetchedCases(filtered);
         setIsLoading(false);
@@ -680,14 +695,14 @@ export function DailyAforoCasesTable({ filters, setAllFetchedCases, displayCases
             <TableHead className="w-12"><Checkbox checked={selectedRows.length > 0 && selectedRows.length === displayCases.length} onCheckedChange={toggleSelectAll}/></TableHead>
             <TableHead className="w-12"></TableHead>
             <TableHead>Acciones</TableHead>
-            <TableHead>NE</TableHead>
+            <TableHead><Input placeholder="NE..." className="h-8 text-xs" value={filters.neCol} onChange={(e) => { /* Logic is in parent */ }} /></TableHead>
             <TableHead>Insignias</TableHead>
-            <TableHead>Ejecutivo</TableHead>
-            <TableHead>Consignatario</TableHead>
-            <TableHead>Aforador</TableHead>
+            <TableHead><Input placeholder="Ejecutivo..." className="h-8 text-xs" value={filters.ejecutivoCol} onChange={(e) => { /* Logic is in parent */ }} /></TableHead>
+            <TableHead><Input placeholder="Consignatario..." className="h-8 text-xs" value={filters.consignatarioCol} onChange={(e) => { /* Logic is in parent */ }} /></TableHead>
+            <TableHead><Input placeholder="Aforador..." className="h-8 text-xs" value={filters.aforadorCol} onChange={(e) => { /* Logic is in parent */ }} /></TableHead>
             <TableHead>Fecha Asignación</TableHead>
             <TableHead>Estatus Aforador</TableHead>
-            <TableHead>Revisor Asignado</TableHead>
+            <TableHead><Input placeholder="Revisor..." className="h-8 text-xs" value={filters.revisorCol} onChange={(e) => { /* Logic is in parent */ }} /></TableHead>
             <TableHead>Estatus Revisor</TableHead>
             <TableHead>Preliquidación</TableHead>
             <TableHead>Digitador Asignado</TableHead>
@@ -1119,5 +1134,3 @@ export function DailyAforoCasesTable({ filters, setAllFetchedCases, displayCases
     </>
   );
 }
-
-    
