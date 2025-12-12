@@ -54,22 +54,8 @@
         "collectionGroup": "AforoCases",
         "queryScope": "COLLECTION",
         "fields": [
+          { "fieldPath": "worksheet.worksheetType", "arrayConfig": "CONTAINS" },
           { "fieldPath": "createdAt", "order": "DESCENDING" }
-        ]
-      },
-      {
-        "collectionGroup": "AforoCases",
-        "queryScope": "COLLECTION",
-        "fields": [
-          { "fieldPath": "worksheet.worksheetType", "order": "ASCENDING" },
-          { "fieldPath": "createdAt", "order": "DESCENDING" }
-        ]
-      },
-      {
-        "collectionGroup": "Validaciones",
-        "queryScope": "COLLECTION",
-        "fields": [
-          { "fieldPath": "resolvedAt", "order": "DESCENDING" }
         ]
       },
       {
@@ -88,9 +74,17 @@
           { "fieldPath": "facturacionStatus", "order": "ASCENDING" },
           { "fieldPath": "createdAt", "order": "DESCENDING" }
         ]
+      },
+      {
+        "collectionGroup": "Validaciones",
+        "queryScope": "COLLECTION",
+        "fields": [
+          { "fieldPath": "resolvedAt", "order": "DESCENDING" }
+        ]
       }
     ],
     "fieldOverrides": []
   }
   
       
+

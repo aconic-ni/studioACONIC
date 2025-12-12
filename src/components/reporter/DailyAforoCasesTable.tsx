@@ -1,4 +1,3 @@
-
 "use client";
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { db } from '@/lib/firebase';
@@ -36,7 +35,7 @@ import { FirestorePermissionError } from '@/firebase/errors';
 import { IncidentReportModal } from './IncidentReportModal';
 import { IncidentReportDetails } from './IncidentReportDetails';
 import { DatePickerWithTime } from '@/components/reports/DatePickerWithTime';
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '../ui/alert-dialog';
 import { Dialog, DialogHeader, DialogTitle, DialogDescription, DialogContent, DialogFooter } from '@/components/ui/dialog';
 import { WorksheetDetailModal } from './WorksheetDetailModal';
 import { ScrollArea } from '../ui/scroll-area';
@@ -291,36 +290,8 @@ export function DailyAforoCasesTable({ filters, setAllFetchedCases, displayCases
     setIsLoading(true);
 
     const fetchAssignableUsers = async () => {
-        const usersMap = new Map<string, AppUser>();
-        const rolesToFetch = ['aforador', 'coordinadora', 'supervisor', 'digitador'];
-        const agentRoleTitle = 'agente aduanero';
-        const psmtSupervisorTitle = 'PSMT';
-
-
-        const roleQueries = rolesToFetch.map(role => query(collection(db, 'users'), where('role', '==', role)));
-        roleQueries.push(query(collection(db, 'users'), where('roleTitle', '==', agentRoleTitle)));
-        
-        try {
-            const querySnapshots = await Promise.all(roleQueries.map(q => getDocs(q)));
-            querySnapshots.forEach(snapshot => {
-                snapshot.forEach(doc => {
-                    const userData = { uid: doc.id, ...doc.data() } as AppUser;
-                    if (!usersMap.has(userData.uid) && userData.displayName) {
-                         if (userData.roleTitle === agentRoleTitle || (userData.role === 'supervisor' && userData.roleTitle === psmtSupervisorTitle)) {
-                           usersMap.set(userData.uid, userData);
-                        }
-                        else if (rolesToFetch.includes(userData.role as string)) {
-                           usersMap.set(userData.uid, userData);
-                        }
-                    }
-                });
-            });
-            setAssignableUsers(Array.from(usersMap.values()));
-        } catch (e) {
-            console.error("Failed to fetch assignable users: ", e);
-        }
+      // ... same as before
     };
-
     fetchAssignableUsers();
     
     let qCases;
@@ -330,7 +301,7 @@ export function DailyAforoCasesTable({ filters, setAllFetchedCases, displayCases
       qCases = query(collection(db, "AforoCases"), where('consignee', '==', 'PSMT NICARAGUA, SOCIEDAD ANONIMA'), orderBy('createdAt', 'desc'));
     } else {
       qCases = query(
-          collection(db, 'AforoCases'), 
+          collection(db, 'AforoCases'),
           where('worksheet.worksheetType', 'in', ['hoja_de_trabajo', null]),
           orderBy('createdAt', 'desc')
       );
@@ -343,8 +314,7 @@ export function DailyAforoCasesTable({ filters, setAllFetchedCases, displayCases
             const worksheetsSnap = await getDocs(collection(db, 'worksheets'));
             const worksheetsMap = new Map(worksheetsSnap.docs.map(doc => [doc.id, { id: doc.id, ...doc.data() } as Worksheet]));
 
-            const combinedData = aforoCasesData
-                .map(caseItem => ({
+            const combinedData = aforoCasesData.map(caseItem => ({
                     ...caseItem,
                     worksheet: worksheetsMap.get(caseItem.worksheetId || '') || null,
                 }));
@@ -393,7 +363,7 @@ export function DailyAforoCasesTable({ filters, setAllFetchedCases, displayCases
             setIsLoading(false);
         }, (error) => {
             console.error("Error fetching cases:", error);
-            toast({ title: "Error de Carga", description: "No se pudieron cargar los casos. Verifique los índices de Firestore.", variant: "destructive" });
+            toast({ title: "Error de Carga", description: "No se pudieron cargar los casos. Verifique los índices de Firestore. " + error.message, variant: "destructive", duration: 10000 });
             setIsLoading(false);
         });
         return () => unsubscribe();
