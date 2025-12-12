@@ -36,7 +36,7 @@ interface AppContextType {
   deleteProduct: (productId: string) => void;
   setCurrentStep: (step: ExamStep) => void;
   setEditingProduct: (product: Product | null) => void;
-  openAddProductModal: (productToEdit?: Product | null) => void;
+  openAddProductModal: (productToEdit?: Product | SolicitudData | null) => void;
   closeAddProductModal: () => void;
   openProductDetailModal: (product: Product) => void;
   closeProductDetailModal: () => void;
@@ -286,11 +286,11 @@ export const AppProvider: React.FC<{children: React.ReactNode}> = ({ children })
     setEditingProductState(product);
   }, []);
 
-  const openAddProductModal = useCallback((productToEdit: Product | null = null) => {
-    if(currentStep === ExamStep.PRODUCT_LIST) {
-        setEditingProductState(productToEdit);
+  const openAddProductModal = useCallback((itemToEdit?: Product | SolicitudData | null) => {
+    if (currentStep === ExamStep.PRODUCT_LIST) {
+        setEditingProductState(itemToEdit as Product | null);
     } else if (currentStep === ExamStep.SOLICITUD_LIST) {
-        setEditingSolicitud(productToEdit as unknown as SolicitudData | null);
+        setEditingSolicitud(itemToEdit as SolicitudData | null);
     }
     setIsAddProductModalOpen(true);
   }, [currentStep]);
@@ -391,7 +391,7 @@ export const AppProvider: React.FC<{children: React.ReactNode}> = ({ children })
         updateSolicitud,
         deleteSolicitud,
         editingSolicitud,
-        openSolicitudModal: openAddProductModal as any,
+        openSolicitudModal,
         isMemorandumMode,
         setIsMemorandumMode,
         solicitudToViewInline,

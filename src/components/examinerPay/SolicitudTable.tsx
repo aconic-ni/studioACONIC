@@ -11,7 +11,7 @@ import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 
 export function SolicitudTable() {
-  const { initialContextData, solicitudes, openAddProductModal, deleteSolicitud, setSolicitudToViewInline } = useAppContext();
+  const { initialContextData, solicitudes, openSolicitudModal, deleteSolicitud, setSolicitudToViewInline } = useAppContext();
 
   const formatCurrency = (amount?: number | string, currency?: string) => {
     if (amount === undefined || amount === null || amount === '') return 'N/A';
@@ -95,7 +95,7 @@ export function SolicitudTable() {
                     <DropdownMenuItem onClick={() => setSolicitudToViewInline(solicitud)}>
                       <Eye className="mr-2 h-4 w-4" /> Ver Detalle
                     </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => openAddProductModal(solicitud)}>
+                    <DropdownMenuItem onClick={() => openSolicitudModal(solicitud)}>
                       <Edit3 className="mr-2 h-4 w-4" /> Editar
                     </DropdownMenuItem>
                     <DropdownMenuItem onClick={() => {
