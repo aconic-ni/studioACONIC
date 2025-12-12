@@ -49,27 +49,24 @@ export function ResaNotificationModal({ isOpen, onClose, caseData }: ResaNotific
   });
 
   useEffect(() => {
-    const fetchWorksheetData = async () => {
-        if (caseData.worksheetId) {
-            const wsDocRef = doc(db, 'worksheets', caseData.worksheetId);
-            const wsSnap = await getDoc(wsDocRef);
-            if (wsSnap.exists()) {
-                const wsData = wsSnap.data() as Worksheet;
-                form.reset({
-                    resaNumber: wsData.resa || '',
-                    resaNotificationDate: wsData.resaNotificationDate?.toDate(),
-                });
-            }
-        } else {
-             form.reset({
-                resaNumber: caseData.resaNumber || '',
-                resaNotificationDate: caseData.resaNotificationDate?.toDate(),
-            });
+    const fetchAndSetData = async () => {
+      let wsData: Worksheet | null = null;
+      if (caseData.worksheetId) {
+        const wsSnap = await getDoc(doc(db, 'worksheets', caseData.worksheetId));
+        if (wsSnap.exists()) {
+          wsData = wsSnap.data() as Worksheet;
         }
+      }
+
+      // Prioritize AforoCase data, then Worksheet data, then default.
+      form.reset({
+        resaNumber: caseData.resaNumber || wsData?.resa || '',
+        resaNotificationDate: caseData.resaNotificationDate?.toDate() || wsData?.resaNotificationDate?.toDate() || undefined,
+      });
     };
 
     if (isOpen) {
-        fetchWorksheetData();
+      fetchAndSetData();
     }
   }, [isOpen, caseData, form]);
 
@@ -77,7 +74,8 @@ export function ResaNotificationModal({ isOpen, onClose, caseData }: ResaNotific
 
   useEffect(() => {
     if (watchNotificationDate) {
-      const dueDate = calculateDueDate(watchNotificationDate, 20);
+      const daysToAdd = 20; // Default RESA duration
+      const dueDate = calculateDueDate(watchNotificationDate, daysToAdd);
       setCalculatedDueDate(dueDate);
     } else {
       setCalculatedDueDate(null);
