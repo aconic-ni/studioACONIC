@@ -63,7 +63,6 @@ export interface SearchResultsTableProps {
   onUpdateRecepcionDCStatus: (solicitudId: string, status: boolean) => Promise<void>;
   onUpdateEmailMinutaStatus: (solicitudId: string, status: boolean) => Promise<void>;
   onOpenMessageDialog: (solicitudId: string) => void;
-  onOpenMinutaDialog: (solicitudId: string) => void;
   onSaveMinuta: (solicitudId: string, minutaNum?: string | null) => Promise<void>;
   onViewDetails: (solicitud: SolicitudRecord) => void;
   onOpenCommentsDialog: (solicitudId: string) => void;
@@ -112,7 +111,6 @@ export const SearchResultsTable: React.FC<SearchResultsTableProps> = ({
   onUpdateRecepcionDCStatus,
   onUpdateEmailMinutaStatus,
   onOpenMessageDialog,
-  onOpenMinutaDialog,
   onSaveMinuta,
   onViewDetails,
   onOpenCommentsDialog,
@@ -479,11 +477,7 @@ export const SearchResultsTable: React.FC<SearchResultsTableProps> = ({
                           checked={solicitud.paymentStatus === 'Pagado'}
                           onCheckedChange={(checked) => {
                             if (checked) {
-                              if (isMinutaValidationEnabled) {
-                                onOpenMinutaDialog(solicitud.solicitudId);
-                              } else {
-                                onSaveMinuta(solicitud.solicitudId, null); 
-                              }
+                                onSaveMinuta(solicitud.solicitudId, null);
                             } else {
                               if (solicitud.paymentStatus === 'Pagado') {
                                 onUpdatePaymentStatus(solicitud.solicitudId, null);
