@@ -7,7 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../ui
 import type { DateRange } from 'react-day-picker';
 import { DatePickerWithRange } from '@/components/reports/DatePickerWithRange';
 import { DatePicker } from '@/components/reports/DatePicker';
-import { getMonth, getYear, startOfYear, endOfYear, startOfMonth, endOfMonth } from 'date-fns';
+import { getMonth, getYear, startOfYear, endOfYear, startOfMonth, endOfMonth, startOfDay, endOfDay } from 'date-fns';
 import { Timestamp } from 'firebase/firestore';
 import { AforoPieChartCard } from './AforoPieChartCard';
 
