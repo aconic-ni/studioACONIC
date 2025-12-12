@@ -1,10 +1,11 @@
+
 "use client";
 import React, { useEffect, useState } from 'react';
 import Image from 'next/image';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
 import { X, Printer, FileText, User, Building, Weight, Truck, MapPin, Anchor, Plane, Globe, Package, ListChecks, FileSymlink, Link as LinkIcon, Eye, Shield, FileBadge, FileKey, Edit, Calendar } from 'lucide-react';
-import type { Worksheet, AppUser } from '@/types';
+import type { Worksheet, AppUser, AforoCase } from '@/types';
 import { Timestamp, collection, query, where, getDocs } from 'firebase/firestore';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '../ui/badge';
@@ -61,7 +62,7 @@ const transportIcons: { [key: string]: React.ElementType } = {
   terrestre: Truck,
 };
 
-export const WorksheetDetails: React.FC<{ worksheet: Worksheet; onClose: () => void; }> = ({ worksheet, onClose }) => {
+export const WorksheetDetails: React.FC<{ worksheet: Worksheet; aforoCase?: AforoCase | null; onClose: () => void; }> = ({ worksheet, aforoCase, onClose }) => {
   
   if (worksheet.worksheetType === 'anexo_7') {
     return <Anexo7Details worksheet={worksheet} onClose={onClose} />;
@@ -79,6 +80,11 @@ export const WorksheetDetails: React.FC<{ worksheet: Worksheet; onClose: () => v
   
   const wasModified = worksheet.lastUpdatedAt && worksheet.createdAt && worksheet.lastUpdatedAt.toMillis() !== worksheet.createdAt.toMillis();
   const isPsmtCase = worksheet.consignee?.toUpperCase().trim() === "PSMT NICARAGUA, SOCIEDAD ANONIMA";
+  
+  // Prioritize RESA info from AforoCase if available, otherwise use worksheet
+  const resaNumber = aforoCase?.resaNumber || worksheet.resa;
+  const resaNotificationDate = aforoCase?.resaNotificationDate || worksheet.resaNotificationDate;
+  const resaDueDate = aforoCase?.resaDueDate || worksheet.resaDueDate;
 
   return (
     <>
@@ -137,7 +143,9 @@ export const WorksheetDetails: React.FC<{ worksheet: Worksheet; onClose: () => v
                   <DetailItem label="Número de Bultos" value={worksheet.packageNumber} icon={Package} />
                   <DetailItem label="Aduana de Entrada" value={getAduanaLabel(worksheet.entryCustoms)} icon={MapPin} />
                   <DetailItem label="Aduana de Despacho" value={getAduanaLabel(worksheet.dispatchCustoms)} icon={MapPin} />
-                  <DetailItem label="RESA" value={worksheet.resa} icon={FileBadge} />
+                  <DetailItem label="RESA" value={resaNumber} icon={FileBadge} />
+                  <DetailItem label="Fecha Notif. RESA" value={formatShortDate(resaNotificationDate)} icon={Calendar} />
+                  <DetailItem label="Fecha Venc. RESA" value={formatShortDate(resaDueDate)} icon={Calendar} />
                   <DetailItem label="Modo de Transporte" value={worksheet.transportMode} icon={TransportIcon} />
                   {worksheet.inLocalWarehouse && <DetailItem label="Localización" value={worksheet.location} icon={MapPin} />}
                   <DetailItem label="Aplica TLC" value={worksheet.appliesTLC} icon={Shield} />

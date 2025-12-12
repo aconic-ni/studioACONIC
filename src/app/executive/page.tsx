@@ -180,7 +180,6 @@ function ExecutivePageContent() {
 
 
   useEffect(() => {
-    // This effect can be simplified since the check is just for user existence now
     if (!authLoading && !user) {
       router.push('/');
     }
@@ -456,7 +455,7 @@ function ExecutivePageContent() {
     const worksheetDocRef = doc(db, 'worksheets', caseItem.worksheetId);
     const docSnap = await getDoc(worksheetDocRef);
     if (docSnap.exists()) {
-        setSelectedWorksheet(docSnap.data() as Worksheet);
+        setSelectedWorksheet({ ...docSnap.data() as Worksheet, caseData: caseItem });
     } else {
         toast({ title: "Error", description: "No se pudo encontrar la hoja de trabajo.", variant: "destructive" });
     }
@@ -641,7 +640,7 @@ function ExecutivePageContent() {
     return (<AppShell><div className="py-2 md:py-5"><IncidentReportDetails caseData={selectedIncidentForDetails} onClose={() => setSelectedIncidentForDetails(null)} /></div></AppShell>);
   }
   if (selectedWorksheet) {
-    return (<AppShell><div className="py-2 md:py-5"><WorksheetDetails worksheet={selectedWorksheet} onClose={() => setSelectedWorksheet(null)} /></div></AppShell>);
+    return (<AppShell><div className="py-2 md:py-5"><WorksheetDetails worksheet={selectedWorksheet} aforoCase={allCases.find(c => c.worksheetId === selectedWorksheet.id)} onClose={() => setSelectedWorksheet(null)} /></div></AppShell>);
   }
   
   const caseActions = {
@@ -722,9 +721,11 @@ function ExecutivePageContent() {
                                  <DropdownMenuItem onSelect={() => handleSearchPrevio(c.ne)}>
                                     <Search className="mr-2 h-4 w-4" /> Buscar Previo
                                 </DropdownMenuItem>
-                                 <DropdownMenuItem onSelect={() => router.push(`/executive/anexos?id=${c.id}`)} disabled={!c.worksheetId || c.worksheet?.worksheetType === 'corporate_report'}>
-                                    <FilePlus className="mr-2 h-4 w-4" /> Docs y Permisos
-                                </DropdownMenuItem>
+                                 <DropdownMenuItem asChild>
+                                   <Link href={`/executive/anexos?type=${c.worksheet?.worksheetType === 'anexo_7' ? 'anexo_7' : 'anexo_5'}&id=${c.id}`}>
+                                      <FilePlus className="mr-2 h-4 w-4" /> Docs y Permisos
+                                  </Link>
+                                 </DropdownMenuItem>
                                 <DropdownMenuItem onSelect={() => setSelectedCaseForQuickRequest(c)} disabled={!c.worksheet}>
                                     <FilePlus className="mr-2 h-4 w-4" /> Solicitar Previo
                                 </DropdownMenuItem>
@@ -1104,3 +1105,4 @@ export default function ExecutivePage() {
     
 
     
+
