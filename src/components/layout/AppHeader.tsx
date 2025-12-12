@@ -33,11 +33,16 @@ import type { UserRole } from '@/types';
 import { ScrollArea } from '../ui/scroll-area';
 
 const renderAppIdentity = (user: any) => {
-    // Use the role config to determine the home path
     let homePath = '/';
     if (user) {
-        const userRole = user.role || 'gestor';
-        const roleToUse: UserRole = user.roleTitle === 'agente aduanero' ? 'agente' : userRole;
+        let roleToUse: UserRole;
+        if (user.role === 'supervisor') {
+            roleToUse = 'supervisor';
+        } else if (user.roleTitle === 'agente aduanero') {
+            roleToUse = 'agente';
+        } else {
+            roleToUse = user.role || 'gestor';
+        }
         const config = roleConfig[roleToUse];
         if (config) {
             homePath = config.home;
@@ -62,8 +67,14 @@ export function AppHeader() {
   
   const getVisibleNavLinks = (): NavLink[] => {
     if (!user) return [];
-    const userRole = user.role || 'gestor';
-    const roleToUse: UserRole = user.roleTitle === 'agente aduanero' ? 'agente' : userRole;
+    let roleToUse: UserRole;
+    if (user.role === 'supervisor') {
+        roleToUse = 'supervisor';
+    } else if (user.roleTitle === 'agente aduanero') {
+        roleToUse = 'agente';
+    } else {
+        roleToUse = user.role || 'gestor';
+    }
     const config = roleConfig[roleToUse];
     return config ? config.navLinks : [];
   };
