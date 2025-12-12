@@ -1,3 +1,4 @@
+
 "use client";
 import { useEffect, useState, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
@@ -38,13 +39,11 @@ export default function LegalSolicitudesPage() {
   const [filter, setFilter] = useState('');
   const [selectedRequest, setSelectedRequest] = useState<LegalRequest | null>(null);
 
-  const allowedRoles = ['legal', 'admin', 'coordinadora', 'supervisor', 'ejecutivo'];
-
   useEffect(() => {
-    if (!authLoading && (!user || !allowedRoles.includes(user.role as string))) {
+    if (!authLoading && !user) {
       router.push('/');
     }
-  }, [user, authLoading, router, allowedRoles]);
+  }, [user, authLoading, router]);
 
   useEffect(() => {
     if (!user) return;

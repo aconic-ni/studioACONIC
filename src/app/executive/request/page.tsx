@@ -11,15 +11,13 @@ export default function RequestPage() {
   const { user, loading: authLoading } = useAuth();
   const router = useRouter();
 
-  const allowedRoles = ['ejecutivo', 'coordinadora', 'admin'];
-
   useEffect(() => {
-    if (!authLoading && (!user || !user.role || !allowedRoles.includes(user.role))) {
+    if (!authLoading && !user) {
       router.push('/');
     }
   }, [user, authLoading, router]);
 
-  if (authLoading || !user || !user.role || !allowedRoles.includes(user.role)) {
+  if (authLoading || !user) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
         <Loader2 className="h-12 w-12 animate-spin text-primary" />

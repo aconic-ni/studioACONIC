@@ -40,7 +40,15 @@ export default function AssignmentsPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const allowedRoles = ['coordinadora', 'admin'];
+  useEffect(() => {
+    if (!authLoading) {
+      if (!user) {
+        router.push('/');
+      } else {
+        fetchData();
+      }
+    }
+  }, [user, authLoading, router]);
 
   const fetchData = async () => {
     setIsLoading(true);
@@ -67,16 +75,6 @@ export default function AssignmentsPage() {
       setIsLoading(false);
     }
   };
-
-  useEffect(() => {
-    if (!authLoading) {
-      if (!user || !allowedRoles.includes(user.role as string)) {
-        router.push('/');
-      } else {
-        fetchData();
-      }
-    }
-  }, [user, authLoading, router]);
 
   const handleAssign = async (requestId: string) => {
     const gestorId = selectedGestor[requestId];
@@ -171,7 +169,7 @@ export default function AssignmentsPage() {
   };
   
 
-  if (authLoading || !user || !allowedRoles.includes(user.role as string) || isLoading) {
+  if (authLoading || !user || isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
         <Loader2 className="h-12 w-12 animate-spin text-primary" />

@@ -61,14 +61,13 @@ export default function FacturacionPage() {
 
   const [activeFilters, setActiveFilters] = useState<{ ne?: string; dateRange?: DateRange; dateFilterType?: DateFilterType; month?: number; year?: number; } | null>(null);
 
-  const allowedRoles = ['facturador', 'admin', 'supervisor', 'coordinadora'];
   const canAssign = user?.role === 'supervisor' || user?.role === 'admin' || user?.role === 'coordinadora';
 
   useEffect(() => {
-    if (!authLoading && (!user || !allowedRoles.includes(user.role || ''))) {
+    if (!authLoading && !user) {
       router.push('/');
     }
-  }, [user, authLoading, router, allowedRoles]);
+  }, [user, authLoading, router]);
 
   const handleSearch = () => {
     let dateRange: DateRange | undefined = undefined;
@@ -260,7 +259,7 @@ export default function FacturacionPage() {
     return filtered;
   }, [allCases, activeFilters]);
 
-  if (authLoading || !user || !allowedRoles.includes(user.role || '')) {
+  if (authLoading || !user) {
     return <div className="min-h-screen flex items-center justify-center bg-background"><Loader2 className="h-12 w-12 animate-spin text-primary" /></div>;
   }
   
@@ -406,27 +405,34 @@ export default function FacturacionPage() {
                         </Table>
                     </div>
                     )}
-                </TabsContent>
-                <TabsContent value="remisiones">
-                    <div className="w-full">
-                        <div className="border-t pt-4 mt-2 space-y-4">
+                </CardContent>
+                </Card>
+            </TabsContent>
+            <TabsContent value="remisiones">
+                 <Card className="w-full max-w-7xl mx-auto custom-shadow">
+                    <CardHeader>
+                        <CardTitle>Remisiones Generadas</CardTitle>
+                        <CardDescription>Historial de todas las remisiones de cuentas creadas.</CardDescription>
+                         <div className="border-t pt-4 mt-2 space-y-4">
                             <div className="flex flex-col md:flex-row gap-4">
                                 <Input placeholder="Buscar por ID, destinatario o NE..." value={remisionSearchTerm} onChange={e => setRemisionSearchTerm(e.target.value)} className="max-w-sm"/>
                                 {canAssign && (
                                     <DatePickerWithRange date={remisionDateFilter} onDateChange={setRemisionDateFilter} />
                                 )}
                             </div>
-                        </div>
-                        {isLoadingRemisiones ? (
+                         </div>
+                    </CardHeader>
+                    <CardContent>
+                         {isLoadingRemisiones ? (
                             <div className="flex justify-center items-center py-10"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>
                         ) : filteredRemisiones.length === 0 ? (
-                            <div className="text-center py-10 px-6 bg-secondary/30 rounded-lg mt-4">
+                             <div className="text-center py-10 px-6 bg-secondary/30 rounded-lg">
                                 <Inbox className="mx-auto h-12 w-12 text-muted-foreground" />
                                 <h3 className="mt-4 text-lg font-medium text-foreground">No hay remisiones</h3>
                                 <p className="mt-1 text-muted-foreground">{canAssign ? 'No se encontraron remisiones para los filtros aplicados.' : 'No se han generado remisiones hoy.'}</p>
                             </div>
                         ) : (
-                            <div className="overflow-x-auto table-container rounded-lg border mt-4">
+                            <div className="overflow-x-auto table-container rounded-lg border">
                                 <Table>
                                     <TableHeader>
                                         <TableRow>
@@ -455,10 +461,9 @@ export default function FacturacionPage() {
                                 </Table>
                             </div>
                         )}
-                    </div>
-                </TabsContent>
-            </CardContent>
-           </Card>
+                    </CardContent>
+                </Card>
+            </TabsContent>
         </Tabs>
       </AppShell>
       {selectedCase && (
