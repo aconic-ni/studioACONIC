@@ -4,7 +4,7 @@ import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { db } from '@/lib/firebase';
 import { collection, query, where, onSnapshot, Timestamp, orderBy, doc, updateDoc, addDoc, getDocs, writeBatch, getCountFromServer, getDoc } from 'firebase/firestore';
 import { useAuth } from '@/context/AuthContext';
-import type { AforoCase, AforadorStatus, Worksheet, DigitacionStatus, PreliquidationStatus, LastUpdateInfo, WorksheetWithCase, AforoCaseUpdate } from '@/types';
+import type { AforoCase, DigitacionStatus, AforoCaseUpdate, AppUser, LastUpdateInfo, Worksheet, WorksheetWithCase } from '@/types';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Loader2, Inbox, History, Edit, User, PlusSquare, FileText, Info, Send, AlertTriangle, CheckSquare, ChevronsUpDown, Check, ChevronDown, ChevronRight, BookOpen, Search, MessageSquare, FileSignature, Repeat, Eye, Users, Scale, UserCheck, Shield, ShieldCheck, FileDigit, Truck, Anchor, Plane } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
@@ -14,7 +14,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 import { AforoCaseHistoryModal } from './AforoCaseHistoryModal';
-import { AforadorCommentModal } from './AforadorCommentModal';
+import { DigitizationCommentModal } from './DigitizationCommentModal';
 import { CompleteDigitizationModal } from './CompleteDigitizationModal';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '../ui/dropdown-menu';
@@ -416,50 +416,38 @@ export function DailyAforoCasesTable({ filters, setAllFetchedCases, displayCases
 
   const handleAssignToDigitization = async (caseItem: AforoCase, force: boolean = false) => {
     if (!user || !user.displayName) return;
-    
-    // PSMT Supervisor Logic for single case
+
     const isPsmtCase = caseItem.consignee.toUpperCase().trim() === "PSMT NICARAGUA, SOCIEDAD ANONIMA";
     const isPsmtSupervisor = user.role === 'supervisor' && user.roleTitle === 'PSMT';
-    
-    if (isPsmtSupervisor && isPsmtCase && caseItem.acuseDeRecibido && !force) {
-        // Automatically approve and send
+    const hasAcuse = caseItem.acuseDeRecibido === true || caseAuditLogs.get(caseItem.id)?.some(log => log.newValue === 'worksheet_received');
+
+    if (isPsmtSupervisor && isPsmtCase && hasAcuse && !force) {
         setIsLoading(true);
         const batch = writeBatch(db);
         const caseDocRef = doc(db, 'AforoCases', caseItem.id);
         const updatesSubcollectionRef = collection(caseDocRef, 'actualizaciones');
         const now = Timestamp.now();
         const userInfo = { by: user.displayName, at: now };
+        const newStatus: DigitacionStatus = 'Pendiente de Digitación';
 
-        batch.update(caseDocRef, {
-            revisorStatus: 'Aprobado',
-            preliquidationStatus: 'Aprobada',
-            digitacionStatus: 'Pendiente de Digitación',
-            revisorStatusLastUpdate: userInfo,
-            preliquidationStatusLastUpdate: userInfo,
-            digitacionStatusLastUpdate: userInfo,
+        batch.update(caseDocRef, { 
+            digitacionStatus: newStatus, 
+            digitacionStatusLastUpdate: userInfo 
         });
 
-        // Add logs for each auto-approval
-        const logComment = "Aprobación y envío automático para caso PSMT con acuse.";
-        batch.set(doc(updatesSubcollectionRef), { updatedAt: now, updatedBy: user.displayName, field: 'revisorStatus', oldValue: caseItem.revisorStatus, newValue: 'Aprobado', comment: logComment });
-        batch.set(doc(updatesSubcollectionRef), { updatedAt: now, updatedBy: user.displayName, field: 'preliquidationStatus', oldValue: caseItem.preliquidationStatus, newValue: 'Aprobada', comment: logComment });
-        batch.set(doc(updatesSubcollectionRef), { updatedAt: now, updatedBy: user.displayName, field: 'digitacionStatus', oldValue: caseItem.digitacionStatus, newValue: 'Pendiente de Digitación', comment: logComment });
+        const logComment = `Envío automático a digitación para caso PSMT con acuse.`;
+        batch.set(doc(updatesSubcollectionRef), { updatedAt: now, updatedBy: user.displayName, field: 'digitacionStatus', oldValue: caseItem.digitacionStatus, newValue: newStatus, comment: logComment });
 
         try {
             await batch.commit();
-            toast({ title: 'Proceso PSMT Acelerado', description: `Caso ${caseItem.ne} aprobado y enviado a digitación.` });
+            toast({ title: 'Proceso PSMT Acelerado', description: `Caso ${caseItem.ne} enviado a digitación.` });
         } catch(e) { console.error(e); toast({ title: "Error en flujo PSMT", variant: "destructive"}); } 
         finally { setIsLoading(false); }
         return;
     }
-
-    // Standard logic
-    if (caseItem.revisorStatus !== 'Aprobado') {
-        toast({ title: "Acción no permitida", description: "El caso debe estar aprobado por el revisor.", variant: "destructive" });
-        return;
-    }
-     if (caseItem.preliquidationStatus !== 'Aprobada') {
-        toast({ title: "Acción no permitida", description: "La preliquidación debe estar aprobada por el ejecutivo.", variant: "destructive" });
+    
+    if (caseItem.revisorStatus !== 'Aprobado' || caseItem.preliquidationStatus !== 'Aprobada') {
+        toast({ title: "Acción no permitida", description: "El caso debe estar Aprobado por el Revisor y la Preliquidación.", variant: "destructive" });
         return;
     }
     
@@ -506,79 +494,54 @@ export function DailyAforoCasesTable({ filters, setAllFetchedCases, displayCases
 
     const allSelectedArePsmt = selectedRows.every(id => displayCases.find(c => c.id === id)?.consignee.toUpperCase().trim() === "PSMT NICARAGUA, SOCIEDAD ANONIMA");
 
-    if (allSelectedArePsmt) {
-        // If ALL selected are PSMT, run the special PSMT flow for those with acuse
-        const successCases: string[] = [];
-        const skippedCases: string[] = [];
-        const batch = writeBatch(db);
-        const now = Timestamp.now();
-        const userInfo = { by: user.displayName, at: now };
+    const batch = writeBatch(db);
+    const now = Timestamp.now();
+    const userInfo = { by: user.displayName, at: now };
+    const successCases: string[] = [];
+    const skippedCases: string[] = [];
 
-        for (const caseId of selectedRows) {
-            const caseItem = displayCases.find(c => c.id === caseId);
-            if (!caseItem) continue;
-            
-            const hasAcuse = caseItem.acuseDeRecibido === true || caseAuditLogs.get(caseId)?.some(log => log.newValue === 'worksheet_received');
-            
+    for (const caseId of selectedRows) {
+        const caseItem = displayCases.find(c => c.id === caseId);
+        if (!caseItem) continue;
+
+        const isPsmtCase = caseItem.consignee.toUpperCase().trim() === "PSMT NICARAGUA, SOCIEDAD ANONIMA";
+        const hasAcuse = caseItem.acuseDeRecibido === true || caseAuditLogs.get(caseId)?.some(log => log.newValue === 'worksheet_received');
+        const isReadyForStandardDigitization = caseItem.revisorStatus === 'Aprobado' && caseItem.preliquidationStatus === 'Aprobada';
+        
+        let shouldProcess = false;
+        let logComment = '';
+
+        if (allSelectedArePsmt) {
             if (hasAcuse) {
-                const caseDocRef = doc(db, 'AforoCases', caseId);
-                const updatesSubcollectionRef = collection(caseDocRef, 'actualizaciones');
-                batch.update(caseDocRef, {
-                    revisorStatus: 'Aprobado',
-                    preliquidationStatus: 'Aprobada',
-                    digitacionStatus: 'Pendiente de Digitación',
-                    revisorStatusLastUpdate: userInfo,
-                    preliquidationStatusLastUpdate: userInfo,
-                    digitacionStatusLastUpdate: userInfo,
-                });
-                const logComment = `Envío masivo: Aprobación y envío automático para caso PSMT con acuse.`;
-                batch.set(doc(updatesSubcollectionRef), { updatedAt: now, updatedBy: user.displayName, field: 'revisorStatus', oldValue: caseItem.revisorStatus, newValue: 'Aprobado', comment: logComment });
-                batch.set(doc(updatesSubcollectionRef), { updatedAt: now, updatedBy: user.displayName, field: 'preliquidationStatus', oldValue: caseItem.preliquidationStatus, newValue: 'Aprobada', comment: logComment });
-                batch.set(doc(updatesSubcollectionRef), { updatedAt: now, updatedBy: user.displayName, field: 'digitacionStatus', oldValue: caseItem.digitacionStatus, newValue: 'Pendiente de Digitación', comment: logComment });
-                successCases.push(caseItem.ne);
+                shouldProcess = true;
+                logComment = 'Envío masivo: PSMT con acuse enviado a digitación.';
+            } else {
+                skippedCases.push(caseItem.ne);
+            }
+        } else {
+            if (!isPsmtCase && isReadyForStandardDigitization) {
+                shouldProcess = true;
+                logComment = 'Envío masivo a digitación.';
             } else {
                 skippedCases.push(caseItem.ne);
             }
         }
-        
-        if (successCases.length > 0) {
-            await batch.commit();
+
+        if (shouldProcess) {
+            const caseDocRef = doc(db, 'AforoCases', caseItem.id);
+            const updatesSubcollectionRef = collection(caseDocRef, 'actualizaciones');
+            batch.update(caseDocRef, { digitacionStatus: 'Pendiente de Digitación', digitacionStatusLastUpdate: userInfo });
+            batch.set(doc(updatesSubcollectionRef), { updatedAt: now, updatedBy: user.displayName, field: 'digitacionStatus', oldValue: caseItem.digitacionStatus, newValue: 'Pendiente de Digitación', comment: logComment });
+            successCases.push(caseItem.ne);
         }
-        setBulkActionResult({ isOpen: true, success: successCases, skipped: skippedCases });
-        setSelectedRows([]);
-
-    } else {
-        // If it's a mixed selection, only process non-PSMT cases that are ready.
-        const nonPsmtReadyCases = selectedRows
-            .map(id => displayCases.find(c => c.id === id))
-            .filter(c => c && c.consignee.toUpperCase().trim() !== "PSMT NICARAGUA, SOCIEDAD ANONIMA" && c.revisorStatus === 'Aprobado' && c.preliquidationStatus === 'Aprobada');
-        
-        const skippedPsmtCases = selectedRows
-            .map(id => displayCases.find(c => c.id === id))
-            .filter(c => c && c.consignee.toUpperCase().trim() === "PSMT NICARAGUA, SOCIEDAD ANONIMA")
-            .map(c => c!.ne);
-
-        if (nonPsmtReadyCases.length === 0) {
-            setBulkActionResult({ isOpen: true, success: [], skipped: skippedPsmtCases });
-            return;
-        }
-
-        const batch = writeBatch(db);
-        const now = Timestamp.now();
-        const userInfo = { by: user.displayName, at: now };
-
-        nonPsmtReadyCases.forEach(caseItem => {
-             const caseDocRef = doc(db, 'AforoCases', caseItem!.id);
-             const updatesSubcollectionRef = collection(caseDocRef, 'actualizaciones');
-             batch.update(caseDocRef, { digitacionStatus: 'Pendiente de Digitación', digitacionStatusLastUpdate: userInfo });
-             const logComment = `Envío masivo a digitación.`;
-             batch.set(doc(updatesSubcollectionRef), { updatedAt: now, updatedBy: user.displayName, field: 'digitacionStatus', oldValue: caseItem!.digitacionStatus, newValue: 'Pendiente de Digitación', comment: logComment });
-        });
-
-        await batch.commit();
-        setBulkActionResult({ isOpen: true, success: nonPsmtReadyCases.map(c => c!.ne), skipped: skippedPsmtCases });
-        setSelectedRows([]);
     }
+    
+    if (successCases.length > 0) {
+        await batch.commit();
+    }
+    
+    setBulkActionResult({ isOpen: true, success: successCases, skipped: skippedCases });
+    setSelectedRows([]);
   };
 
 
@@ -747,7 +710,7 @@ export function DailyAforoCasesTable({ filters, setAllFetchedCases, displayCases
             const isPatternValidated = caseItem.isPatternValidated === true;
             const allowPatternEdit = caseItem.revisorStatus === 'Rechazado';
             
-            const acuseLog = caseAuditLogs.get(caseItem.id)?.find(log => log.newValue === 'worksheet_received');
+            const hasAcuse = caseItem.acuseDeRecibido === true || caseAuditLogs.get(caseItem.id)?.some(log => log.newValue === 'worksheet_received');
 
             return (
             <React.Fragment key={caseItem.id}>
@@ -827,7 +790,7 @@ export function DailyAforoCasesTable({ filters, setAllFetchedCases, displayCases
                 </div>
               </TableCell>
               <TableCell>
-                  <StatusBadges caseData={{...caseItem, acuseDeRecibido: caseItem.acuseDeRecibido, acuseLog: acuseLog }} />
+                  <StatusBadges caseData={{...caseItem, acuseDeRecibido: hasAcuse }} />
               </TableCell>
               <TableCell>
                 <div className="flex items-center gap-1">
@@ -1149,3 +1112,4 @@ export function DailyAforoCasesTable({ filters, setAllFetchedCases, displayCases
     </>
   );
 }
+
