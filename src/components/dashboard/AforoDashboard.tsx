@@ -35,54 +35,93 @@ export function AforoDashboard({ allCases }: AforoDashboardProps) {
     const filteredCases = useMemo(() => {
         let examsToProcess: AforoCase[] = [];
 
-        const filterCases = (start: Date, end: Date) => {
-            return allCases.filter(c => {
-                const caseDate = (c.createdAt as Timestamp)?.toDate();
+        const filterCasesByDate = (cases: AforoCase[], dateField: 'createdAt' | 'assignmentDate', start: Date, end: Date) => {
+            return cases.filter(c => {
+                const caseDate = (c[dateField] as Timestamp)?.toDate();
                 return caseDate && caseDate >= start && caseDate <= end;
             });
         };
 
-        if (filterType === 'all') {
-            examsToProcess = allCases;
-        } else if (filterType === 'range' && dateRange?.from) {
-            const start = dateRange.from;
-            const end = dateRange.to || new Date();
-            end.setHours(23, 59, 59, 999);
-            examsToProcess = filterCases(start, end);
-        } else if (filterType === 'month') {
-            const start = startOfMonth(new Date(selectedYear, selectedMonth));
-            const end = endOfMonth(new Date(selectedYear, selectedMonth));
-            examsToProcess = filterCases(start, end);
-        } else if (filterType === 'year') {
-            const start = startOfYear(new Date(selectedYear, 0, 1));
-            const end = endOfYear(new Date(selectedYear, 11, 31));
-            examsToProcess = filterCases(start, end);
-        } else if (filterType === 'specific' && specificDate) {
-            const start = new Date(specificDate);
-            start.setHours(0, 0, 0, 0);
-            const end = new Date(specificDate);
-            end.setHours(23, 59, 59, 999);
-            examsToProcess = filterCases(start, end);
+        let start: Date, end: Date;
+        const now = new Date();
+
+        switch(filterType) {
+            case 'range':
+                start = dateRange?.from || now;
+                end = dateRange?.to ? endOfDay(dateRange.to) : endOfDay(start);
+                break;
+            case 'month':
+                start = startOfMonth(new Date(selectedYear, selectedMonth));
+                end = endOfMonth(new Date(selectedYear, selectedMonth));
+                break;
+            case 'year':
+                start = startOfYear(new Date(selectedYear, 0, 1));
+                end = endOfYear(new Date(selectedYear, 11, 31));
+                break;
+            case 'specific':
+                 start = specificDate ? startOfDay(specificDate) : startOfDay(now);
+                 end = specificDate ? endOfDay(specificDate) : endOfDay(now);
+                break;
+            case 'all':
+            default:
+                return allCases;
         }
-        return examsToProcess;
+
+        return filterCasesByDate(allCases, 'createdAt', start, end);
+
     }, [allCases, filterType, dateRange, selectedMonth, selectedYear, specificDate]);
 
 
     const aforoData = useMemo(() => {
         const aforadorStats: { [key: string]: { assigned: number; readyForReview: number; revalidated: number } } = {};
+        
+        let start: Date, end: Date;
+        const now = new Date();
+        switch(filterType) {
+            case 'range':
+                start = dateRange?.from || now;
+                end = dateRange?.to ? endOfDay(dateRange.to) : endOfDay(start);
+                break;
+            case 'month':
+                start = startOfMonth(new Date(selectedYear, selectedMonth));
+                end = endOfMonth(new Date(selectedYear, selectedMonth));
+                break;
+            case 'year':
+                start = startOfYear(new Date(selectedYear, 0, 1));
+                end = endOfYear(new Date(selectedYear, 11, 31));
+                break;
+            case 'specific':
+                 start = specificDate ? startOfDay(specificDate) : startOfDay(now);
+                 end = specificDate ? endOfDay(specificDate) : endOfDay(now);
+                break;
+            case 'all':
+            default:
+                start = new Date(2000, 0, 1);
+                end = new Date(3000, 0, 1);
+                break;
+        }
+
+        const casesForAssignedMetric = allCases.filter(c => {
+             const assignmentDate = (c.assignmentDate as Timestamp)?.toDate();
+             return assignmentDate && assignmentDate >= start && assignmentDate <= end;
+        });
+
+        casesForAssignedMetric.forEach(c => {
+            const aforadorName = c.aforador || 'Sin Asignar';
+            if (!aforadorStats[aforadorName]) {
+                aforadorStats[aforadorName] = { assigned: 0, readyForReview: 0, revalidated: 0 };
+            }
+            aforadorStats[aforadorName].assigned += 1;
+        });
 
         filteredCases.forEach(c => {
             const aforadorName = c.aforador || 'Sin Asignar';
             if (!aforadorStats[aforadorName]) {
                 aforadorStats[aforadorName] = { assigned: 0, readyForReview: 0, revalidated: 0 };
             }
-
-            aforadorStats[aforadorName].assigned += 1;
-
             if (c.aforadorStatus === 'En revisión') {
                 aforadorStats[aforadorName].readyForReview += 1;
             }
-
             if (c.revisorStatus === 'Revalidación Solicitada') {
                 aforadorStats[aforadorName].revalidated += 1;
             }
@@ -94,7 +133,7 @@ export function AforoDashboard({ allCases }: AforoDashboardProps) {
 
         return { assignedData, readyForReviewData, revalidatedData };
 
-    }, [filteredCases]);
+    }, [filteredCases, allCases, filterType, dateRange, selectedMonth, selectedYear, specificDate]);
 
     const digitacionData = useMemo(() => {
         const digitadorStats: { [key: string]: { assigned: number; liquidated: number; stored: number } } = {};
