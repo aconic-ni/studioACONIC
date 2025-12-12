@@ -53,11 +53,11 @@ interface DailyAforoCasesTableProps {
   displayCases: WorksheetWithCase[];
 }
 
-const formatDate = (date: Date | Timestamp | null | undefined, includeTime: boolean = true): string => {
+const formatDate = (date: Date | Timestamp | null | undefined): string => {
     if (!date) return 'N/A';
     const d = (date as Timestamp)?.toDate ? (date as Timestamp).toDate() : (date as Date);
     if (d instanceof Date && !isNaN(d.getTime())) {
-        const formatString = includeTime ? 'dd/MM/yy HH:mm' : 'dd/MM/yy';
+        const formatString = 'dd/MM/yy HH:mm';
         return format(d, formatString, { locale: es });
     }
     return 'Fecha Inválida';
@@ -738,7 +738,7 @@ export function DailyAforoCasesTable({ filters, setAllFetchedCases, displayCases
             const canExpandRow = user?.role === 'aforador' || canEdit;
             const isPatternValidated = caseItem.isPatternValidated === true;
             const allowPatternEdit = caseItem.revisorStatus === 'Rechazado';
-
+            
             const acuseLog = caseAuditLogs.get(caseItem.id)?.find(log => log.newValue === 'worksheet_received');
 
             return (
@@ -895,6 +895,18 @@ export function DailyAforoCasesTable({ filters, setAllFetchedCases, displayCases
               </TableCell>
               <TableCell>
                     <Badge variant={caseItem.preliquidationStatus === 'Aprobada' ? 'default' : 'outline'}>{caseItem.preliquidationStatus || 'Pendiente'}</Badge>
+              </TableCell>
+              <TableCell>
+                 <div className="flex items-center gap-2">
+                   <span>{caseItem.digitadorAsignado || 'Sin asignar'}</span>
+                   <LastUpdateTooltip lastUpdate={caseItem.digitadorAsignadoLastUpdate} caseCreation={caseItem.createdAt} />
+                 </div>
+              </TableCell>
+              <TableCell>
+                  <div className="flex items-center">
+                    <Badge variant="outline">{caseItem.digitacionStatus || 'Pendiente'}</Badge>
+                    <LastUpdateTooltip lastUpdate={caseItem.digitacionStatusLastUpdate} caseCreation={caseItem.createdAt} />
+                  </div>
               </TableCell>
             </TableRow>
              {isExpanded && canExpandRow && (
