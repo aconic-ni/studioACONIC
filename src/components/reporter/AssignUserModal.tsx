@@ -13,7 +13,7 @@ import { useAuth } from '@/context/AuthContext';
 interface AssignUserModalProps {
   isOpen: boolean;
   onClose: () => void;
-  caseData: AforoCase;
+  caseData: AforoCase | null;
   assignableUsers: AppUser[];
   onAssign: (caseId: string, userName: string) => void;
   title: string;
@@ -26,7 +26,9 @@ export function AssignUserModal({ isOpen, onClose, caseData, assignableUsers, on
 
   const handleAssignClick = () => {
     if (selectedUser) {
-      onAssign(caseData.id, selectedUser.displayName || selectedUser.email || '');
+        // For bulk actions, caseData might be null. The parent component's onAssign callback
+        // for bulk actions doesn't require a caseId.
+      onAssign(caseData?.id || '', selectedUser.displayName || selectedUser.email || '');
       onClose();
     }
   };
