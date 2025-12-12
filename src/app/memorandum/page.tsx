@@ -1008,7 +1008,7 @@ export default function MemorandumPage() {
         "Correo Notificación": s.correo || 'N/A',
         "Observación": s.observation || 'N/A',
         "Usuario (De)": s.examManager,
-        "Fecha de Guardado": s.savedAt instanceof Date ? format(s.savedAt, "yyyy-MM-dd HH:mm", { locale: es }) : 'N/A',
+        "Fecha de Guardado": s.savedAt instanceof Date ? format(s.savedAt, "yyyy-MM-dd HH:mm:ss", { locale: es }) : 'N/A',
         "Comentarios": commentsString,
         "Comentario Urgente Abierto": s.hasOpenUrgentComment ? 'Sí' : 'No',
       };
@@ -1094,8 +1094,7 @@ export default function MemorandumPage() {
     );
   }
 
-  const isUserAdminOrRevisor = user?.role === 'admin' || user?.role === 'revisor';
-  const isUserCalificador = user?.role === 'calificador';
+  const isUserAllowedToSeeExtendedFilters = user?.role === 'admin' || user?.role === 'revisor' || user?.role === 'calificador' || user?.role === 'supervisor';
   const isUserAllowedToMarkUrgent = user?.role === 'autorevisor' || user?.role === 'autorevisor_plus' || user?.role === 'revisor';
 
 
@@ -1115,7 +1114,7 @@ export default function MemorandumPage() {
                   <SelectContent>
                     <SelectItem value="dateToday">Por Fecha (Hoy)</SelectItem>
                     <SelectItem value="dateSpecific">Por Fecha (Específica)</SelectItem>
-                    {(isUserAdminOrRevisor || isUserCalificador) && (
+                    {isUserAllowedToSeeExtendedFilters && (
                         <>
                             <SelectItem value="dateCurrentMonth">Por Mes (Actual)</SelectItem>
                             <SelectItem value="dateRange">Por Rango de Fechas</SelectItem>
