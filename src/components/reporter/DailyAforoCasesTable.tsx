@@ -14,8 +14,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 import { AforoCaseHistoryModal } from './AforoCaseHistoryModal';
-import { DigitizationCommentModal } from './DigitizationCommentModal';
-import { CompleteDigitizationModal } from './CompleteDigitizationModal';
+import { AforadorCommentModal } from './AforadorCommentModal';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '../ui/dropdown-menu';
 import { Tooltip, TooltipProvider, TooltipContent, TooltipTrigger } from '../ui/tooltip';
@@ -36,7 +35,7 @@ import { FirestorePermissionError } from '@/firebase/errors';
 import { IncidentReportModal } from './IncidentReportModal';
 import { IncidentReportDetails } from './IncidentReportDetails';
 import { DatePickerWithTime } from '@/components/reports/DatePickerWithTime';
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '../ui/alert-dialog';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Dialog, DialogHeader, DialogTitle, DialogDescription, DialogContent, DialogFooter } from '@/components/ui/dialog';
 import { WorksheetDetailModal } from './WorksheetDetailModal';
 import { ScrollArea } from '../ui/scroll-area';
@@ -738,18 +737,15 @@ export function DailyAforoCasesTable({ filters, setAllFetchedCases, displayCases
             <TableHead className="w-12"><Checkbox checked={selectedRows.length > 0 && selectedRows.length === displayCases.length} onCheckedChange={toggleSelectAll}/></TableHead>
             <TableHead className="w-12"></TableHead>
             <TableHead>Acciones</TableHead>
-            <TableHead><Input placeholder="NE..." className="h-8 text-xs" value={filters.neCol} onChange={(e) => { /* Logic in parent */ }} /></TableHead>
+            <TableHead>NE</TableHead>
             <TableHead>Insignias</TableHead>
-            <TableHead><Input placeholder="Ejecutivo..." className="h-8 text-xs" value={filters.ejecutivoCol} onChange={(e) => { /* Logic in parent */ }} /></TableHead>
-            <TableHead><Input placeholder="Consignatario..." className="h-8 text-xs" value={filters.consignatarioCol} onChange={(e) => { /* Logic in parent */ }} /></TableHead>
-            <TableHead><Input placeholder="Aforador..." className="h-8 text-xs" value={filters.aforadorCol} onChange={(e) => { /* Logic in parent */ }} /></TableHead>
+            <TableHead>Ejecutivo</TableHead>
+            <TableHead>Consignatario</TableHead>
+            <TableHead>Aforador</TableHead>
             <TableHead>Fecha Asignación</TableHead>
             <TableHead>Estatus Aforador</TableHead>
-            <TableHead><Input placeholder="Revisor..." className="h-8 text-xs" value={filters.revisorCol} onChange={(e) => { /* Logic in parent */ }} /></TableHead>
+            <TableHead>Revisor</TableHead>
             <TableHead>Estatus Revisor</TableHead>
-            <TableHead>Preliquidación</TableHead>
-            <TableHead>Digitador Asignado</TableHead>
-            <TableHead>Estado Digitación</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -922,18 +918,6 @@ export function DailyAforoCasesTable({ filters, setAllFetchedCases, displayCases
                         <LastUpdateTooltip lastUpdate={caseItem.revisorStatusLastUpdate} caseCreation={caseItem.createdAt}/>
                     </div>
               </TableCell>
-              <TableCell>
-                 <Badge variant={caseItem.preliquidationStatus === 'Aprobada' ? 'default' : 'outline'}>{caseItem.preliquidationStatus || 'Pendiente'}</Badge>
-              </TableCell>
-              <TableCell>
-                 <div className="flex items-center gap-2">
-                   <span>{caseItem.digitadorAsignado || 'Sin asignar'}</span>
-                   <LastUpdateTooltip lastUpdate={caseItem.digitadorAsignadoLastUpdate} caseCreation={caseItem.createdAt} />
-                 </div>
-              </TableCell>
-              <TableCell>
-                  <Badge variant="outline">{caseItem.digitacionStatus || 'Pendiente'}</Badge>
-              </TableCell>
             </TableRow>
              {isExpanded && canExpandRow && (
                 <TableRow className="bg-muted/30 hover:bg-muted/40">
@@ -1073,7 +1057,7 @@ export function DailyAforoCasesTable({ filters, setAllFetchedCases, displayCases
         />
     )}
      {selectedCaseForAforadorComment && (
-        <AforoCaseHistoryModal
+        <AforadorCommentModal
             isOpen={!!selectedCaseForAforadorComment}
             onClose={() => setSelectedCaseForAforadorComment(null)}
             caseData={selectedCaseForAforadorComment}
@@ -1204,5 +1188,3 @@ export function DailyAforoCasesTable({ filters, setAllFetchedCases, displayCases
     </>
   );
 }
-
-    

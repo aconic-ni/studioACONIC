@@ -26,7 +26,7 @@ import type { AforoCase, AppUser, AforoCaseUpdate, Worksheet, WorksheetWithCase 
 import { collection, getDocs, query, where, collectionGroup, orderBy, writeBatch, doc, getDoc, Timestamp } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { downloadAforoReportAsExcel } from '@/lib/fileExporterAforo';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
 import { startOfMonth, endOfMonth, isSameDay, startOfDay, endOfDay } from 'date-fns';
 import { useToast } from '@/hooks/use-toast';
 import { useIsMobile } from '@/hooks/use-mobile';
@@ -62,18 +62,17 @@ export default function TheReporterPage() {
   
   // State for applied filters that trigger re-fetch
   const [appliedDbFilters, setAppliedDbFilters] = useState<{
-    ne: string;
-    consignee: string;
-    dateRange: DateRange | undefined;
+    ne?: string;
+    consignee?: string;
+    dateRange?: DateRange;
     dateFilterType: DateFilterType;
-    neCol: string;
-    ejecutivoCol: string;
-    consignatarioCol: string;
-    aforadorCol: string;
-    revisorCol: string;
+    neCol?: string;
+    ejecutivoCol?: string;
+    consignatarioCol?: string;
+    aforadorCol?: string;
+    revisorCol?: string;
   }>({
-    ne: '', consignee: '', dateRange: undefined, dateFilterType: 'range',
-    neCol: '', ejecutivoCol: '', consignatarioCol: '', aforadorCol: '', revisorCol: ''
+    dateFilterType: 'range',
   });
 
   // Column filter states
@@ -115,16 +114,15 @@ export default function TheReporterPage() {
     }
 
     setAppliedDbFilters({
-      ne: neInput,
-      consignee: consigneeInput,
+      ne: neInput || undefined,
+      consignee: consigneeInput || undefined,
       dateRange: dateRange,
       dateFilterType: dateFilterType,
-      // Also apply column filters on general search
-      neCol: neColFilter,
-      ejecutivoCol: ejecutivoColFilter,
-      consignatarioCol: consignatarioColFilter,
-      aforadorCol: aforadorColFilter,
-      revisorCol: revisorColFilter,
+      neCol: neColFilter || undefined,
+      ejecutivoCol: ejecutivoColFilter || undefined,
+      consignatarioCol: consignatarioColFilter || undefined,
+      aforadorCol: aforadorColFilter || undefined,
+      revisorCol: revisorColFilter || undefined,
     });
   };
 
@@ -135,12 +133,11 @@ export default function TheReporterPage() {
       return allFetchedCases.filter(c => !c.declaracionAduanera);
     }
     
-    // Apply column filters if active
-    if (appliedDbFilters.neCol) filtered = filtered.filter(c => c.ne.toLowerCase().includes(appliedDbFilters.neCol.toLowerCase()));
-    if (appliedDbFilters.ejecutivoCol) filtered = filtered.filter(c => c.executive.toLowerCase().includes(appliedDbFilters.ejecutivoCol.toLowerCase()));
-    if (appliedDbFilters.consignatarioCol) filtered = filtered.filter(c => c.consignee.toLowerCase().includes(appliedDbFilters.consignatarioCol.toLowerCase()));
-    if (appliedDbFilters.aforadorCol) filtered = filtered.filter(c => (c.aforador || '').toLowerCase().includes(appliedDbFilters.aforadorCol.toLowerCase()));
-    if (appliedDbFilters.revisorCol) filtered = filtered.filter(c => (c.revisorAsignado || '').toLowerCase().includes(appliedDbFilters.revisorCol.toLowerCase()));
+    if (appliedDbFilters.neCol) filtered = filtered.filter(c => c.ne.toLowerCase().includes(appliedDbFilters.neCol!.toLowerCase()));
+    if (appliedDbFilters.ejecutivoCol) filtered = filtered.filter(c => c.executive.toLowerCase().includes(appliedDbFilters.ejecutivoCol!.toLowerCase()));
+    if (appliedDbFilters.consignatarioCol) filtered = filtered.filter(c => c.consignee.toLowerCase().includes(appliedDbFilters.consignatarioCol!.toLowerCase()));
+    if (appliedDbFilters.aforadorCol) filtered = filtered.filter(c => (c.aforador || '').toLowerCase().includes(appliedDbFilters.aforadorCol!.toLowerCase()));
+    if (appliedDbFilters.revisorCol) filtered = filtered.filter(c => (c.revisorAsignado || '').toLowerCase().includes(appliedDbFilters.revisorCol!.toLowerCase()));
 
     return filtered;
 
@@ -245,8 +242,7 @@ export default function TheReporterPage() {
     setAforadorColFilter('');
     setRevisorColFilter('');
     setAppliedDbFilters({ 
-        ne: '', consignee: '', dateRange: undefined, dateFilterType: 'range',
-        neCol: '', ejecutivoCol: '', consignatarioCol: '', aforadorCol: '', revisorCol: ''
+        dateFilterType: 'range',
     });
   }
 
@@ -358,5 +354,3 @@ export default function TheReporterPage() {
     </AppShell>
   );
 }
-
-    
