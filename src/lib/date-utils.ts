@@ -10,20 +10,13 @@ export function calculateDueDate(startDate: Date, daysToAdd: number): Date {
   let currentDate = new Date(startDate);
   let daysAdded = 0;
 
-  // Start counting from the day AFTER the start date
-  currentDate.setDate(currentDate.getDate() + 1);
-
   while (daysAdded < daysToAdd) {
+    currentDate.setDate(currentDate.getDate() + 1);
     const dayOfWeek = currentDate.getDay(); // 0 = Sunday, 1 = Monday, ..., 6 = Saturday
 
     // Check if the current day is a working day (Monday to Saturday)
-    if (dayOfWeek >= 1 && dayOfWeek <= 6) {
+    if (dayOfWeek !== 0) { // 0 is Sunday
       daysAdded++;
-    }
-    
-    // If we haven't reached the target number of days, move to the next day
-    if (daysAdded < daysToAdd) {
-      currentDate.setDate(currentDate.getDate() + 1);
     }
   }
 
