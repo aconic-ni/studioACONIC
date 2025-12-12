@@ -66,6 +66,7 @@ const SignatureSection: React.FC<{
   );
 };
 
+
 export const Anexo5Details: React.FC<{ worksheet: Worksheet; onClose: () => void; }> = ({ worksheet, onClose }) => {
   const [agente, setAgente] = useState<AppUser | null>(null);
 
@@ -96,6 +97,14 @@ export const Anexo5Details: React.FC<{ worksheet: Worksheet; onClose: () => void
   const valorAduanero = (worksheet.valor || 0) + (worksheet.flete || 0) + (worksheet.seguro || 0) + (worksheet.otrosGastos || 0);
 
   const headerImageSrc = "/AconicExaminer/imagenes/HEADERANEX5DETAIL.svg";
+
+  if (worksheet.worksheetType === 'anexo_7') {
+    return <Anexo7Details worksheet={worksheet} onClose={onClose} />;
+  }
+
+  if (worksheet.worksheetType === 'hoja_de_trabajo' || !worksheet.worksheetType) {
+    return <WorksheetDetails worksheet={worksheet} onClose={onClose} />;
+  }
 
   const MIN_ROWS = 9;
   const productRows = worksheet.documents && worksheet.documents.length > 0 ? worksheet.documents : [];
@@ -183,8 +192,8 @@ export const Anexo5Details: React.FC<{ worksheet: Worksheet; onClose: () => void
                 </table>
             </div>
             
-             <div className="grid grid-cols-2 gap-x-8 mt-2 print:mt-1">
-                <div className="w-full text-xs p-2 print:text-[8pt] print:p-1">
+             <div className="grid grid-cols-3 gap-x-4 mt-2 print:mt-1">
+                <div className="w-full text-xs p-2 print:text-[8pt] print:p-1 col-span-1">
                     <table className="w-full border-collapse print:text-[9pt]">
                         <thead><tr><th colSpan={2} className="border border-black text-center text-xs p-1 print:text-[8pt] font-bold">Conformación de Valor</th></tr></thead>
                         <tbody>
@@ -209,6 +218,12 @@ export const Anexo5Details: React.FC<{ worksheet: Worksheet; onClose: () => void
                     <p className="text-xs font-semibold text-gray-500 print:text-[8pt]">NOTA:</p>
                     <p className="text-sm print:text-xs whitespace-pre-wrap min-h-[42px]">{worksheet.observations}</p>
                 </div>
+                <div className="space-y-1 p-2 print:p-1 col-span-1">
+                    <DetailItem label="Bultos Totales" value={bultosTotales > 0 ? bultosTotales.toLocaleString('es-NI') : ''} />
+                    <DetailItem label="Peso Total" value={pesoTotal > 0 ? pesoTotal.toLocaleString('es-NI', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : ''} />
+                    <DetailItem label="Precinto" value={worksheet.precinto || ''} />
+                    <DetailItem label="Precinto Lateral" value={worksheet.precintoLateral || ''} />
+                </div>
             </div>
             
             <div className="grid grid-cols-2 gap-x-8 mt-1 print:mt-1">
@@ -226,17 +241,16 @@ export const Anexo5Details: React.FC<{ worksheet: Worksheet; onClose: () => void
                         </tbody>
                     </table>
                 </div>
-                 <div className="border border-black mt-1 print:mt-1 p-2 flex flex-col justify-between">
+                <div className="border-t border-b border-black mt-1 print:mt-1 p-2 flex flex-col justify-between">
                     <p className="text-center font-bold text-sm">TRÁNSITO</p>
                     <div className="space-y-4">
-                        <SignatureSection title="Firma y Sello" subtitle="INSPECTOR ACCA" align="center" className="w-full"/>
+                        <div className="flex-grow border-b-2 border-black print:h-6 mb-1 h-[50px]"></div>
+                        <p className="text-xs font-semibold text-gray-700 print:text-[8pt] text-center">Firma y Sello</p>
                         <DetailItem label="HORA DE SALIDA" value="" />
                         <DetailItem label="HORA DE LLEGADA" value="" />
                     </div>
                 </div>
             </div>
-            
-            <div className="h-[50px] print:h-[20px]"></div>
 
             <div className="grid grid-cols-2 gap-x-8 mt-2 print:mt-1">
                  <SignatureSection title="ADUANA DESTINO" subtitle="Firma y Sello" align="left" className="w-full" />
