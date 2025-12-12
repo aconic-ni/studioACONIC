@@ -1,4 +1,3 @@
-
 "use client";
 import { useState, useMemo, useCallback } from 'react';
 import type { AforoCase } from '@/types';
@@ -26,7 +25,7 @@ const months = [
 ];
 
 export function AforoDashboard({ allCases }: AforoDashboardProps) {
-    const [filterType, setFilterType] = useState<'all' | 'range' | 'month' | 'year' | 'specific'>('year');
+    const [filterType, setFilterType] = useState<'all' | 'range' | 'month' | 'year' | 'specific' | 'today'>('year');
     const [dateRange, setDateRange] = useState<DateRange | undefined>();
     const [specificDate, setSpecificDate] = useState<Date | undefined>();
     const [selectedMonth, setSelectedMonth] = useState<number>(getMonth(new Date()));
@@ -62,6 +61,10 @@ export function AforoDashboard({ allCases }: AforoDashboardProps) {
                  start = specificDate ? startOfDay(specificDate) : startOfDay(now);
                  end = specificDate ? endOfDay(specificDate) : endOfDay(now);
                 break;
+             case 'today':
+                start = startOfDay(now);
+                end = endOfDay(now);
+                break;
             case 'all':
             default:
                 return allCases;
@@ -93,6 +96,10 @@ export function AforoDashboard({ allCases }: AforoDashboardProps) {
             case 'specific':
                  start = specificDate ? startOfDay(specificDate) : startOfDay(now);
                  end = specificDate ? endOfDay(specificDate) : endOfDay(now);
+                break;
+            case 'today':
+                start = startOfDay(now);
+                end = endOfDay(now);
                 break;
             case 'all':
             default:
@@ -134,6 +141,55 @@ export function AforoDashboard({ allCases }: AforoDashboardProps) {
         return { assignedData, readyForReviewData, revalidatedData };
 
     }, [filteredCases, allCases, filterType, dateRange, selectedMonth, selectedYear, specificDate]);
+
+    const psmtData = useMemo(() => {
+        const psmtCases = allCases.filter(c => c.consignee?.toUpperCase().trim() === "PSMT NICARAGUA, SOCIEDAD ANONIMA");
+        const aforadorStats: { [key: string]: number } = {};
+
+        let start: Date, end: Date;
+        const now = new Date();
+        switch(filterType) {
+            case 'range':
+                start = dateRange?.from || now;
+                end = dateRange?.to ? endOfDay(dateRange.to) : endOfDay(start);
+                break;
+            case 'month':
+                start = startOfMonth(new Date(selectedYear, selectedMonth));
+                end = endOfMonth(new Date(selectedYear, selectedMonth));
+                break;
+            case 'year':
+                start = startOfYear(new Date(selectedYear, 0, 1));
+                end = endOfYear(new Date(selectedYear, 11, 31));
+                break;
+            case 'specific':
+                 start = specificDate ? startOfDay(specificDate) : startOfDay(now);
+                 end = specificDate ? endOfDay(specificDate) : endOfDay(now);
+                break;
+            case 'today':
+                start = startOfDay(now);
+                end = endOfDay(now);
+                break;
+            case 'all':
+            default:
+                start = new Date(2000, 0, 1);
+                end = new Date(3000, 0, 1);
+                break;
+        }
+
+        const casesForAssignedMetric = psmtCases.filter(c => {
+             const assignmentDate = (c.assignmentDate as Timestamp)?.toDate();
+             return assignmentDate && assignmentDate >= start && assignmentDate <= end;
+        });
+
+        casesForAssignedMetric.forEach(c => {
+            const aforadorName = c.aforador || 'Sin Asignar';
+            aforadorStats[aforadorName] = (aforadorStats[aforadorName] || 0) + 1;
+        });
+
+        return Object.entries(aforadorStats).map(([name, value]) => ({ name, value }));
+
+    }, [allCases, filterType, dateRange, selectedMonth, selectedYear, specificDate]);
+
 
     const digitacionData = useMemo(() => {
         const digitadorStats: { [key: string]: { assigned: number; liquidated: number; stored: number } } = {};
@@ -182,6 +238,7 @@ export function AforoDashboard({ allCases }: AforoDashboardProps) {
                             <SelectItem value="month">Mes Específico</SelectItem>
                             <SelectItem value="range">Rango de Fechas</SelectItem>
                             <SelectItem value="specific">Fecha Específica</SelectItem>
+                            <SelectItem value="today">Hoy</SelectItem>
                             <SelectItem value="all">Todo el tiempo</SelectItem>
                         </SelectContent>
                     </Select>
@@ -221,6 +278,17 @@ export function AforoDashboard({ allCases }: AforoDashboardProps) {
                         title="Casos con Solicitud de Revalidación"
                         description="Total de casos devueltos para revalidación."
                         data={aforoData.revalidatedData}
+                    />
+                </div>
+            </div>
+
+            <div className="space-y-2 pt-6">
+                 <h3 className="text-xl font-semibold">Métricas de PSMT</h3>
+                <div className="grid gap-4 md:grid-cols-1 lg:grid-cols-3">
+                    <AforoPieChartCard
+                        title="Casos PSMT Asignados por Aforador"
+                        description="Total de casos PSMT asignados en el período."
+                        data={psmtData}
                     />
                 </div>
             </div>
