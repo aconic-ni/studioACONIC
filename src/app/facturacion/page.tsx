@@ -316,7 +316,6 @@ export default function FacturacionPage() {
             </CardHeader>
             <CardContent>
                 <TabsContent value="pendientes">
-                    
                     {isLoading ? (
                     <div className="flex justify-center items-center py-10"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>
                     ) : filteredCases.length === 0 ? (
@@ -408,64 +407,64 @@ export default function FacturacionPage() {
                     </div>
                     )}
                 </TabsContent>
-                </Card>
-            </TabsContent>
-            <TabsContent value="remisiones">
-                 <Card className="w-full max-w-7xl mx-auto custom-shadow">
-                    <CardHeader>
-                        <CardTitle>Remisiones Generadas</CardTitle>
-                        <CardDescription>Historial de todas las remisiones de cuentas creadas.</CardDescription>
-                         <div className="border-t pt-4 mt-2 space-y-4">
-                            <div className="flex flex-col md:flex-row gap-4">
-                                <Input placeholder="Buscar por ID, destinatario o NE..." value={remisionSearchTerm} onChange={e => setRemisionSearchTerm(e.target.value)} className="max-w-sm"/>
-                                {canAssign && (
-                                    <DatePickerWithRange date={remisionDateFilter} onDateChange={setRemisionDateFilter} />
-                                )}
-                            </div>
-                         </div>
-                    </CardHeader>
-                    <CardContent>
-                         {isLoadingRemisiones ? (
-                            <div className="flex justify-center items-center py-10"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>
-                        ) : filteredRemisiones.length === 0 ? (
-                             <div className="text-center py-10 px-6 bg-secondary/30 rounded-lg">
-                                <Inbox className="mx-auto h-12 w-12 text-muted-foreground" />
-                                <h3 className="mt-4 text-lg font-medium text-foreground">No hay remisiones</h3>
-                                <p className="mt-1 text-muted-foreground">{canAssign ? 'No se encontraron remisiones para los filtros aplicados.' : 'No se han generado remisiones hoy.'}</p>
-                            </div>
-                        ) : (
-                            <div className="overflow-x-auto table-container rounded-lg border">
-                                <Table>
-                                    <TableHeader>
-                                        <TableRow>
-                                            <TableHead>ID Remisión</TableHead>
-                                            <TableHead>Destinatario</TableHead>
-                                            <TableHead>Fecha de Creación</TableHead>
-                                            <TableHead>Total de Cuentas</TableHead>
-                                            <TableHead>Acciones</TableHead>
-                                        </TableRow>
-                                    </TableHeader>
-                                    <TableBody>
-                                        {filteredRemisiones.map(r => (
-                                            <TableRow key={r.id}>
-                                                <TableCell className="font-mono text-xs">{r.id}</TableCell>
-                                                <TableCell>{r.recipientName}</TableCell>
-                                                <TableCell>{format(r.createdAt.toDate(), 'dd/MM/yyyy HH:mm', { locale: es })}</TableCell>
-                                                <TableCell>{r.totalCases}</TableCell>
-                                                <TableCell>
-                                                    <Button variant="outline" size="sm" onClick={() => setSelectedRemision(r)}>
-                                                        <Eye className="mr-2 h-4 w-4"/> Ver
-                                                    </Button>
-                                                </TableCell>
+                <TabsContent value="remisiones">
+                     <Card className="w-full max-w-7xl mx-auto custom-shadow">
+                        <CardHeader>
+                            <CardTitle>Remisiones Generadas</CardTitle>
+                            <CardDescription>Historial de todas las remisiones de cuentas creadas.</CardDescription>
+                             <div className="border-t pt-4 mt-2 space-y-4">
+                                <div className="flex flex-col md:flex-row gap-4">
+                                    <Input placeholder="Buscar por ID, destinatario o NE..." value={remisionSearchTerm} onChange={e => setRemisionSearchTerm(e.target.value)} className="max-w-sm"/>
+                                    {canAssign && (
+                                        <DatePickerWithRange date={remisionDateFilter} onDateChange={setRemisionDateFilter} />
+                                    )}
+                                </div>
+                             </div>
+                        </CardHeader>
+                        <CardContent>
+                             {isLoadingRemisiones ? (
+                                <div className="flex justify-center items-center py-10"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>
+                            ) : filteredRemisiones.length === 0 ? (
+                                 <div className="text-center py-10 px-6 bg-secondary/30 rounded-lg">
+                                    <Inbox className="mx-auto h-12 w-12 text-muted-foreground" />
+                                    <h3 className="mt-4 text-lg font-medium text-foreground">No hay remisiones</h3>
+                                    <p className="mt-1 text-muted-foreground">{canAssign ? 'No se encontraron remisiones para los filtros aplicados.' : 'No se han generado remisiones hoy.'}</p>
+                                </div>
+                            ) : (
+                                <div className="overflow-x-auto table-container rounded-lg border">
+                                    <Table>
+                                        <TableHeader>
+                                            <TableRow>
+                                                <TableHead>ID Remisión</TableHead>
+                                                <TableHead>Destinatario</TableHead>
+                                                <TableHead>Fecha de Creación</TableHead>
+                                                <TableHead>Total de Cuentas</TableHead>
+                                                <TableHead>Acciones</TableHead>
                                             </TableRow>
-                                        ))}
-                                    </TableBody>
-                                </Table>
-                            </div>
-                        )}
-                    </CardContent>
-                </Card>
-            </TabsContent>
+                                        </TableHeader>
+                                        <TableBody>
+                                            {filteredRemisiones.map(r => (
+                                                <TableRow key={r.id}>
+                                                    <TableCell className="font-mono text-xs">{r.id}</TableCell>
+                                                    <TableCell>{r.recipientName}</TableCell>
+                                                    <TableCell>{format(r.createdAt.toDate(), 'dd/MM/yyyy HH:mm', { locale: es })}</TableCell>
+                                                    <TableCell>{r.totalCases}</TableCell>
+                                                    <TableCell>
+                                                        <Button variant="outline" size="sm" onClick={() => setSelectedRemision(r)}>
+                                                            <Eye className="mr-2 h-4 w-4"/> Ver
+                                                        </Button>
+                                                    </TableCell>
+                                                </TableRow>
+                                            ))}
+                                        </TableBody>
+                                    </Table>
+                                </div>
+                            )}
+                        </CardContent>
+                    </Card>
+                </TabsContent>
+            </CardContent>
+            </Card>
         </Tabs>
       </AppShell>
       {selectedCase && (
@@ -478,3 +477,5 @@ export default function FacturacionPage() {
     </>
   );
 }
+
+    
