@@ -257,10 +257,7 @@ export const Anexo5Details: React.FC<{ worksheet: Worksheet; onClose: () => void
                           <p>AGENCIA ADUANERA ACONIC</p>
                       </div>
                   )}
-                  <div className="space-y-4">
-                      <div className="flex-grow border-b-2 border-black print:h-6 mb-1 h-[50px]"></div>
-                      <p className="text-xs font-semibold text-gray-700 print:text-[8pt] text-center">Firma y Sello</p>
-                  </div>
+                   <SignatureSection title="Firma y Sello" align="center" showSignatureLine={!agente}/>
               </div>
         </div>
 
@@ -268,6 +265,10 @@ export const Anexo5Details: React.FC<{ worksheet: Worksheet; onClose: () => void
                <SignatureSection title="ADUANA DESTINO" subtitle="Firma y Sello" align="left" className="w-full" />
               <div className="border border-black p-2 flex flex-col justify-between">
                   <p className="text-center font-bold text-sm">TRANSITO</p>
+                  <div className="space-y-4">
+                      <div className="flex-grow border-b-2 border-black print:h-6 mb-1 h-[50px]"></div>
+                      <p className="text-xs font-semibold text-gray-700 print:text-[8pt] text-center">Firma y Sello</p>
+                  </div>
                   <p className="text-xs font-semibold text-gray-700 print:text-[8pt] text-center">Firma y Sello</p>
                             <DetailItem label="HORA DE SALIDA" value="" />
                             <DetailItem label="HORA DE LLEGADA" value="" />
