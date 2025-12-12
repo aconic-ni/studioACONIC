@@ -1,4 +1,3 @@
-
 "use client";
 import React, { useEffect, useState } from 'react';
 import Image from 'next/image';
@@ -45,6 +44,13 @@ const DetailItem: React.FC<{ label: string; value?: string | number | null | boo
     </div>
   );
 };
+
+const LinedDetailItem: React.FC<{ label: string; value?: string | number | null; className?: string }> = ({ label, value, className }) => (
+    <div className={cn("border-b border-black flex justify-between items-baseline py-1 print:py-0.5", className)}>
+        <span className="text-xs font-semibold text-gray-700 print:text-[8pt]">{label}</span>
+        <p className="text-xs font-medium text-gray-800 print:text-[9pt]">{value || ''}</p>
+    </div>
+);
 
 
 const TransportDetailItem: React.FC<{ label: string; value?: string | number | null; className?: string }> = ({ label, value, className }) => (
