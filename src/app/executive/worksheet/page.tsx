@@ -202,6 +202,7 @@ function WorksheetForm() {
           const formData: Partial<WorksheetFormData> = {
             ...data,
             eta: data.eta?.toDate(),
+            resa: data.resa || '',
             resaNotificationDate: data.resaNotificationDate?.toDate() || null,
             resaDueDate: data.resaDueDate?.toDate() || null,
             requiredPermits: (data.requiredPermits || []).map((p: any) => ({
@@ -1067,14 +1068,13 @@ function WorksheetForm() {
                     <div className="rounded-md border mt-4"><Table>
                         <TableHeader><TableRow><TableHead>Permiso</TableHead><TableHead>Factura Asociada</TableHead><TableHead>Estado</TableHead><TableHead className="text-right">Acción</TableHead></TableRow></TableHeader>
                         <TableBody>{permitFields.map((field, index) => {
-                            const currentPermit = form.getValues(`requiredPermits.${index}`);
                             const needsDetails = ['Dictamen Tecnico INE', 'IPSA', 'MINSA', 'TELCOR'].includes(field.name);
                             return (
                             <TableRow key={field.id}>
                                 <TableCell>{field.name}</TableCell>
                                 <TableCell>{field.facturaNumber || 'N/A'}</TableCell>
                                 <TableCell>
-                                    {currentPermit.status === 'Rechazado' ? (
+                                    {field.status === 'Rechazado' ? (
                                         <div className="flex items-center gap-2">
                                              <Badge variant="destructive">Rechazado</Badge>
                                              <Button size="sm" variant="outline" onClick={() => handleResubmitPermit(index)}>
