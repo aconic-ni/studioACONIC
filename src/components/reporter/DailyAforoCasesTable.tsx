@@ -1,5 +1,4 @@
 
-      
 "use client";
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { db } from '@/lib/firebase';
@@ -37,7 +36,8 @@ import { FirestorePermissionError } from '@/firebase/errors';
 import { IncidentReportModal } from './IncidentReportModal';
 import { IncidentReportDetails } from './IncidentReportDetails';
 import { DatePickerWithTime } from '@/components/reports/DatePickerWithTime';
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, Dialog } from '../ui/alert-dialog';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '../ui/alert-dialog';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '../ui/dialog';
 import { WorksheetDetailModal } from './WorksheetDetailModal';
 import { ScrollArea } from '../ui/scroll-area';
 import { Anexo5Details } from '../executive/anexos/Anexo5Details';
@@ -370,8 +370,7 @@ export function DailyAforoCasesTable({ filters, setAllFetchedCases, displayCases
         // If no search is active, filter out cases sent to digitization.
         if (!isSearchActive) {
             filtered = filtered.filter(c => 
-                !c.digitacionStatus || 
-                c.digitacionStatus === 'Pendiente'
+                !c.digitacionStatus || c.digitacionStatus === 'Pendiente'
             );
         }
         
@@ -946,7 +945,7 @@ export function DailyAforoCasesTable({ filters, setAllFetchedCases, displayCases
                           </div>
                           <Button 
                             onClick={() => handleValidatePattern(caseItem.id)}
-                            disabled={!caseItem.declarationPattern || (isPatternValidated && !allowPatternEdit) || savingState[caseItem.id]}
+                            disabled={isPatternValidated || !caseItem.declarationPattern || savingState[caseItem.id]}
                           >
                             <CheckSquare className="mr-2 h-4 w-4" /> Validar
                           </Button>
@@ -1075,23 +1074,25 @@ export function DailyAforoCasesTable({ filters, setAllFetchedCases, displayCases
             description={assignmentModal.case ? `Seleccione un usuario para asignar al caso NE: ${assignmentModal.case.ne}` : `Seleccione un usuario para asignar a los ${selectedRows.length} casos seleccionados.`}
         />
     )}
-     <Dialog open={statusModal.isOpen} onOpenChange={() => setStatusModal({isOpen: false})}>
-        <DialogContent>
-            <DialogHeader>
-                <DialogTitle>Asignar Estatus de Aforador Masivo</DialogTitle>
-                <DialogDescription>Seleccione el estatus a aplicar a los {selectedRows.length} casos seleccionados.</DialogDescription>
-            </DialogHeader>
-            <Select onValueChange={(value) => { handleBulkAction('aforadorStatus', value); }}>
-              <SelectTrigger><SelectValue placeholder="Seleccionar estatus..." /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="Pendiente ">Pendiente </SelectItem>
-                <SelectItem value="En proceso">En proceso</SelectItem>
-                <SelectItem value="Incompleto">Incompleto</SelectItem>
-                <SelectItem value="En revisión">En revisión</SelectItem>
-              </SelectContent>
-            </Select>
-        </DialogContent>
-    </Dialog>
+     {statusModal.isOpen && (
+      <Dialog open={statusModal.isOpen} onOpenChange={() => setStatusModal({isOpen: false})}>
+          <DialogContent>
+              <DialogHeader>
+                  <DialogTitle>Asignar Estatus de Aforador Masivo</DialogTitle>
+                  <DialogDescription>Seleccione el estatus a aplicar a los {selectedRows.length} casos seleccionados.</DialogDescription>
+              </DialogHeader>
+              <Select onValueChange={(value) => { handleBulkAction('aforadorStatus', value); }}>
+                <SelectTrigger><SelectValue placeholder="Seleccionar estatus..." /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Pendiente ">Pendiente </SelectItem>
+                  <SelectItem value="En proceso">En proceso</SelectItem>
+                  <SelectItem value="Incompleto">Incompleto</SelectItem>
+                  <SelectItem value="En revisión">En revisión</SelectItem>
+                </SelectContent>
+              </Select>
+          </DialogContent>
+      </Dialog>
+    )}
     {involvedUsersModal.isOpen && involvedUsersModal.caseData && (
         <InvolvedUsersModal
           isOpen={involvedUsersModal.isOpen}
@@ -1133,5 +1134,3 @@ export function DailyAforoCasesTable({ filters, setAllFetchedCases, displayCases
     </>
   );
 }
-
-    
