@@ -1,4 +1,3 @@
-
 "use client";
 import React, { useEffect, useState, useMemo, useCallback, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
@@ -718,7 +717,7 @@ function ExecutivePageContent() {
             <Table><TableHeader><TableRow>
                  <TableHead>
                     <Checkbox
-                      checked={selectedRows.length === filteredCases.filter(c => c.revisorStatus === 'Aprobado' && c.preliquidationStatus !== 'Aprobada').length && filteredCases.filter(c => c.revisorStatus === 'Aprobado' && c.preliquidationStatus !== 'Aprobada').length > 0}
+                      checked={selectedRows.length > 0 && selectedRows.length === filteredCases.filter(c => c.revisorStatus === 'Aprobado' && c.preliquidationStatus !== 'Aprobada').length}
                       onCheckedChange={handleSelectAllForPreliquidation}
                       aria-label="Seleccionar todo para preliquidación"
                     />
@@ -731,6 +730,7 @@ function ExecutivePageContent() {
                 <TableHead><Input placeholder="Factura..." className="h-8 text-xs" value={facturaFilter} onChange={e => setFacturaFilter(e.target.value)}/></TableHead>
                 <TableHead>Estado General</TableHead>
                 <TableHead><Input placeholder="Selectividad..." className="h-8 text-xs" value={selectividadFilter} onChange={e => setSelectividadFilter(e.target.value)}/></TableHead>
+                <TableHead>Preliquidación</TableHead>
                 <TableHead>Fecha Despacho</TableHead>
                 <TableHead><Input placeholder="Incidencia..." className="h-8 text-xs" value={incidentTypeFilter} onChange={e => setIncidentTypeFilter(e.target.value)}/></TableHead>
                 <TableHead>Facturado</TableHead>
@@ -849,13 +849,7 @@ function ExecutivePageContent() {
                             </div>
                         </TableCell>
                         <TableCell>
-                          <div className="flex items-center">
-                                <Button variant="outline" size="sm" onClick={() => setSelectedCaseForProcess(c)}>Revisar Proceso</Button>
-                                {!c.isPatternValidated ? <Badge variant="destructive">Validar Patrón</Badge>
-                                : c.digitacionStatus === 'Trámite Completo' ? <Badge className="bg-green-600">{c.declaracionAduanera}</Badge>
-                                : <Badge variant="secondary">En Proceso</Badge>
-                                }
-                          </div>
+                           {getDigitacionBadge(c.digitacionStatus, c.declaracionAduanera)}
                         </TableCell>
                          <TableCell>
                             <div className="flex items-center gap-2">
@@ -883,6 +877,18 @@ function ExecutivePageContent() {
                                         </TooltipContent>
                                     </Tooltip>
                                 )}
+                            </div>
+                        </TableCell>
+                         <TableCell>
+                            <div className="flex items-center">
+                                {c.revisorStatus === 'Aprobado' && c.preliquidationStatus !== 'Aprobada' ? (
+                                    <Button size="sm" onClick={() => approvePreliquidation(c.id)} disabled={savingState[c.id]}>
+                                        <CheckCircle className="mr-2 h-4 w-4" /> Aprobar
+                                    </Button>
+                                ) : (
+                                    getPreliquidationStatusBadge(c.preliquidationStatus)
+                                )}
+                                <LastUpdateTooltip lastUpdate={c.preliquidationStatusLastUpdate} caseCreation={c.createdAt} />
                             </div>
                         </TableCell>
                         <TableCell>
@@ -1140,3 +1146,6 @@ export default function ExecutivePage() {
     
 
 
+
+
+    
