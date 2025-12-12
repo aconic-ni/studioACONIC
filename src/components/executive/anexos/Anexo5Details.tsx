@@ -131,8 +131,6 @@ export const Anexo5Details: React.FC<{ worksheet: Worksheet; onClose: () => void
               <DetailItem label="Fecha" value={formatShortDate(new Date())} />
               <DetailItem label="Empresa que solicita" value={worksheet.consignee} />
               <DetailItem label="RUC" value={worksheet.ruc} />
-              <DetailItem label="Almacén de Salida" value={worksheet.almacenSalida} />
-              <DetailItem label="Código de Almacén" value={worksheet.codigoAlmacen} />
             </div>
             <div className="space-y-1">
               <DetailItem label="RESA No" value={worksheet.resa} />
@@ -272,11 +270,11 @@ export const Anexo5Details: React.FC<{ worksheet: Worksheet; onClose: () => void
                 <div className="border border-black p-2 flex flex-col justify-between">
                     <p className="text-center font-bold text-sm">TRANSITO</p>
                     <div className="flex-grow flex flex-col justify-end">
-                        <DetailItem label="HORA DE SALIDA" value="" />
-                        <DetailItem label="HORA DE LLEGADA" value="" />
-                         <div className="h-[50px]"></div>
+                        <div className="h-[50px]"></div>
                         <div className="border-b-2 border-black"></div>
                         <p className="text-xs font-semibold text-center pt-1">Firma y Sello</p>
+                        <DetailItem label="HORA DE SALIDA" value="" />
+                        <DetailItem label="HORA DE LLEGADA" value="" />
                     </div>
                 </div>
             </div>
