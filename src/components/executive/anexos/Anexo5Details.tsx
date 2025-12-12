@@ -238,26 +238,16 @@ export const Anexo5Details: React.FC<{ worksheet: Worksheet; onClose: () => void
                           <TransportDetailItem label="Placa" value={worksheet.placaVehiculo} />
                           <TransportDetailItem label="Motor" value={worksheet.motorVehiculo} />
                           <TransportDetailItem label="Chasis" value={worksheet.chasisVehiculo} />
+                          <TransportDetailItem label="VIN" value={worksheet.vin} />
                           <TransportDetailItem label="Nombre Conductor" value={worksheet.nombreConductor} />
                           <TransportDetailItem label="Licencia" value={worksheet.licenciaConductor} />
                           <TransportDetailItem label="Cedula" value={worksheet.cedulaConductor} />
+                          <TransportDetailItem label="Tipo de medio" value={worksheet.tipoMedio} />
+                          <TransportDetailItem label="Peso Vacío" value={worksheet.pesoVacioVehiculo} />
                       </tbody>
                   </table>
               </div>
               <div className="border-t border-b border-black mt-1 print:mt-1 p-2 flex flex-col justify-between">
-                  <p className="text-center font-bold text-sm">TRÁNSITO</p>
-                  <div className="space-y-4">
-                      <div className="flex-grow border-b-2 border-black print:h-6 mb-1 h-[50px]"></div>
-                      <p className="text-xs font-semibold text-gray-700 print:text-[8pt] text-center">Firma y Sello</p>
-                      <DetailItem label="HORA DE SALIDA" value="" />
-                      <DetailItem label="HORA DE LLEGADA" value="" />
-                  </div>
-              </div>
-          </div>
-
-          <div className="grid grid-cols-2 gap-x-8 mt-2 print:mt-1">
-               <SignatureSection title="ADUANA DESTINO" subtitle="Firma y Sello" align="left" className="w-full" />
-              <div className="border border-black p-2 flex flex-col justify-between">
                   <p className="text-center font-bold text-sm">TRAMITANTE</p>
                   {agente && (
                       <div className="text-center text-black font-semibold text-xs">
@@ -267,10 +257,23 @@ export const Anexo5Details: React.FC<{ worksheet: Worksheet; onClose: () => void
                           <p>AGENCIA ADUANERA ACONIC</p>
                       </div>
                   )}
-                   <SignatureSection title="Firma y Sello" align="center" showSignatureLine={!agente}/>
+                  <div className="space-y-4">
+                      <div className="flex-grow border-b-2 border-black print:h-6 mb-1 h-[50px]"></div>
+                      <p className="text-xs font-semibold text-gray-700 print:text-[8pt] text-center">Firma y Sello</p>
+                  </div>
+              </div>
+        </div>
+
+          <div className="grid grid-cols-2 gap-x-8 mt-2 print:mt-1">
+               <SignatureSection title="ADUANA DESTINO" subtitle="Firma y Sello" align="left" className="w-full" />
+              <div className="border border-black p-2 flex flex-col justify-between">
+                  <p className="text-center font-bold text-sm">TRANSITO</p>
+                  <p className="text-xs font-semibold text-gray-700 print:text-[8pt] text-center">Firma y Sello</p>
+                            <DetailItem label="HORA DE SALIDA" value="" />
+                            <DetailItem label="HORA DE LLEGADA" value="" />
                </div>
           </div>
-
+          
       </div>
       <CardFooter className="justify-end gap-2 no-print border-t pt-4 mt-4">
           <Button asChild variant="outline">
