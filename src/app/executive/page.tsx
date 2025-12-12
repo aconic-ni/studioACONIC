@@ -1,4 +1,3 @@
-
 "use client";
 import React, { useEffect, useState, useMemo, useCallback, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
@@ -19,6 +18,7 @@ import { AforoCaseHistoryModal } from '@/components/reporter/AforoCaseHistoryMod
 import { IncidentReportModal } from '@/components/reporter/IncidentReportModal';
 import { Badge } from '@/components/ui/badge';
 import { IncidentReportDetails } from '@/components/reporter/IncidentReportDetails';
+import { ManageDocumentsModal } from '@/components/executive/ManageDocumentsModal';
 import { ValueDoubtModal } from '@/components/executive/ValueDoubtModal';
 import { DatePickerWithTime } from '@/components/reports/DatePickerWithTime';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -151,11 +151,10 @@ function ExecutivePageContent() {
   const [selectedYear, setSelectedYear] = useState<number>(currentYear);
   
   const urlTab = searchParams.get('tab') as TabValue | null;
-  const [activeTab, setActiveTab] = useState<TabValue>(urlTab || 'worksheets');
+  const activeTab = urlTab || 'worksheets';
 
   const handleTabChange = (value: string) => {
     const tabValue = value as TabValue;
-    setActiveTab(tabValue);
     router.push(`/executive?tab=${tabValue}`, { scroll: false });
   };
   
@@ -954,7 +953,7 @@ function ExecutivePageContent() {
     <AppShell>
       <div className="py-2 md:py-5 space-y-6">
         <AnnouncementsCarousel />
-        <Tabs defaultValue="worksheets" className="w-full" onValueChange={(v) => setActiveTab(v as TabValue)}>
+        <Tabs defaultValue={activeTab} className="w-full" onValueChange={handleTabChange}>
             <Card>
                  <CardHeader>
                     <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-4">
