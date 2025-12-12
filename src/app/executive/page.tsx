@@ -51,6 +51,8 @@ import { StatusProcessModal } from '@/components/executive/StatusProcessModal';
 
 
 type DateFilterType = 'range' | 'month' | 'today';
+type TabValue = 'worksheets' | 'anexos' | 'corporate';
+
 
 const months = [
     { value: 0, label: 'Enero' }, { value: 1, label: 'Febrero' }, { value: 2, label: 'Marzo' },
@@ -580,23 +582,20 @@ function ExecutivePageContent() {
       return filtered;
     } else {
         // Not searching, return top 15 of the current tab
-        return filtered.slice(0, 15);
+        return filtered;
     }
   }, [allCases, appliedFilters, activeTab, neFilter, ejecutivoFilter, consignatarioFilter, facturaFilter, selectividadFilter, incidentTypeFilter]);
   
   const totalPages = Math.ceil(filteredCases.length / itemsPerPage);
-  const paginatedCases = appliedFilters.isSearchActive ? filteredCases.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage) : filteredCases;
+  const paginatedCases = appliedFilters.isSearchActive ? filteredCases.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage) : filteredCases.slice(0, 15);
   
-  const getRevisorStatusBadgeVariant = (status?: AforoCaseStatus) => {
-    switch (status) { case 'Aprobado': return 'default'; case 'Rechazado': return 'destructive'; case 'Revalidación Solicitada': return 'secondary'; default: return 'outline'; }
-  };
-  const getAforadorStatusBadgeVariant = (status?: AforadorStatus) => {
-    switch(status) { case 'En revisión': return 'default'; case 'Incompleto': return 'destructive'; case 'En proceso': return 'secondary'; case 'Pendiente ': return 'destructive'; default: return 'outline'; }
-  };
   const getDigitacionBadge = (status?: DigitacionStatus, declaracion?: string | null) => {
-    if (status === 'Trámite Completo') { return <Badge variant="default" className="bg-green-600">{declaracion || 'Finalizado'}</Badge> }
-    if (status) { return <Badge variant={status === 'En Proceso' ? 'secondary' : 'outline'}>{status}</Badge>; }
-    return <Badge variant="outline">Pendiente</Badge>;
+    const isCompleted = status === 'Trámite Completo';
+    const badgeContent = isCompleted ? (declaracion || 'Finalizado') : (status || 'Pendiente');
+    const badgeVariant = isCompleted ? 'default' : (status === 'En Proceso' ? 'secondary' : 'outline');
+    const badgeClass = isCompleted ? 'bg-green-600' : '';
+    
+    return <Badge variant={badgeVariant} className={badgeClass}>{badgeContent}</Badge>;
   }
 
   const approvePreliquidation = (caseId: string) => {
@@ -609,14 +608,6 @@ function ExecutivePageContent() {
       default: return <Badge variant="outline">Pendiente</Badge>;
     }
   };
-
-  const getFacturacionStatusBadge = (status?: FacturacionStatus) => {
-    switch(status) {
-        case 'Enviado a Facturacion': return <Badge className="bg-blue-500 hover:bg-blue-600">Enviado</Badge>;
-        case 'Facturado': return <Badge className="bg-green-600 hover:bg-green-700">Facturado</Badge>;
-        default: return <Badge variant="outline">Pendiente</Badge>;
-    }
-  }
   
   const handleOpenPaymentRequest = () => {
     const initialData: InitialDataContext = {
@@ -715,7 +706,7 @@ function ExecutivePageContent() {
         <div className="overflow-x-auto table-container rounded-lg border">
             <TooltipProvider>
             <Table><TableHeader><TableRow>
-                 <TableHead>
+                 <TableHead className="w-12">
                     <Checkbox
                       checked={selectedRows.length > 0 && selectedRows.length === filteredCases.filter(c => c.revisorStatus === 'Aprobado' && c.preliquidationStatus !== 'Aprobada').length}
                       onCheckedChange={handleSelectAllForPreliquidation}
@@ -849,7 +840,12 @@ function ExecutivePageContent() {
                             </div>
                         </TableCell>
                         <TableCell>
-                           {getDigitacionBadge(c.digitacionStatus, c.declaracionAduanera)}
+                            <div className="flex items-center group relative">
+                                {getDigitacionBadge(c.digitacionStatus, c.declaracionAduanera)}
+                                <Button variant="ghost" size="icon" className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity" onClick={() => setSelectedCaseForProcess(c)}>
+                                    <Eye className="h-4 w-4" />
+                                </Button>
+                            </div>
                         </TableCell>
                          <TableCell>
                             <div className="flex items-center gap-2">
@@ -879,15 +875,9 @@ function ExecutivePageContent() {
                                 )}
                             </div>
                         </TableCell>
-                         <TableCell>
+                        <TableCell>
                             <div className="flex items-center">
-                                {c.revisorStatus === 'Aprobado' && c.preliquidationStatus !== 'Aprobada' ? (
-                                    <Button size="sm" onClick={() => approvePreliquidation(c.id)} disabled={savingState[c.id]}>
-                                        <CheckCircle className="mr-2 h-4 w-4" /> Aprobar
-                                    </Button>
-                                ) : (
-                                    getPreliquidationStatusBadge(c.preliquidationStatus)
-                                )}
+                                {getPreliquidationStatusBadge(c.preliquidationStatus)}
                                 <LastUpdateTooltip lastUpdate={c.preliquidationStatusLastUpdate} caseCreation={c.createdAt} />
                             </div>
                         </TableCell>
@@ -960,7 +950,7 @@ function ExecutivePageContent() {
     <AppShell>
       <div className="py-2 md:py-5 space-y-6">
         <AnnouncementsCarousel />
-        <Tabs defaultValue="worksheets" className="w-full" onValueChange={setActiveTab}>
+        <Tabs defaultValue="worksheets" className="w-full" onValueChange={(v) => setActiveTab(v as TabValue)}>
             <Card>
                  <CardHeader>
                     <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-4">
@@ -1040,9 +1030,9 @@ function ExecutivePageContent() {
                             <Input placeholder="Buscar por NE o Consignatario..." className="pl-10" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
                             </div>
                             <div className="flex items-center flex-wrap gap-4">
-                            <Button onClick={handleBulkApprovePreliquidation} disabled={selectedRows.length === 0} variant="outline">
+                             <Button onClick={handleBulkApprovePreliquidation} disabled={selectedRows.length === 0} variant="outline">
                                 <CheckCircle className="mr-2 h-4 w-4" /> Aprobar Preliquidación ({selectedRows.length})
-                            </Button>
+                             </Button>
                             <Popover>
                                 <PopoverTrigger asChild>
                                     <Button variant="outline" className="w-[200px] justify-start"><ChevronsUpDown className="mr-2 h-4 w-4"/> Filtrar Visibilidad</Button>
@@ -1084,6 +1074,30 @@ function ExecutivePageContent() {
                     <TabsContent value="worksheets" className="mt-6">{renderTable()}</TabsContent>
                     <TabsContent value="anexos" className="mt-6">{renderTable()}</TabsContent>
                     <TabsContent value="corporate" className="mt-6">{renderTable()}</TabsContent>
+
+                    {appliedFilters.isSearchActive && (
+                        <div className="flex items-center justify-end space-x-2 py-4">
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                                disabled={currentPage === 1}
+                            >
+                                Anterior
+                            </Button>
+                            <span className="text-sm">
+                                Página {currentPage} de {totalPages}
+                            </span>
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+                                disabled={currentPage === totalPages}
+                            >
+                                Siguiente
+                            </Button>
+                        </div>
+                    )}
                 </CardContent>
             </Card>
         </Tabs>
@@ -1147,5 +1161,7 @@ export default function ExecutivePage() {
 
 
 
+
+    
 
     
