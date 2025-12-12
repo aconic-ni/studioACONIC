@@ -6,7 +6,7 @@ import { collection, query, where, onSnapshot, Timestamp, orderBy, doc, updateDo
 import { useAuth } from '@/context/AuthContext';
 import type { AforoCase, DigitacionStatus, AforadorStatus, AforoCaseUpdate, AppUser, LastUpdateInfo, Worksheet, WorksheetWithCase } from '@/types';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Loader2, Inbox, History, Edit, User, PlusSquare, FileText, Info, Send, AlertTriangle, CheckSquare, ChevronsUpDown, Check, ChevronDown, ChevronRight, BookOpen, Search, MessageSquare, FileSignature, Repeat, Eye, Users, Scale, UserCheck, Shield, ShieldCheck, FileDigit, Truck, Anchor, Plane } from 'lucide-react';
+import { Loader2, Inbox, History, Edit, User, PlusSquare, FileText, Info, Send, AlertTriangle, CheckSquare, ChevronsUpDown, Check, ChevronDown, ChevronRight, BookOpen, Search, MessageSquare, FileSignature, Repeat, Eye, Users, Scale, UserCheck, Shield, ShieldCheck, FileDigit, Truck, Anchor, Plane, KeyRound } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { format, toDate, isSameDay, startOfDay, endOfDay, differenceInDays } from 'date-fns';
 import { es } from 'date-fns/locale';
@@ -37,10 +37,11 @@ import { IncidentReportModal } from './IncidentReportModal';
 import { IncidentReportDetails } from './IncidentReportDetails';
 import { DatePickerWithTime } from '@/components/reports/DatePickerWithTime';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '../ui/alert-dialog';
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '../ui/dialog';
+import { Dialog, DialogHeader, DialogTitle, DialogDescription, DialogContent, DialogFooter } from '../ui/dialog';
 import { WorksheetDetailModal } from './WorksheetDetailModal';
 import { ScrollArea } from '../ui/scroll-area';
 import { Anexo5Details } from '../executive/anexos/Anexo5Details';
+import { Label } from '../ui/label';
 
 
 interface DailyAforoCasesTableProps {
@@ -110,6 +111,7 @@ export function DailyAforoCasesTable({ filters, setAllFetchedCases, displayCases
   const [involvedUsersModal, setInvolvedUsersModal] = useState<{ isOpen: boolean; caseData: AforoCase | null }>({ isOpen: false, caseData: null });
   const [caseAuditLogs, setCaseAuditLogs] = useState<Map<string, AforoCaseUpdate[]>>(new Map());
   const [bulkActionResult, setBulkActionResult] = useState<{ isOpen: boolean, success: string[], skipped: string[] }>({ isOpen: false, success: [], skipped: [] });
+  const [isDeathkeyModalOpen, setIsDeathkeyModalOpen] = useState(false);
 
 
   const handleAutoSave = useCallback(async (caseId: string, field: keyof AforoCase, value: any, isTriggerFromFieldUpdate: boolean = false) => {
@@ -342,11 +344,7 @@ export function DailyAforoCasesTable({ filters, setAllFetchedCases, displayCases
             .map(caseItem => ({
                 ...caseItem,
                 worksheet: worksheetsMap.get(caseItem.worksheetId || '') || null,
-            }))
-             .filter(c => 
-                c.worksheet?.worksheetType === 'hoja_de_trabajo' || 
-                c.worksheet?.worksheetType === undefined
-            );
+            }));
             
         const auditLogPromises = combinedData.map(async (caseItem) => {
             const updatesRef = collection(db, 'AforoCases', caseItem.id, 'actualizaciones');
@@ -585,6 +583,53 @@ export function DailyAforoCasesTable({ filters, setAllFetchedCases, displayCases
       prev.includes(caseId) ? prev.filter(id => id !== caseId) : [...prev, caseId]
     );
   };
+  
+    const [pinInput, setPinInput] = useState('');
+
+    const handleDeathkey = async () => {
+        if (pinInput !== "192438") {
+            toast({ title: "PIN Incorrecto", variant: "destructive" });
+            return;
+        }
+        if (selectedRows.length === 0) return;
+
+        setIsLoading(true);
+        const batch = writeBatch(db);
+
+        for (const caseId of selectedRows) {
+            const caseItem = displayCases.find(c => c.id === caseId);
+            if (caseItem && caseItem.worksheetId) {
+                const worksheetRef = doc(db, 'worksheets', caseItem.worksheetId);
+                batch.update(worksheetRef, { worksheetType: 'corporate_report' });
+
+                const caseRef = doc(db, 'AforoCases', caseId);
+                const updatesSubcollectionRef = collection(caseRef, 'actualizaciones');
+                const updateLog: AforoCaseUpdate = {
+                    updatedAt: Timestamp.now(),
+                    updatedBy: user?.displayName || 'Sistema',
+                    field: 'worksheetType',
+                    oldValue: 'hoja_de_trabajo',
+                    newValue: 'corporate_report',
+                    comment: 'Caso reclasificado a Reporte Corporativo via Deathkey.'
+                };
+                batch.set(doc(updatesSubcollectionRef), updateLog);
+            }
+        }
+
+        try {
+            await batch.commit();
+            toast({ title: "Éxito", description: `${selectedRows.length} casos han sido reclasificados.` });
+            setSelectedRows([]);
+            setIsDeathkeyModalOpen(false);
+            setPinInput('');
+        } catch (error) {
+            console.error("Error with Deathkey action:", error);
+            toast({ title: "Error", description: "No se pudieron reclasificar los casos.", variant: "destructive" });
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
 
 
   const openHistoryModal = (caseItem: AforoCase) => setSelectedCaseForHistory(caseItem);
@@ -605,7 +650,8 @@ export function DailyAforoCasesTable({ filters, setAllFetchedCases, displayCases
     const worksheetDocRef = doc(db, 'worksheets', caseItem.worksheetId);
     const docSnap = await getDoc(worksheetDocRef);
     if (docSnap.exists()) {
-        setSelectedWorksheet({ ...docSnap.data() as Worksheet, caseData: caseItem });
+        const worksheetData = { ...docSnap.data() as Worksheet, caseData: caseItem };
+        setSelectedWorksheet(worksheetData);
     } else {
         toast({ title: "Error", description: "No se pudo encontrar la hoja de trabajo.", variant: "destructive" });
     }
@@ -685,6 +731,7 @@ export function DailyAforoCasesTable({ filters, setAllFetchedCases, displayCases
               <Button variant="outline" size="sm" onClick={() => setAssignmentModal({isOpen: true, case: null, type: 'bulk-revisor'})} disabled={selectedRows.length === 0}>Asignar Revisor ({selectedRows.length})</Button>
               <Button variant="outline" size="sm" onClick={() => setStatusModal({isOpen: true})} disabled={selectedRows.length === 0}>Asignar Estatus ({selectedRows.length})</Button>
               <Button variant="secondary" size="sm" onClick={handleSendSelectedToDigitization} disabled={selectedRows.length === 0}>Enviar a Digitación ({selectedRows.length})</Button>
+              <Button variant="destructive" size="sm" onClick={() => setIsDeathkeyModalOpen(true)} disabled={selectedRows.length === 0}>Deathkey Masivo ({selectedRows.length})</Button>
             </>
           )}
       </div>
@@ -1074,8 +1121,7 @@ export function DailyAforoCasesTable({ filters, setAllFetchedCases, displayCases
             description={assignmentModal.case ? `Seleccione un usuario para asignar al caso NE: ${assignmentModal.case.ne}` : `Seleccione un usuario para asignar a los ${selectedRows.length} casos seleccionados.`}
         />
     )}
-     {statusModal.isOpen && (
-      <Dialog open={statusModal.isOpen} onOpenChange={() => setStatusModal({isOpen: false})}>
+     <Dialog open={statusModal.isOpen} onOpenChange={() => setStatusModal({isOpen: false})}>
           <DialogContent>
               <DialogHeader>
                   <DialogTitle>Asignar Estatus de Aforador Masivo</DialogTitle>
@@ -1092,7 +1138,6 @@ export function DailyAforoCasesTable({ filters, setAllFetchedCases, displayCases
               </Select>
           </DialogContent>
       </Dialog>
-    )}
     {involvedUsersModal.isOpen && involvedUsersModal.caseData && (
         <InvolvedUsersModal
           isOpen={involvedUsersModal.isOpen}
@@ -1131,6 +1176,34 @@ export function DailyAforoCasesTable({ filters, setAllFetchedCases, displayCases
             </AlertDialogFooter>
         </AlertDialogContent>
     </AlertDialog>
+     <Dialog open={isDeathkeyModalOpen} onOpenChange={setIsDeathkeyModalOpen}>
+        <DialogContent>
+            <DialogHeader>
+                <DialogTitle>Confirmar Acción "Deathkey"</DialogTitle>
+                <DialogDescription>
+                    Esta acción reclasificará {selectedRows.length} caso(s) a "Reporte Corporativo", excluyéndolos de la lógica de Aforo.
+                    Esta acción es irreversible. Por favor ingrese el PIN para confirmar.
+                </DialogDescription>
+            </DialogHeader>
+            <div className="py-4 space-y-2">
+                <Label htmlFor="pin-input" className="flex items-center gap-2"><KeyRound/>PIN de Seguridad</Label>
+                <Input
+                    id="pin-input"
+                    type="password"
+                    value={pinInput}
+                    onChange={(e) => setPinInput(e.target.value)}
+                    placeholder="Ingrese el PIN de 6 dígitos"
+                />
+            </div>
+            <DialogFooter>
+                <Button variant="outline" onClick={() => setIsDeathkeyModalOpen(false)}>Cancelar</Button>
+                <Button variant="destructive" onClick={handleDeathkey} disabled={isLoading}>
+                    {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin"/>}
+                    Confirmar y Ejecutar
+                </Button>
+            </DialogFooter>
+        </DialogContent>
+    </Dialog>
     </>
   );
 }
