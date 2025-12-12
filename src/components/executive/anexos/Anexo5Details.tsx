@@ -16,6 +16,7 @@ import { WorksheetDetails } from '../WorksheetDetails';
 import { cn } from "@/lib/utils";
 import { db } from '@/lib/firebase';
 import Link from 'next/link';
+import { Anexo7Details } from './Anexo7Details';
 
 const formatShortDate = (timestamp: Timestamp | Date | null | undefined): string => {
   if (!timestamp) return '';
@@ -36,6 +37,14 @@ const DetailItem: React.FC<{ label: string; value?: string | number | null; clas
     </div>
 );
 
+const LinedDetailItem: React.FC<{ label: string; value?: string | number | null; className?: string }> = ({ label, value, className }) => (
+    <div className={cn("border-b border-black flex justify-between items-baseline py-1 print:py-0.5", className)}>
+        <span className="text-xs font-semibold text-gray-700 print:text-[8pt]">{label}</span>
+        <p className="text-xs font-medium text-gray-800 print:text-[9pt]">{value || ''}</p>
+    </div>
+);
+
+
 const TransportDetailItem: React.FC<{ label: string; value?: string | number | null; className?: string }> = ({ label, value, className }) => (
     <tr className={cn("border-b border-black last:border-b-0", className)}>
         <td className="text-xs font-semibold text-gray-700 print:text-[8pt] p-1 w-2/5 border-r border-black">{label}</td>
@@ -54,7 +63,7 @@ const SignatureSection: React.FC<{
   const textAlignClass = `text-${align}`;
   return (
     <div className={cn("flex flex-col", className)}>
-      {showSignatureLine && <div className="flex-grow border-b-2 border-black print:h-6 mb-1"></div>}
+      {showSignatureLine && <div className="flex-grow border-b-2 border-black print:h-6 mb-1 h-[50px]"></div>}
       <div className={cn("text-xs print:text-[8pt]", textAlignClass)}>
           <p className="font-semibold">{title}</p>
           {subtitle && <p className="text-gray-600 print:text-[7pt]">{subtitle}</p>}
@@ -113,176 +122,176 @@ export const Anexo5Details: React.FC<{ worksheet: Worksheet; onClose: () => void
 
   return (
     <>
-      <Card className="w-full max-w-5xl mx-auto shadow-none border-none card-print-styles" id="printable-area">
-        <div className="p-4 print:p-2 bg-white">
-            <div className="hidden print:block">
-                <Image
-                    src={headerImageSrc}
-                    alt="Anexo Header"
-                    width={800}
-                    height={100}
-                    className="w-full h-auto mb-2 print:mb-1"
-                    priority
-                />
+    <Card className="w-full max-w-5xl mx-auto shadow-none border-none card-print-styles" id="printable-area">
+      <div className="p-4 print:p-2 bg-white">
+          <div className="hidden print:block">
+              <Image
+                  src={headerImageSrc}
+                  alt="Anexo Header"
+                  width={800}
+                  height={100}
+                  className="w-full h-auto mb-2 print:mb-1"
+                  priority
+              />
+          </div>
+          
+          <div className="grid grid-cols-2 gap-x-8 mb-2 print:mb-1">
+            <div className="space-y-1">
+              <DetailItem label="Fecha" value={formatShortDate(new Date())} />
+              <DetailItem label="Empresa que solicita" value={worksheet.consignee} />
+              <DetailItem label="RUC" value={worksheet.ruc} />
+              <DetailItem label="Almacén de Salida" value={worksheet.almacenSalida} />
+              <DetailItem label="Código de Almacén" value={worksheet.codigoAlmacen} />
             </div>
-            
-            <div className="grid grid-cols-2 gap-x-8 mb-2 print:mb-1">
-              <div className="space-y-1">
-                <DetailItem label="Fecha" value={formatShortDate(new Date())} />
-                <DetailItem label="Empresa que solicita" value={worksheet.consignee} />
-                <DetailItem label="RUC" value={worksheet.ruc} />
-                <DetailItem label="Almacén de Salida" value={worksheet.almacenSalida} />
-                <DetailItem label="Código de Almacén" value={worksheet.codigoAlmacen} />
+            <div className="space-y-1">
+              <DetailItem label="RESA No" value={worksheet.resa} />
+              <DetailItem label="Factura No" value={worksheet.facturaNumber} />
+              <DetailItem label="Delegación de Aduana Destino" value={getAduanaLabel(worksheet.dispatchCustoms)} />
+              <DetailItem label="Código de Aduana" value={worksheet.dispatchCustoms} />
+            </div>
+          </div>
+          
+          <div className="border-2 border-black">
+              <h3 className="text-center text-sm font-bold border-b-2 border-black py-1 print:text-xs">Descripción de las mercancías</h3>
+              <table className="w-full border-collapse">
+                  <thead>
+                      <tr className="border-b-2 border-black">
+                          {productHeaders.map(header => <th key={header} className="print:p-0.5 print:text-[8pt] text-center border-r last:border-r-0 border-black h-auto font-bold">{header}</th>)}
+                      </tr>
+                  </thead>
+                  <tbody>
+                      {productRows.map((doc, index) => (
+                          <tr key={doc.id || index} className="border-b border-gray-400 h-6 print:h-5">
+                              <td className="print:p-0.5 print:text-[8pt] text-center border-r border-black">{doc.cantidad ? Number(doc.cantidad).toLocaleString('es-NI') : ''}</td>
+                              <td className="print:p-0.5 print:text-[8pt] text-center border-r border-black">{String((doc as any).origen || '')}</td>
+                              <td className="print:p-0.5 print:text-[8pt] text-center border-r border-black">{String((doc as any).um || '')}</td>
+                              <td className="print:p-0.5 print:text-[8pt] text-center border-r border-black">{String((doc as any).sac || '')}</td>
+                              <td className="print:p-0.5 print:text-[8pt] text-center border-r border-black">{doc.peso ? Number(doc.peso).toLocaleString('es-NI', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : ''}</td>
+                              <td className="print:p-0.5 print:text-[8pt] text-left border-r border-black">{doc.descripcion}</td>
+                              <td className="print:p-0.5 print:text-[8pt] text-center border-r border-black">{doc.linea || ''}</td>
+                              <td className="print:p-0.5 print:text-[8pt] text-center border-r border-black">{doc.guia || ''}</td>
+                              <td className="print:p-0.5 print:text-[8pt] text-center border-r border-black">{doc.bulto ? Number(doc.bulto).toLocaleString('es-NI') : ''}</td>
+                              <td className="print:p-0.5 print:text-[8pt] text-right">{doc.total ? Number(doc.total).toLocaleString('es-NI', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : ''}</td>
+                          </tr>
+                      ))}
+                      {emptyRows.map((row) => (
+                          <tr key={row.id} className="border-b border-gray-400 h-6 print:h-5">
+                              <td className="border-r border-black">&nbsp;</td>
+                              <td className="border-r border-black"></td>
+                              <td className="border-r border-black"></td>
+                              <td className="border-r border-black"></td>
+                              <td className="border-r border-black"></td>
+                              <td className="border-r border-black"></td>
+                              <td className="border-r border-black"></td>
+                              <td className="border-r border-black"></td>
+                              <td className="border-r border-black"></td>
+                              <td></td>
+                          </tr>
+                      ))}
+                  </tbody>
+                  <tfoot>
+                      <tr className="border-t-2 border-black font-bold text-xs print:text-[9pt] h-6 print:h-5">
+                          <td className="p-1 print:p-0.5 text-left pr-2" colSpan={4}>TOTAL: {cantidadTotal > 0 ? cantidadTotal.toLocaleString('es-NI') : ''} {worksheet.unidadMedidaTotal}</td>
+                          <td className="p-1 print:p-0.5 text-center">{pesoTotal > 0 ? pesoTotal.toLocaleString('es-NI', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : ''}</td>
+                          <td className="p-1 print:p-0.5 text-right" colSpan={3}>TOTALES:</td>
+                          <td className="p-1 print:p-0.5 text-center border-l border-black">{bultosTotales > 0 ? bultosTotales.toLocaleString('es-NI') : ''}</td>
+                          <td className="p-1 print:p-0.5 text-right border-l border-black">{valorTotal > 0 ? valorTotal.toLocaleString('es-NI', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : ''}</td>
+                      </tr>
+                  </tfoot>
+              </table>
+          </div>
+          
+          <div className="grid grid-cols-3 gap-x-4 mt-2 print:mt-1">
+              <div className="w-full text-xs p-2 print:text-[8pt] print:p-1 col-span-1">
+                  <table className="w-full border-collapse print:text-[9pt]">
+                      <thead><tr><th colSpan={2} className="border border-black text-center text-xs p-1 print:text-[8pt] font-bold">Conformación de Valor</th></tr></thead>
+                      <tbody>
+                          {['Valor $', 'Flete $', 'Seguro $', 'O. Gasto $', 'V. Aduana $'].map(label => {
+                              let value = '';
+                              if (label === 'Valor $') value = worksheet.valor ? `$${Number(worksheet.valor).toLocaleString('es-NI', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '';
+                              if (label === 'Flete $') value = worksheet.flete ? `$${Number(worksheet.flete).toLocaleString('es-NI', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '';
+                              if (label === 'Seguro $') value = worksheet.seguro ? `$${Number(worksheet.seguro).toLocaleString('es-NI', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '';
+                              if (label === 'O. Gasto $') value = worksheet.otrosGastos ? `$${Number(worksheet.otrosGastos).toLocaleString('es-NI', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '';
+                              if (label === 'V. Aduana $') value = `$${valorAduanero.toLocaleString('es-NI', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+                              return (
+                                  <tr key={label}>
+                                      <td className={cn("border border-black p-1 w-[50%] print:p-0.5", label === 'V. Aduana $' ? 'border-t-2' : '')}>{label}</td>
+                                      <td className={`border border-black p-1 w-auto font-semibold text-right ${label === 'V. Aduana $' ? 'border-t-2' : ''}`}>{value}</td>
+                                  </tr>
+                              );
+                          })}
+                      </tbody>
+                  </table>
               </div>
-              <div className="space-y-1">
-                <DetailItem label="RESA No" value={worksheet.resa} />
-                <DetailItem label="Factura No" value={worksheet.facturaNumber} />
-                <DetailItem label="Delegación de Aduana Destino" value={getAduanaLabel(worksheet.dispatchCustoms)} />
-                <DetailItem label="Código de Aduana" value={worksheet.dispatchCustoms} />
+              <div className="p-2 print:p-1 col-span-1">
+                  <p className="text-xs font-semibold text-gray-500 print:text-[8pt]">NOTA:</p>
+                  <p className="text-sm print:text-xs whitespace-pre-wrap min-h-[42px]">{worksheet.observations}</p>
               </div>
-            </div>
-            
-            <div className="border-2 border-black">
-                <h3 className="text-center text-sm font-bold border-b-2 border-black py-1 print:text-xs">Descripción de las mercancías</h3>
-                <table className="w-full border-collapse">
-                    <thead>
-                        <tr className="border-b-2 border-black">
-                            {productHeaders.map(header => <th key={header} className="print:p-0.5 print:text-[8pt] text-center border-r last:border-r-0 border-black h-auto font-bold">{header}</th>)}
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {productRows.map((doc, index) => (
-                            <tr key={doc.id || index} className="border-b border-gray-400 h-6 print:h-5">
-                                <td className="print:p-0.5 print:text-[8pt] text-center border-r border-black">{doc.cantidad ? Number(doc.cantidad).toLocaleString('es-NI') : ''}</td>
-                                <td className="print:p-0.5 print:text-[8pt] text-center border-r border-black">{String((doc as any).origen || '')}</td>
-                                <td className="print:p-0.5 print:text-[8pt] text-center border-r border-black">{String((doc as any).um || '')}</td>
-                                <td className="print:p-0.5 print:text-[8pt] text-center border-r border-black">{String((doc as any).sac || '')}</td>
-                                <td className="print:p-0.5 print:text-[8pt] text-center border-r border-black">{doc.peso ? Number(doc.peso).toLocaleString('es-NI', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : ''}</td>
-                                <td className="print:p-0.5 print:text-[8pt] text-left border-r border-black">{doc.descripcion}</td>
-                                <td className="print:p-0.5 print:text-[8pt] text-center border-r border-black">{doc.linea || ''}</td>
-                                <td className="print:p-0.5 print:text-[8pt] text-center border-r border-black">{doc.guia || ''}</td>
-                                <td className="print:p-0.5 print:text-[8pt] text-center border-r border-black">{doc.bulto ? Number(doc.bulto).toLocaleString('es-NI') : ''}</td>
-                                <td className="print:p-0.5 print:text-[8pt] text-right">{doc.total ? Number(doc.total).toLocaleString('es-NI', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : ''}</td>
-                            </tr>
-                        ))}
-                        {emptyRows.map((row) => (
-                            <tr key={row.id} className="border-b border-gray-400 h-6 print:h-5">
-                                <td className="border-r border-black">&nbsp;</td>
-                                <td className="border-r border-black"></td>
-                                <td className="border-r border-black"></td>
-                                <td className="border-r border-black"></td>
-                                <td className="border-r border-black"></td>
-                                <td className="border-r border-black"></td>
-                                <td className="border-r border-black"></td>
-                                <td className="border-r border-black"></td>
-                                <td className="border-r border-black"></td>
-                                <td></td>
-                            </tr>
-                        ))}
-                    </tbody>
-                    <tfoot>
-                        <tr className="border-t-2 border-black font-bold text-xs print:text-[9pt] h-6 print:h-5">
-                            <td className="p-1 print:p-0.5 text-left pr-2" colSpan={4}>TOTAL: {cantidadTotal > 0 ? cantidadTotal.toLocaleString('es-NI') : ''} {worksheet.unidadMedidaTotal}</td>
-                            <td className="p-1 print:p-0.5 text-center">{pesoTotal > 0 ? pesoTotal.toLocaleString('es-NI', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : ''}</td>
-                            <td className="p-1 print:p-0.5 text-right" colSpan={3}>TOTALES:</td>
-                            <td className="p-1 print:p-0.5 text-center border-l border-black">{bultosTotales > 0 ? bultosTotales.toLocaleString('es-NI') : ''}</td>
-                            <td className="p-1 print:p-0.5 text-right border-l border-black">{valorTotal > 0 ? valorTotal.toLocaleString('es-NI', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : ''}</td>
-                        </tr>
-                    </tfoot>
-                </table>
-            </div>
-            
-             <div className="grid grid-cols-3 gap-x-4 mt-2 print:mt-1">
-                <div className="w-full text-xs p-2 print:text-[8pt] print:p-1 col-span-1">
-                    <table className="w-full border-collapse print:text-[9pt]">
-                        <thead><tr><th colSpan={2} className="border border-black text-center text-xs p-1 print:text-[8pt] font-bold">Conformación de Valor</th></tr></thead>
-                        <tbody>
-                            {['Valor $', 'Flete $', 'Seguro $', 'O. Gasto $', 'V. Aduana $'].map(label => {
-                                let value = '';
-                                if (label === 'Valor $') value = worksheet.valor ? `$${Number(worksheet.valor).toLocaleString('es-NI', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '';
-                                if (label === 'Flete $') value = worksheet.flete ? `$${Number(worksheet.flete).toLocaleString('es-NI', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '';
-                                if (label === 'Seguro $') value = worksheet.seguro ? `$${Number(worksheet.seguro).toLocaleString('es-NI', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '';
-                                if (label === 'O. Gasto $') value = worksheet.otrosGastos ? `$${Number(worksheet.otrosGastos).toLocaleString('es-NI', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '';
-                                if (label === 'V. Aduana $') value = `$${valorAduanero.toLocaleString('es-NI', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-                                return (
-                                    <tr key={label}>
-                                        <td className={cn("border border-black p-1 w-[50%] print:p-0.5", label === 'V. Aduana $' ? 'border-t-2' : '')}>{label}</td>
-                                        <td className={`border border-black p-1 w-auto font-semibold text-right ${label === 'V. Aduana $' ? 'border-t-2' : ''}`}>{value}</td>
-                                    </tr>
-                                );
-                            })}
-                        </tbody>
-                    </table>
-                </div>
-                <div className="p-2 print:p-1 col-span-1">
-                    <p className="text-xs font-semibold text-gray-500 print:text-[8pt]">NOTA:</p>
-                    <p className="text-sm print:text-xs whitespace-pre-wrap min-h-[42px]">{worksheet.observations}</p>
-                </div>
-                <div className="space-y-1 p-2 print:p-1 col-span-1">
-                    <DetailItem label="Bultos Totales" value={bultosTotales > 0 ? bultosTotales.toLocaleString('es-NI') : ''} />
-                    <DetailItem label="Peso Total" value={pesoTotal > 0 ? pesoTotal.toLocaleString('es-NI', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : ''} />
-                    <DetailItem label="Precinto" value={worksheet.precinto || ''} />
-                    <DetailItem label="Precinto Lateral" value={worksheet.precintoLateral || ''} />
-                </div>
-            </div>
-            
-            <div className="grid grid-cols-2 gap-x-8 mt-1 print:mt-1">
-                <div className="border border-black mt-1 print:mt-1">
-                   <table className="w-full border-collapse">
-                        <tbody>
-                            <TransportDetailItem label="CODIGO DE ADUANERO" value={worksheet.codigoAduanero} />
-                            <TransportDetailItem label="Marca" value={worksheet.marcaVehiculo} />
-                            <TransportDetailItem label="Placa" value={worksheet.placaVehiculo} />
-                            <TransportDetailItem label="Motor" value={worksheet.motorVehiculo} />
-                            <TransportDetailItem label="Chasis" value={worksheet.chasisVehiculo} />
-                            <TransportDetailItem label="Nombre Conductor" value={worksheet.nombreConductor} />
-                            <TransportDetailItem label="Licencia" value={worksheet.licenciaConductor} />
-                            <TransportDetailItem label="Cedula" value={worksheet.cedulaConductor} />
-                        </tbody>
-                    </table>
-                </div>
-                <div className="border-t border-b border-black mt-1 print:mt-1 p-2 flex flex-col justify-between">
-                    <p className="text-center font-bold text-sm">TRÁNSITO</p>
-                    <div className="space-y-4">
-                        <div className="flex-grow border-b-2 border-black print:h-6 mb-1 h-[50px]"></div>
-                        <p className="text-xs font-semibold text-gray-700 print:text-[8pt] text-center">Firma y Sello</p>
-                        <DetailItem label="HORA DE SALIDA" value="" />
-                        <DetailItem label="HORA DE LLEGADA" value="" />
-                    </div>
-                </div>
-            </div>
+              <div className="space-y-1 p-2 print:p-1 col-span-1">
+                  <LinedDetailItem label="Bultos Totales" value={bultosTotales > 0 ? bultosTotales.toLocaleString('es-NI') : ''} />
+                  <LinedDetailItem label="Peso Total" value={pesoTotal > 0 ? pesoTotal.toLocaleString('es-NI', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : ''} />
+                  <LinedDetailItem label="Precinto" value={worksheet.precinto || ''} />
+                  <LinedDetailItem label="Precinto Lateral" value={worksheet.precintoLateral || ''} />
+              </div>
+          </div>
+          
+          <div className="grid grid-cols-2 gap-x-8 mt-1 print:mt-1">
+              <div className="border-t border-b border-black mt-1 print:mt-1">
+                 <table className="w-full border-collapse">
+                      <tbody>
+                          <TransportDetailItem label="CODIGO DEL TRANSPORTE" value={worksheet.codigoAduanero} />
+                          <TransportDetailItem label="Marca" value={worksheet.marcaVehiculo} />
+                          <TransportDetailItem label="Placa" value={worksheet.placaVehiculo} />
+                          <TransportDetailItem label="Motor" value={worksheet.motorVehiculo} />
+                          <TransportDetailItem label="Chasis" value={worksheet.chasisVehiculo} />
+                          <TransportDetailItem label="Nombre Conductor" value={worksheet.nombreConductor} />
+                          <TransportDetailItem label="Licencia" value={worksheet.licenciaConductor} />
+                          <TransportDetailItem label="Cedula" value={worksheet.cedulaConductor} />
+                      </tbody>
+                  </table>
+              </div>
+              <div className="border border-black mt-1 print:mt-1 p-2 flex flex-col justify-between">
+                  <p className="text-center font-bold text-sm">TRÁNSITO</p>
+                  <div className="space-y-4">
+                      <div className="flex-grow border-b-2 border-black print:h-6 mb-1 h-[50px]"></div>
+                      <p className="text-xs font-semibold text-gray-700 print:text-[8pt] text-center">Firma y Sello</p>
+                      <DetailItem label="HORA DE SALIDA" value="" />
+                      <DetailItem label="HORA DE LLEGADA" value="" />
+                  </div>
+              </div>
+          </div>
 
-            <div className="grid grid-cols-2 gap-x-8 mt-2 print:mt-1">
-                 <SignatureSection title="ADUANA DESTINO" subtitle="Firma y Sello" align="left" className="w-full" />
-                <div className="border border-black p-2 flex flex-col justify-between">
-                    <p className="text-center font-bold text-sm">TRAMITANTE</p>
-                    {agente && (
-                        <div className="text-center text-black font-semibold text-xs">
-                            <p>{agente.displayName || 'N/A'}</p>
-                            <p>Licencia: {agente.agentLicense || 'N/A'}</p>
-                            <p>Cédula: {agente.cedula || 'N/A'}</p>
-                            <p>AGENCIA ADUANERA ACONIC</p>
-                        </div>
-                    )}
-                     <SignatureSection title="Firma y Sello" align="center" className="w-full"/>
-                 </div>
-            </div>
+          <div className="grid grid-cols-2 gap-x-8 mt-2 print:mt-1">
+              <SignatureSection title="ADUANA DESTINO" subtitle="Firma y Sello" align="left" className="w-full" />
+              <div className="border border-black p-2 flex flex-col justify-between">
+                  <p className="text-center font-bold text-sm">TRAMITANTE</p>
+                  {agente && (
+                      <div className="text-center text-black font-semibold text-xs">
+                          <p>{agente.displayName || 'N/A'}</p>
+                          <p>Licencia: {agente.agentLicense || 'N/A'}</p>
+                          <p>Cédula: {agente.cedula || 'N/A'}</p>
+                          <p>AGENCIA ADUANERA ACONIC</p>
+                      </div>
+                  )}
+                   <SignatureSection title="Firma y Sello" align="center" showSignatureLine={!agente}/>
+               </div>
+          </div>
 
-        </div>
-        <CardFooter className="justify-end gap-2 no-print border-t pt-4 mt-4">
-            <Button asChild variant="outline">
-            <Link href={`/executive/anexos?type=${worksheet.worksheetType}&id=${worksheet.id}`}>
-                <Edit className="mr-2 h-4 w-4" /> Editar
-            </Link>
-            </Button>
-            <Button type="button" onClick={onClose} variant="outline">
-            Cerrar
-            </Button>
-            <Button type="button" onClick={handlePrint} variant="default">
-            <Printer className="mr-2 h-4 w-4" /> Imprimir
-            </Button>
-        </CardFooter>
-      </Card>
+      </div>
+      <CardFooter className="justify-end gap-2 no-print border-t pt-4 mt-4">
+        <Button asChild variant="outline">
+          <Link href={`/executive/anexos?type=${worksheet.worksheetType}&id=${worksheet.id}`}>
+            <Edit className="mr-2 h-4 w-4" /> Editar
+          </Link>
+        </Button>
+        <Button type="button" onClick={onClose} variant="outline">
+          Cerrar
+        </Button>
+        <Button type="button" onClick={handlePrint} variant="default">
+          <Printer className="mr-2 h-4 w-4" /> Imprimir
+        </Button>
+      </CardFooter>
+    </Card>
     </>
   );
 };
