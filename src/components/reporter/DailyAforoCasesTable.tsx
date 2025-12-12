@@ -1,7 +1,8 @@
+
 "use client";
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { db } from '@/lib/firebase';
-import { collection, query, where, onSnapshot, Timestamp, orderBy, doc, updateDoc, addDoc, getDocs, writeBatch, getCountFromServer, getDoc } from 'firebase/firestore';
+import { collection, query, where, onSnapshot, Timestamp, orderBy, doc, updateDoc, addDoc, getDocs, writeBatch, getCountFromServer, getDoc, documentId } from 'firebase/firestore';
 import { useAuth } from '@/context/AuthContext';
 import type { AforoCase, DigitacionStatus, AforadorStatus, AforoCaseUpdate, AppUser, LastUpdateInfo, Worksheet, WorksheetWithCase } from '@/types';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -298,7 +299,7 @@ export function DailyAforoCasesTable({ filters, setAllFetchedCases, displayCases
   
     const worksheetsQuery = query(
       collection(db, 'worksheets'),
-      where('worksheetType', 'in', ['hoja_de_trabajo', null])
+      where('worksheetType', 'in', ['hoja_de_trabajo', null, undefined])
     );
   
     const unsubscribe = onSnapshot(worksheetsQuery, 
@@ -312,8 +313,6 @@ export function DailyAforoCasesTable({ filters, setAllFetchedCases, displayCases
           return;
         }
 
-        // Fetch AforoCases based on the retrieved worksheet IDs
-        // Firestore 'in' query is limited to 30 items per query
         const casePromises = [];
         for (let i = 0; i < worksheetIds.length; i += 30) {
             const chunk = worksheetIds.slice(i, i + 30);
@@ -333,10 +332,9 @@ export function DailyAforoCasesTable({ filters, setAllFetchedCases, displayCases
 
             const combinedData = aforoCasesData.map(caseItem => ({
                 ...caseItem,
-                worksheet: worksheetsMap.get(caseItem.id) || null, // Use case ID which is worksheet ID
+                worksheet: worksheetsMap.get(caseItem.id) || null,
             }));
 
-            // Client-side filtering as before
             let filtered = combinedData;
             const isSearchActive = !!(filters.ne?.trim() || filters.consignee?.trim() || filters.dateRange?.from);
 
@@ -1075,7 +1073,7 @@ export function DailyAforoCasesTable({ filters, setAllFetchedCases, displayCases
         />
     )}
      {selectedCaseForAforadorComment && (
-        <AforadorCommentModal
+        <AforoCaseHistoryModal
             isOpen={!!selectedCaseForAforadorComment}
             onClose={() => setSelectedCaseForAforadorComment(null)}
             caseData={selectedCaseForAforadorComment}
@@ -1206,3 +1204,5 @@ export function DailyAforoCasesTable({ filters, setAllFetchedCases, displayCases
     </>
   );
 }
+
+    
