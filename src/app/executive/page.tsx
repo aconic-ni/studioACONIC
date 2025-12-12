@@ -19,7 +19,7 @@ import { AforoCaseHistoryModal } from '@/components/reporter/AforoCaseHistoryMod
 import { IncidentReportModal } from '@/components/reporter/IncidentReportModal';
 import { Badge } from '@/components/ui/badge';
 import { IncidentReportDetails } from '@/components/reporter/IncidentReportDetails';
-import { ManageDocumentsForm } from '@/components/executive/ManageDocumentsForm';
+import { ManageDocumentsModal } from '@/components/executive/ManageDocumentsModal';
 import { ValueDoubtModal } from '@/components/executive/ValueDoubtModal';
 import { DatePickerWithTime } from '@/components/reports/DatePickerWithTime';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -510,63 +510,62 @@ function ExecutivePageContent() {
 
   const filteredCases = useMemo(() => {
     let baseCases = allCases.slice().sort((a, b) => (b.createdAt?.toMillis() ?? 0) - (a.createdAt?.toMillis() ?? 0));
+    
+    let filtered = baseCases.filter(c => !c.isArchived);
 
-    if (!appliedFilters.isSearchActive) {
-      return baseCases.slice(0, 15);
-    }
-    
-    let filtered = baseCases;
-    
     if (activeTab === 'worksheets') {
-      filtered = filtered.filter(c => c.worksheet?.worksheetType === 'hoja_de_trabajo' || c.worksheet?.worksheetType === undefined);
+        filtered = filtered.filter(c => c.worksheet?.worksheetType === 'hoja_de_trabajo' || c.worksheet?.worksheetType === undefined);
     } else if (activeTab === 'anexos') {
-      filtered = filtered.filter(c => c.worksheet?.worksheetType === 'anexo_5' || c.worksheet?.worksheetType === 'anexo_7');
+        filtered = filtered.filter(c => c.worksheet?.worksheetType === 'anexo_5' || c.worksheet?.worksheetType === 'anexo_7');
     } else if (activeTab === 'corporate') {
-      filtered = filtered.filter(c => c.worksheet?.worksheetType === 'corporate_report');
+        filtered = filtered.filter(c => c.worksheet?.worksheetType === 'corporate_report');
     }
 
-    filtered = filtered.filter(c => !c.isArchived);
-    
-    if (appliedFilters.searchTerm) {
-        filtered = filtered.filter(c =>
-          c.ne.toLowerCase().includes(appliedFilters.searchTerm.toLowerCase()) ||
-          c.consignee.toLowerCase().includes(appliedFilters.searchTerm.toLowerCase())
-        );
-    }
-    
-    if (appliedFilters.noFacturado && !appliedFilters.facturado) {
-        filtered = filtered.filter(c => !c.facturado);
-    } else if (appliedFilters.facturado && !appliedFilters.noFacturado) {
-        filtered = filtered.filter(c => c.facturado === true);
-    }
-
-    if (appliedFilters.dateRange?.from) {
-        const start = startOfDay(appliedFilters.dateRange.from);
-        const end = appliedFilters.dateRange.to ? endOfDay(appliedFilters.dateRange.to) : endOfDay(appliedFilters.dateRange.from);
-        
+    if (appliedFilters.isSearchActive) {
+      if (appliedFilters.searchTerm) {
+          filtered = filtered.filter(c =>
+            c.ne.toLowerCase().includes(appliedFilters.searchTerm.toLowerCase()) ||
+            c.consignee.toLowerCase().includes(appliedFilters.searchTerm.toLowerCase())
+          );
+      }
+      
+      if (appliedFilters.noFacturado && !appliedFilters.facturado) {
+          filtered = filtered.filter(c => !c.facturado);
+      } else if (appliedFilters.facturado && !appliedFilters.noFacturado) {
+          filtered = filtered.filter(c => c.facturado === true);
+      }
+  
+      if (appliedFilters.dateRange?.from) {
+          const start = startOfDay(appliedFilters.dateRange.from);
+          const end = appliedFilters.dateRange.to ? endOfDay(appliedFilters.dateRange.to) : endOfDay(appliedFilters.dateRange.from);
+          
+          filtered = filtered.filter(c => {
+              if (!c.createdAt) return false;
+              const createdAtDate = c.createdAt.toDate();
+              return createdAtDate >= start && createdAtDate <= end;
+          });
+      }
+  
+      if (neFilter) filtered = filtered.filter(c => c.ne.toLowerCase().includes(neFilter.toLowerCase()));
+      if (ejecutivoFilter) filtered = filtered.filter(c => c.executive.toLowerCase().includes(ejecutivoFilter.toLowerCase()));
+      if (consignatarioFilter) filtered = filtered.filter(c => c.consignee.toLowerCase().includes(consignatarioFilter.toLowerCase()));
+      if (facturaFilter) {
+        const lowerCaseFilter = facturaFilter.toLowerCase();
         filtered = filtered.filter(c => {
-            if (!c.createdAt) return false;
-            const createdAtDate = c.createdAt.toDate();
-            return createdAtDate >= start && createdAtDate <= end;
+          const facturas = c.worksheet?.worksheetType === 'corporate_report' 
+            ? (c.worksheet.documents?.filter(d => d.type === 'FACTURA').map(d => d.number) || [])
+            : (c.facturaNumber ? c.facturaNumber.split(';').map(f => f.trim()) : []);
+          return facturas.some(f => f.toLowerCase().includes(lowerCaseFilter));
         });
+      }
+      if (selectividadFilter) filtered = filtered.filter(c => (c.selectividad || 'N/A').toLowerCase().includes(selectividadFilter.toLowerCase()));
+      if (incidentTypeFilter) filtered = filtered.filter(c => getIncidentTypeDisplay(c).toLowerCase().includes(incidentTypeFilter.toLowerCase()));
+      
+      return filtered;
+    } else {
+        // Not searching, return top 15 of the current tab
+        return filtered.slice(0, 15);
     }
-
-    if (neFilter) filtered = filtered.filter(c => c.ne.toLowerCase().includes(neFilter.toLowerCase()));
-    if (ejecutivoFilter) filtered = filtered.filter(c => c.executive.toLowerCase().includes(ejecutivoFilter.toLowerCase()));
-    if (consignatarioFilter) filtered = filtered.filter(c => c.consignee.toLowerCase().includes(consignatarioFilter.toLowerCase()));
-    if (facturaFilter) {
-      const lowerCaseFilter = facturaFilter.toLowerCase();
-      filtered = filtered.filter(c => {
-        const facturas = c.worksheet?.worksheetType === 'corporate_report' 
-          ? (c.worksheet.documents?.filter(d => d.type === 'FACTURA').map(d => d.number) || [])
-          : (c.facturaNumber ? c.facturaNumber.split(';').map(f => f.trim()) : []);
-        return facturas.some(f => f.toLowerCase().includes(lowerCaseFilter));
-      });
-    }
-    if (selectividadFilter) filtered = filtered.filter(c => (c.selectividad || 'N/A').toLowerCase().includes(selectividadFilter.toLowerCase()));
-    if (incidentTypeFilter) filtered = filtered.filter(c => getIncidentTypeDisplay(c).toLowerCase().includes(incidentTypeFilter.toLowerCase()));
-
-    return filtered;
   }, [allCases, appliedFilters, activeTab, neFilter, ejecutivoFilter, consignatarioFilter, facturaFilter, selectividadFilter, incidentTypeFilter]);
   
   const totalPages = Math.ceil(filteredCases.length / itemsPerPage);
@@ -1012,7 +1011,7 @@ function ExecutivePageContent() {
                {!appliedFilters.isSearchActive && (
                 <div className="mt-4 p-3 bg-blue-500/10 text-blue-700 border border-blue-500/30 rounded-md text-sm">
                     <Info className="inline h-4 w-4 mr-2" />
-                    Mostrando las 15 operaciones más recientes. Utilice los filtros para buscar y ver más resultados.
+                    Mostrando las 15 operaciones más recientes de la pestaña actual. Utilice los filtros para buscar y ver más resultados.
                 </div>
                 )}
               <div className="mt-6">
