@@ -37,14 +37,6 @@ const DetailItem: React.FC<{ label: string; value?: string | number | null; clas
     </div>
 );
 
-const LinedDetailItem: React.FC<{ label: string; value?: string | number | null; className?: string }> = ({ label, value, className }) => (
-    <div className={cn("border-b border-black flex justify-between items-baseline py-1 print:py-0.5", className)}>
-        <span className="text-xs font-semibold text-gray-700 print:text-[8pt]">{label}</span>
-        <p className="text-xs font-medium text-gray-800 print:text-[9pt]">{value || ''}</p>
-    </div>
-);
-
-
 const TransportDetailItem: React.FC<{ label: string; value?: string | number | null; className?: string }> = ({ label, value, className }) => (
     <tr className={cn("border-b border-black last:border-b-0", className)}>
         <td className="text-xs font-semibold text-gray-700 print:text-[8pt] p-1 w-2/5 border-r border-black">{label}</td>
@@ -121,7 +113,6 @@ export const Anexo5Details: React.FC<{ worksheet: Worksheet; onClose: () => void
   const emptyRows = Array.from({ length: emptyRowsCount }, (_, i) => ({ id: `empty-${i}` }));
 
   return (
-    <>
     <Card className="w-full max-w-5xl mx-auto shadow-none border-none card-print-styles" id="printable-area">
       <div className="p-4 print:p-2 bg-white">
           <div className="hidden print:block">
@@ -201,7 +192,7 @@ export const Anexo5Details: React.FC<{ worksheet: Worksheet; onClose: () => void
               </table>
           </div>
           
-          <div className="grid grid-cols-3 gap-x-4 mt-2 print:mt-1">
+           <div className="grid grid-cols-3 gap-x-4 mt-2 print:mt-1">
               <div className="w-full text-xs p-2 print:text-[8pt] print:p-1 col-span-1">
                   <table className="w-full border-collapse print:text-[9pt]">
                       <thead><tr><th colSpan={2} className="border border-black text-center text-xs p-1 print:text-[8pt] font-bold">Conformación de Valor</th></tr></thead>
@@ -228,18 +219,21 @@ export const Anexo5Details: React.FC<{ worksheet: Worksheet; onClose: () => void
                   <p className="text-sm print:text-xs whitespace-pre-wrap min-h-[42px]">{worksheet.observations}</p>
               </div>
               <div className="space-y-1 p-2 print:p-1 col-span-1">
-                  <LinedDetailItem label="Bultos Totales" value={bultosTotales > 0 ? bultosTotales.toLocaleString('es-NI') : ''} />
-                  <LinedDetailItem label="Peso Total" value={pesoTotal > 0 ? pesoTotal.toLocaleString('es-NI', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : ''} />
-                  <LinedDetailItem label="Precinto" value={worksheet.precinto || ''} />
-                  <LinedDetailItem label="Precinto Lateral" value={worksheet.precintoLateral || ''} />
+                  <DetailItem label="Bultos Totales" value={bultosTotales > 0 ? bultosTotales.toLocaleString('es-NI') : ''} />
+                  <DetailItem label="Peso Total" value={pesoTotal > 0 ? pesoTotal.toLocaleString('es-NI', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : ''} />
+                  <DetailItem label="Precinto" value={worksheet.precinto || ''} />
+                  <DetailItem label="Precinto Lateral" value={worksheet.precintoLateral || ''} />
+                  <div className="h-[25px]"></div>
+                  <div className="border-b-2 border-black"></div>
+                  <p className="text-xs font-semibold text-center pt-1">Firma Inspector ACCA</p>
               </div>
           </div>
           
           <div className="grid grid-cols-2 gap-x-8 mt-1 print:mt-1">
-              <div className="border-t border-b border-black mt-1 print:mt-1">
+              <div className="border border-black mt-1 print:mt-1">
                  <table className="w-full border-collapse">
                       <tbody>
-                          <TransportDetailItem label="CODIGO DEL TRANSPORTE" value={worksheet.codigoAduanero} />
+                          <TransportDetailItem label="CODIGO DE ADUANERO" value={worksheet.codigoAduanero} />
                           <TransportDetailItem label="Marca" value={worksheet.marcaVehiculo} />
                           <TransportDetailItem label="Placa" value={worksheet.placaVehiculo} />
                           <TransportDetailItem label="Motor" value={worksheet.motorVehiculo} />
@@ -250,7 +244,7 @@ export const Anexo5Details: React.FC<{ worksheet: Worksheet; onClose: () => void
                       </tbody>
                   </table>
               </div>
-              <div className="border border-black mt-1 print:mt-1 p-2 flex flex-col justify-between">
+              <div className="border-t border-b border-black mt-1 print:mt-1 p-2 flex flex-col justify-between">
                   <p className="text-center font-bold text-sm">TRÁNSITO</p>
                   <div className="space-y-4">
                       <div className="flex-grow border-b-2 border-black print:h-6 mb-1 h-[50px]"></div>
@@ -262,7 +256,7 @@ export const Anexo5Details: React.FC<{ worksheet: Worksheet; onClose: () => void
           </div>
 
           <div className="grid grid-cols-2 gap-x-8 mt-2 print:mt-1">
-              <SignatureSection title="ADUANA DESTINO" subtitle="Firma y Sello" align="left" className="w-full" />
+               <SignatureSection title="ADUANA DESTINO" subtitle="Firma y Sello" align="left" className="w-full" />
               <div className="border border-black p-2 flex flex-col justify-between">
                   <p className="text-center font-bold text-sm">TRAMITANTE</p>
                   {agente && (
@@ -279,19 +273,18 @@ export const Anexo5Details: React.FC<{ worksheet: Worksheet; onClose: () => void
 
       </div>
       <CardFooter className="justify-end gap-2 no-print border-t pt-4 mt-4">
-        <Button asChild variant="outline">
+          <Button asChild variant="outline">
           <Link href={`/executive/anexos?type=${worksheet.worksheetType}&id=${worksheet.id}`}>
-            <Edit className="mr-2 h-4 w-4" /> Editar
+              <Edit className="mr-2 h-4 w-4" /> Editar
           </Link>
-        </Button>
-        <Button type="button" onClick={onClose} variant="outline">
+          </Button>
+          <Button type="button" onClick={onClose} variant="outline">
           Cerrar
-        </Button>
-        <Button type="button" onClick={handlePrint} variant="default">
+          </Button>
+          <Button type="button" onClick={handlePrint} variant="default">
           <Printer className="mr-2 h-4 w-4" /> Imprimir
-        </Button>
+          </Button>
       </CardFooter>
     </Card>
-    </>
   );
 };
