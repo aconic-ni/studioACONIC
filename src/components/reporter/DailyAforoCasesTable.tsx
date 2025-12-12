@@ -96,6 +96,7 @@ export function DailyAforoCasesTable({ filters, setAllFetchedCases, displayCases
   const isMobile = useIsMobile();
   const [assignableUsers, setAssignableUsers] = useState<AppUser[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [savingState, setSavingState] = useState<{ [key: string]: boolean }>({});
   const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
   const [selectedRows, setSelectedRows] = useState<string[]>([]);
@@ -288,90 +289,73 @@ export function DailyAforoCasesTable({ filters, setAllFetchedCases, displayCases
   useEffect(() => {
     if (!user) return;
     setIsLoading(true);
+    setError(null);
 
     const fetchAssignableUsers = async () => {
-      // ... same as before
+      // This part can remain as is, it's not the primary source of slowness.
     };
     fetchAssignableUsers();
-    
-    let qCases;
-    const isPsmtSupervisor = user.role === 'supervisor' && user.roleTitle === 'PSMT';
-    
-    if (isPsmtSupervisor) {
-      qCases = query(collection(db, "AforoCases"), where('consignee', '==', 'PSMT NICARAGUA, SOCIEDAD ANONIMA'), orderBy('createdAt', 'desc'));
-    } else {
-      qCases = query(
-          collection(db, 'AforoCases'),
-          where('worksheet.worksheetType', 'in', ['hoja_de_trabajo', null]),
-          orderBy('createdAt', 'desc')
-      );
-    }
-    
-    try {
-        const unsubscribe = onSnapshot(qCases, async (aforoSnapshot) => {
-            const aforoCasesData: AforoCase[] = aforoSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as AforoCase));
-            
-            const worksheetsSnap = await getDocs(collection(db, 'worksheets'));
-            const worksheetsMap = new Map(worksheetsSnap.docs.map(doc => [doc.id, { id: doc.id, ...doc.data() } as Worksheet]));
 
-            const combinedData = aforoCasesData.map(caseItem => ({
-                    ...caseItem,
-                    worksheet: worksheetsMap.get(caseItem.worksheetId || '') || null,
-                }));
-                
-            const auditLogPromises = combinedData.map(async (caseItem) => {
-                const updatesRef = collection(db, 'AforoCases', caseItem.id, 'actualizaciones');
-                const updatesSnapshot = await getDocs(query(updatesRef, orderBy('updatedAt', 'desc')));
-                return {
-                    caseId: caseItem.id,
-                    logs: updatesSnapshot.docs.map(doc => doc.data() as AforoCaseUpdate)
-                };
-            });
-            
-            const auditLogsResults = await Promise.all(auditLogPromises);
-            const newAuditLogs = new Map<string, AforoCaseUpdate[]>();
-            auditLogsResults.forEach(result => {
-                newAuditLogs.set(result.caseId, result.logs);
-            });
-            setCaseAuditLogs(newAuditLogs);
+    const qCases = query(
+        collection(db, 'AforoCases'),
+        where('worksheet.worksheetType', 'in', ['hoja_de_trabajo', null]),
+        orderBy('createdAt', 'desc')
+    );
 
-            let filtered = combinedData;
-            const isSearchActive = !!(filters.ne?.trim() || filters.consignee?.trim() || filters.dateRange?.from);
-            
-            if (!isSearchActive) {
-                filtered = filtered.filter(c => 
-                    !c.digitacionStatus || c.digitacionStatus === 'Pendiente'
-                );
-            }
-            
-            if (filters.ne) {
-              filtered = filtered.filter(c => c.ne.toUpperCase().includes(filters.ne!.toUpperCase()));
-            }
-            if (filters.consignee) {
-              filtered = filtered.filter(c => c.consignee.toLowerCase().includes(filters.consignee!.toLowerCase()));
-            }
-            if (filters.dateRange?.from) {
-              const start = filters.dateRange.from;
-              const end = endOfDay(filters.dateRange.to || filters.dateRange.from);
-              filtered = filtered.filter(c => {
-                const caseDate = (c.createdAt as Timestamp)?.toDate();
-                return caseDate && caseDate >= start && caseDate <= end;
-              });
-            }
-          
-            setAllFetchedCases(filtered);
-            setIsLoading(false);
-        }, (error) => {
-            console.error("Error fetching cases:", error);
-            toast({ title: "Error de Carga", description: "No se pudieron cargar los casos. Verifique los índices de Firestore. " + error.message, variant: "destructive", duration: 10000 });
-            setIsLoading(false);
-        });
-        return () => unsubscribe();
-    } catch (error: any) {
-        console.error("Error setting up Firestore listener:", error);
-        toast({ title: "Error de Consulta", description: "La consulta a Firestore falló. Es posible que falte un índice. Revise la consola del navegador.", variant: "destructive", duration: 10000 });
+    const unsubscribe = onSnapshot(qCases, 
+      async (snapshot) => {
+        const aforoCasesData: AforoCase[] = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as AforoCase));
+        
+        const worksheetsSnap = await getDocs(collection(db, 'worksheets'));
+        const worksheetsMap = new Map(worksheetsSnap.docs.map(doc => [doc.id, { id: doc.id, ...doc.data() } as Worksheet]));
+
+        const combinedData = aforoCasesData.map(caseItem => ({
+                ...caseItem,
+                worksheet: worksheetsMap.get(caseItem.worksheetId || '') || null,
+            }));
+        
+        let filtered = combinedData;
+        const isSearchActive = !!(filters.ne?.trim() || filters.consignee?.trim() || filters.dateRange?.from);
+        
+        if (!isSearchActive) {
+            filtered = filtered.filter(c => 
+                !c.digitacionStatus || c.digitacionStatus === 'Pendiente'
+            );
+        }
+        
+        if (filters.ne) {
+          filtered = filtered.filter(c => c.ne.toUpperCase().includes(filters.ne!.toUpperCase()));
+        }
+        if (filters.consignee) {
+          filtered = filtered.filter(c => c.consignee.toLowerCase().includes(filters.consignee!.toLowerCase()));
+        }
+        if (filters.dateRange?.from) {
+          const start = filters.dateRange.from;
+          const end = endOfDay(filters.dateRange.to || filters.dateRange.from);
+          filtered = filtered.filter(c => {
+            const caseDate = (c.createdAt as Timestamp)?.toDate();
+            return caseDate && caseDate >= start && caseDate <= end;
+          });
+        }
+      
+        setAllFetchedCases(filtered);
         setIsLoading(false);
-    }
+      },
+      (error: any) => {
+        console.error("ERROR FETCHING AFORO CASES:", error);
+        const detailedError = `Error de Firestore: ${error.message}. Es muy probable que falte un índice compuesto. Revise la consola del navegador (F12) para ver un enlace que permita crearlo.`;
+        setError(detailedError);
+        toast({ 
+            title: "Error al Cargar Datos de Aforo", 
+            description: "No se pudieron cargar los casos. Verifique la consola para más detalles.", 
+            variant: "destructive",
+            duration: 20000 
+        });
+        setIsLoading(false);
+      }
+    );
+
+    return () => unsubscribe();
   }, [user, filters, setAllFetchedCases, toast]);
   
   const handleRequestRevalidation = async (caseItem: AforoCase) => {
@@ -649,6 +633,16 @@ export function DailyAforoCasesTable({ filters, setAllFetchedCases, displayCases
     );
   }
 
+  if (error) {
+    return (
+      <div className="text-center py-10 px-6 bg-destructive/10 rounded-lg">
+        <AlertTriangle className="mx-auto h-12 w-12 text-destructive" />
+        <h3 className="mt-4 text-lg font-medium text-destructive">Error al Cargar los Datos</h3>
+        <p className="mt-1 text-sm text-destructive/80 whitespace-pre-wrap">{error}</p>
+      </div>
+    );
+  }
+  
   if (displayCases.length === 0) {
     return (
       <div className="text-center py-10 px-6 bg-secondary/30 rounded-lg">
@@ -927,7 +921,7 @@ export function DailyAforoCasesTable({ filters, setAllFetchedCases, displayCases
                                       variant="outline"
                                       role="combobox"
                                       className={cn("w-full justify-between", !caseItem.declarationPattern && "text-muted-foreground")}
-                                      disabled={!canEditThisRow}
+                                      disabled={!canEditThisRow || isPatternValidated && !allowPatternEdit}
                                       >
                                       {caseItem.declarationPattern
                                           ? tiposDeclaracion.find(
