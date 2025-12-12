@@ -9,7 +9,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Loader2, FilePlus, Search, Edit, Eye, History, PlusSquare, UserCheck, Inbox, AlertTriangle, Download, ChevronsUpDown, Info, CheckCircle, CalendarRange, Calendar, CalendarDays, ShieldAlert, BookOpen, FileCheck2, MessageSquare, View, Banknote, Bell as BellIcon, RefreshCw, Send, StickyNote, Scale, Briefcase } from 'lucide-react';
 import { db } from '@/lib/firebase';
-import { collection, query, where, onSnapshot, orderBy, Timestamp, doc, getDoc, updateDoc, writeBatch, addDoc, getDocs, collectionGroup } from 'firebase/firestore';
+import { collection, query, where, onSnapshot, orderBy, Timestamp, doc, getDoc, updateDoc, writeBatch, addDoc, getDocs, collectionGroup, serverTimestamp } from 'firebase/firestore';
 import type { Worksheet, AforoCase, AforadorStatus, AforoCaseStatus, DigitacionStatus, WorksheetWithCase, AforoCaseUpdate, PreliquidationStatus, IncidentType, LastUpdateInfo, ExecutiveComment, InitialDataContext, AppUser, SolicitudRecord, ExamDocument, FacturacionStatus } from '@/types';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { format, toDate, isSameDay, startOfDay, endOfDay, startOfMonth, endOfMonth, differenceInDays } from 'date-fns';
@@ -52,6 +52,7 @@ import { StatusProcessModal } from '@/components/executive/StatusProcessModal';
 
 
 type DateFilterType = 'range' | 'month' | 'today';
+type TabValue = 'worksheets' | 'anexos' | 'corporate';
 
 const months = [
     { value: 0, label: 'Enero' }, { value: 1, label: 'Febrero' }, { value: 2, label: 'Marzo' },
@@ -88,6 +89,30 @@ const LastUpdateTooltip = ({ lastUpdate, caseCreation }: { lastUpdate?: LastUpda
         </Tooltip>
     );
 };
+
+// Helper to sanitize undefined values to null for Firestore
+const sanitizeForFirestore = (obj: any): any => {
+    if (obj === undefined) return null;
+    if (obj === null || typeof obj !== 'object') return obj;
+
+    if (Array.isArray(obj)) {
+        return obj.map(item => sanitizeForFirestore(item));
+    }
+    
+    if (obj instanceof Date || obj instanceof Timestamp) {
+        return obj;
+    }
+
+    const newObj: { [key: string]: any } = {};
+    for (const key in obj) {
+        if (Object.prototype.hasOwnProperty.call(obj, key)) {
+            const value = obj[key];
+            newObj[key] = value === undefined ? null : sanitizeForFirestore(value);
+        }
+    }
+    return newObj;
+};
+
 
 function ExecutivePageContent() {
   const { user, loading: authLoading } = useAuth();
@@ -353,8 +378,8 @@ function ExecutivePageContent() {
             updatedAt: Timestamp.now(),
             updatedBy: user.displayName,
             field: field as keyof AforoCase,
-            oldValue: oldValue === undefined ? null : oldValue,
-            newValue: value === undefined ? null : value,
+            oldValue: sanitizeForFirestore(oldValue),
+            newValue: sanitizeForFirestore(value),
         };
         batch.set(doc(updatesSubcollectionRef), updateLog);
 
@@ -572,7 +597,7 @@ function ExecutivePageContent() {
     switch (status) { case 'Aprobado': return 'default'; case 'Rechazado': return 'destructive'; case 'Revalidación Solicitada': return 'secondary'; default: return 'outline'; }
   };
   const getAforadorStatusBadgeVariant = (status?: AforadorStatus) => {
-    switch(status) { case 'En revisión': return 'default'; case 'Incompleto': return 'destructive'; case 'En proceso': return 'secondary'; case 'Pendiente': return 'destructive'; default: return 'outline'; }
+    switch(status) { case 'En revisión': return 'default'; case 'Incompleto': return 'destructive'; case 'En proceso': return 'secondary'; case 'Pendiente ': return 'destructive'; default: return 'outline'; }
   };
   const getDigitacionBadge = (status?: DigitacionStatus, declaracion?: string | null) => {
     if (status === 'Trámite Completo') { return <Badge variant="default" className="bg-green-600">{declaracion || 'Finalizado'}</Badge> }
