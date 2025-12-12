@@ -2,15 +2,16 @@
 "use client";
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { db } from '@/lib/firebase';
-import { collection, query, where, onSnapshot, Timestamp, orderBy, getDocs, QueryConstraint, getDoc } from 'firebase/firestore';
+import { collection, query, where, onSnapshot, Timestamp, orderBy, getDocs, QueryConstraint, getDoc, writeBatch, doc } from 'firebase/firestore';
 import { useAuth } from '@/context/AuthContext';
 import { AppShell } from '@/components/layout/AppShell';
-import { Loader2, Inbox, Eye, Search, Calendar, CalendarDays, CalendarRange, BookOpen, AlertTriangle, History } from 'lucide-react';
+import { Loader2, Inbox, Eye, Search, Calendar, CalendarDays, CalendarRange, BookOpen, AlertTriangle, History, CheckSquare } from 'lucide-react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import type { AforoCase, AforoCaseStatus, PreliquidationStatus, DigitacionStatus, Worksheet } from '@/types';
+import type { AforoCase, AforoCaseStatus, PreliquidationStatus, DigitacionStatus, Worksheet, AforoCaseUpdate } from '@/types';
 import { format, startOfDay, endOfDay, startOfMonth, endOfMonth } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { ObservationModal } from '@/components/reporter/ObservationModal';
@@ -52,6 +53,7 @@ export default function AgenteCasosPage() {
   const [worksheetToView, setWorksheetToView] = useState<Worksheet | null>(null);
   const [incidentToView, setIncidentToView] = useState<AforoCase | null>(null);
   const { toast } = useToast();
+  const [isBulkApproving, setIsBulkApproving] = useState(false);
 
   // Filter states
   const [searchTerm, setSearchTerm] = useState('');
@@ -60,6 +62,7 @@ export default function AgenteCasosPage() {
   const [dateRange, setDateRange] = useState<DateRange | undefined>();
   const [selectedMonth, setSelectedMonth] = useState<number>(new Date().getMonth());
   const [selectedYear, setSelectedYear] = useState<number>(currentYear);
+  const [selectedRows, setSelectedRows] = useState<string[]>([]);
 
   const fetchData = useCallback(async () => {
     if (!user || !(user.roleTitle === 'agente aduanero' || user.role === 'supervisor')) {
@@ -135,6 +138,57 @@ export default function AgenteCasosPage() {
     setDateFilterType('range');
     setDateRange(undefined);
     setFilteredCases(allCases.filter(c => (c.revisorStatus || 'Pendiente') === 'Pendiente'));
+    setSelectedRows([]);
+  }
+
+  const handleBulkApprove = async () => {
+    if (selectedRows.length === 0 || !user?.displayName) return;
+    setIsBulkApproving(true);
+    const batch = writeBatch(db);
+    const newStatus: AforoCaseStatus = 'Aprobado';
+    const comment = "Aprobado masivamente por agente aduanero.";
+
+    selectedRows.forEach(caseId => {
+        const caseRef = doc(db, 'AforoCases', caseId);
+        const originalCase = allCases.find(c => c.id === caseId);
+        
+        batch.update(caseRef, {
+            revisorStatus: newStatus,
+            observacionRevisor: comment,
+            revisorStatusLastUpdate: { by: user.displayName, at: Timestamp.now() }
+        });
+
+        const updatesSubcollectionRef = collection(caseRef, 'actualizaciones');
+        const updateLog: AforoCaseUpdate = {
+            updatedAt: Timestamp.now(),
+            updatedBy: user.displayName,
+            field: 'status_change',
+            oldValue: originalCase?.revisorStatus || 'Pendiente',
+            newValue: newStatus,
+            comment: comment,
+        };
+        batch.set(doc(updatesSubcollectionRef), updateLog);
+    });
+
+    try {
+        await batch.commit();
+        toast({ title: 'Éxito', description: `${selectedRows.length} casos han sido aprobados.` });
+        setSelectedRows([]);
+        fetchData(); // Refresh data
+    } catch (error) {
+        console.error("Error bulk approving cases:", error);
+        toast({ title: 'Error', description: 'No se pudieron aprobar los casos seleccionados.', variant: 'destructive' });
+    } finally {
+        setIsBulkApproving(false);
+    }
+  };
+
+  const handleSelectAll = () => {
+    if (selectedRows.length === filteredCases.filter(c => c.revisorStatus === 'Pendiente').length) {
+        setSelectedRows([]);
+    } else {
+        setSelectedRows(filteredCases.filter(c => c.revisorStatus === 'Pendiente').map(c => c.id));
+    }
   }
 
   const openActionModal = (caseItem: AforoCase, action: 'observation' | 'history') => {
@@ -214,7 +268,13 @@ export default function AgenteCasosPage() {
       <div className="py-2 md:py-5">
         <Card className="w-full max-w-screen-2xl mx-auto custom-shadow">
           <CardHeader>
-            <CardTitle>Mis Casos Asignados</CardTitle>
+            <div className="flex justify-between items-center">
+                <CardTitle>Mis Casos Asignados</CardTitle>
+                <Button onClick={handleBulkApprove} disabled={selectedRows.length === 0 || isBulkApproving}>
+                    {isBulkApproving && <Loader2 className="mr-2 h-4 w-4 animate-spin"/>}
+                    <CheckSquare className="mr-2 h-4 w-4" /> Aprobar Seleccionados ({selectedRows.length})
+                </Button>
+            </div>
             <CardDescription>Aquí se listan los casos de aforo que requieren su revisión y aprobación.</CardDescription>
             <div className="border-t pt-4 mt-2 space-y-4">
                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -274,6 +334,12 @@ export default function AgenteCasosPage() {
                 <Table>
                   <TableHeader>
                     <TableRow>
+                      <TableHead className="w-12">
+                          <Checkbox
+                              checked={selectedRows.length > 0 && selectedRows.length === filteredCases.filter(c => c.revisorStatus === 'Pendiente').length}
+                              onCheckedChange={handleSelectAll}
+                          />
+                      </TableHead>
                       <TableHead>Acciones</TableHead>
                       <TableHead>NE</TableHead>
                       <TableHead>Consignatario</TableHead>
@@ -288,7 +354,18 @@ export default function AgenteCasosPage() {
                   </TableHeader>
                   <TableBody>
                     {filteredCases.map(caseItem => (
-                      <TableRow key={caseItem.id}>
+                      <TableRow key={caseItem.id} data-state={selectedRows.includes(caseItem.id) ? 'selected' : undefined}>
+                        <TableCell>
+                            <Checkbox
+                                checked={selectedRows.includes(caseItem.id)}
+                                onCheckedChange={() => setSelectedRows(prev => 
+                                    prev.includes(caseItem.id) 
+                                        ? prev.filter(id => id !== caseItem.id)
+                                        : [...prev, caseItem.id]
+                                )}
+                                disabled={caseItem.revisorStatus !== 'Pendiente'}
+                            />
+                        </TableCell>
                         <TableCell>
                             <div className="flex items-center gap-1">
                                 <DropdownMenu>
@@ -348,4 +425,3 @@ export default function AgenteCasosPage() {
     </AppShell>
   );
 }
-
