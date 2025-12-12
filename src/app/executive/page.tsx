@@ -158,7 +158,7 @@ function ExecutivePageContent() {
 
 
   useEffect(() => {
-    if (!authLoading && (!user || !['ejecutivo', 'coordinadora', 'admin', 'supervisor'].includes(user.role || ''))) {
+    if (!authLoading && !user) {
       router.push('/');
     }
   }, [user, authLoading, router]);
@@ -167,8 +167,8 @@ function ExecutivePageContent() {
     if (!user) return () => {};
     setIsLoading(true);
     
-    const globalVisibilityRoles = ['admin', 'supervisor'];
-    const groupVisibilityRoles = ['ejecutivo', 'coordinadora'];
+    const globalVisibilityRoles = ['admin', 'supervisor', 'coordinadora'];
+    const groupVisibilityRoles = ['ejecutivo'];
     let aforoQuery;
 
     if (user.role && globalVisibilityRoles.includes(user.role)) {
@@ -614,7 +614,7 @@ function ExecutivePageContent() {
   
   const welcomeName = user?.displayName ? user.displayName.split(' ')[0] : 'Usuario';
 
-  if (authLoading || !user || !['ejecutivo', 'coordinadora', 'admin', 'supervisor'].includes(user.role || '')) {
+  if (authLoading || !user) {
     return <div className="min-h-screen flex items-center justify-center bg-background"><Loader2 className="h-12 w-12 animate-spin text-primary" /></div>;
   }
   if (selectedIncidentForDetails) {

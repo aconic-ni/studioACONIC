@@ -53,6 +53,8 @@ const anexoSchema = z.object({
   executive: z.string().min(1, "Ejecutivo es requerido."),
   consignee: z.string().min(1, "Empresa que solicita es requerida."),
   ruc: z.string().optional(),
+  almacenSalida: z.string().optional(),
+  codigoAlmacen: z.string().optional(),
   resa: z.string().optional(),
   resaNotificationDate: z.date().optional().nullable(),
   resaDueDate: z.date().optional().nullable(),
@@ -111,6 +113,7 @@ function AnexoForm() {
     defaultValues: {
       worksheetType: worksheetType,
       ne: '', executive: '', consignee: '', ruc: '', resa: '', facturaNumber: '', dispatchCustoms: '',
+      almacenSalida: '', codigoAlmacen: '',
       documents: [], observations: '', valor: 0, flete: 0, seguro: 0, otrosGastos: 0,
       packageNumber: '', grossWeight: '', precinto: '', precintoLateral: '',
       codigoAduanero: '', marcaVehiculo: '', placaVehiculo: '', motorVehiculo: '', chasisVehiculo: '', vin: '',
@@ -395,6 +398,8 @@ function AnexoForm() {
                 <FormField control={form.control} name="ne" render={({ field }) => (<FormItem><FormLabel>NE</FormLabel><FormControl><Input {...field} disabled={!!editingWorksheetId} /></FormControl><FormMessage /></FormItem>)}/>
                 <FormField control={form.control} name="consignee" render={({ field }) => (<FormItem><FormLabel>Empresa que solicita (Consignatario)</FormLabel><FormControl><ConsigneeSelector value={field.value} onChange={field.onChange} /></FormControl><FormMessage /></FormItem>)}/>
                 <FormField control={form.control} name="ruc" render={({ field }) => (<FormItem><FormLabel>RUC</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>)}/>
+                 <FormField control={form.control} name="almacenSalida" render={({ field }) => (<FormItem><FormLabel>Almacén de Salida</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>)}/>
+                <FormField control={form.control} name="codigoAlmacen" render={({ field }) => (<FormItem><FormLabel>Código de Almacén</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>)}/>
                 <div className="grid grid-cols-3 gap-2 items-end">
                     <FormField control={form.control} name="resa" render={({ field }) => (<FormItem className="col-span-1"><FormLabel>RESA No</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>)}/>
                     <FormField control={form.control} name="resaNotificationDate" render={({ field }) => (<FormItem className="flex flex-col col-span-1"><FormLabel>Fecha Notificación</FormLabel><FormControl><DatePicker date={field.value} onDateChange={field.onChange} /></FormControl><FormMessage /></FormItem>)}/>
