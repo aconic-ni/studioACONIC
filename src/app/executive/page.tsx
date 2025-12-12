@@ -93,16 +93,14 @@ const LastUpdateTooltip = ({ lastUpdate, caseCreation }: { lastUpdate?: LastUpda
 // Helper to sanitize undefined values to null for Firestore
 const sanitizeForFirestore = (obj: any): any => {
     if (obj === undefined) return null;
-    if (obj === null || typeof obj !== 'object') return obj;
+    if (obj === null || typeof obj !== 'object' || obj instanceof Timestamp || obj instanceof Date) {
+        return obj;
+    }
 
     if (Array.isArray(obj)) {
         return obj.map(item => sanitizeForFirestore(item));
     }
     
-    if (obj instanceof Date || obj instanceof Timestamp) {
-        return obj;
-    }
-
     const newObj: { [key: string]: any } = {};
     for (const key in obj) {
         if (Object.prototype.hasOwnProperty.call(obj, key)) {
@@ -182,6 +180,7 @@ function ExecutivePageContent() {
 
 
   useEffect(() => {
+    // This effect can be simplified since the check is just for user existence now
     if (!authLoading && !user) {
       router.push('/');
     }
@@ -352,9 +351,6 @@ function ExecutivePageContent() {
     if (!originalCase) return;
 
     const oldValue = originalCase[field as keyof AforoCase];
-    if (JSON.stringify(oldValue) === JSON.stringify(value)) {
-        return;
-    }
     
     setSavingState(prev => ({ ...prev, [caseId]: true }));
     const caseDocRef = doc(db, 'AforoCases', caseId);
@@ -726,7 +722,7 @@ function ExecutivePageContent() {
                                  <DropdownMenuItem onSelect={() => handleSearchPrevio(c.ne)}>
                                     <Search className="mr-2 h-4 w-4" /> Buscar Previo
                                 </DropdownMenuItem>
-                                <DropdownMenuItem onSelect={() => router.push(`/executive/anexos?id=${c.id}`)} disabled={!c.worksheetId}>
+                                 <DropdownMenuItem onSelect={() => router.push(`/executive/anexos?id=${c.id}`)} disabled={!c.worksheetId || c.worksheet?.worksheetType === 'corporate_report'}>
                                     <FilePlus className="mr-2 h-4 w-4" /> Docs y Permisos
                                 </DropdownMenuItem>
                                 <DropdownMenuItem onSelect={() => setSelectedCaseForQuickRequest(c)} disabled={!c.worksheet}>

@@ -120,7 +120,7 @@ export function ResaNotificationModal({ isOpen, onClose, caseData }: ResaNotific
             updatedAt: Timestamp.now(),
             updatedBy: user.displayName,
             field: 'resa_notification',
-            oldValue: { number: caseData.resaNumber, date: caseData.resaNotificationDate },
+            oldValue: { number: caseData.resaNumber || null, date: caseData.resaNotificationDate || null },
             newValue: { number: data.resaNumber, date: data.resaNotificationDate },
             comment: `RESA ${data.resaNumber} notificada. Vence el ${calculatedDueDate.toLocaleDateString()}.`
         };
