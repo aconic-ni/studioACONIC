@@ -60,14 +60,15 @@ export default function FacturacionPage() {
   const [remisionDateFilter, setRemisionDateFilter] = useState<DateRange | undefined>();
 
   const [activeFilters, setActiveFilters] = useState<{ ne?: string; dateRange?: DateRange; dateFilterType?: DateFilterType; month?: number; year?: number; } | null>(null);
-
+  
+  const allowedRoles = ['facturador', 'admin', 'supervisor', 'coordinadora'];
   const canAssign = user?.role === 'supervisor' || user?.role === 'admin' || user?.role === 'coordinadora';
 
   useEffect(() => {
-    if (!authLoading && !user) {
+    if (!authLoading && (!user || !allowedRoles.includes(user.role || ''))) {
       router.push('/');
     }
-  }, [user, authLoading, router]);
+  }, [user, authLoading, router, allowedRoles]);
 
   const handleSearch = () => {
     let dateRange: DateRange | undefined = undefined;
@@ -259,7 +260,7 @@ export default function FacturacionPage() {
     return filtered;
   }, [allCases, activeFilters]);
 
-  if (authLoading || !user) {
+  if (authLoading || !user || !allowedRoles.includes(user.role || '')) {
     return <div className="min-h-screen flex items-center justify-center bg-background"><Loader2 className="h-12 w-12 animate-spin text-primary" /></div>;
   }
   
@@ -315,6 +316,7 @@ export default function FacturacionPage() {
             </CardHeader>
             <CardContent>
                 <TabsContent value="pendientes">
+                    
                     {isLoading ? (
                     <div className="flex justify-center items-center py-10"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>
                     ) : filteredCases.length === 0 ? (
@@ -405,7 +407,7 @@ export default function FacturacionPage() {
                         </Table>
                     </div>
                     )}
-                </CardContent>
+                </TabsContent>
                 </Card>
             </TabsContent>
             <TabsContent value="remisiones">
