@@ -247,7 +247,7 @@ export const Anexo5Details: React.FC<{ worksheet: Worksheet; onClose: () => void
                       </tbody>
                   </table>
               </div>
-              <div className="border border-black mt-1 print:mt-1 p-2 flex flex-col justify-between">
+              <div className="mt-1 print:mt-1 p-2 flex flex-col justify-between">
                   <p className="text-center font-bold text-sm">TRAMITANTE</p>
                   {agente && (
                       <div className="text-center text-black font-semibold text-xs">
@@ -264,18 +264,22 @@ export const Anexo5Details: React.FC<{ worksheet: Worksheet; onClose: () => void
               </div>
             </div>
 
-          <div className="grid grid-cols-2 gap-x-8 mt-2 print:mt-1">
-              <div className="space-y-4">
-                  <SignatureSection title="ADUANA CENTRAL DE CARGA AEREA" subtitle="Firma y Sello" align="left" className="w-full" />
-                  <SignatureSection title="ADUANA DESTINO" subtitle="Firma y Sello" align="left" className="w-full" />
-              </div>
-              <div className="border border-black p-2 flex flex-col justify-between">
-                  <p className="text-center font-bold text-sm">TRANSITO</p>
-                  <p className="text-xs font-semibold text-gray-700 print:text-[8pt] text-center">Firma y Sello</p>
-                            <DetailItem label="HORA DE SALIDA" value="" />
-                            <DetailItem label="HORA DE LLEGADA" value="" />
-               </div>
-          </div>
+            <div className="grid grid-cols-2 gap-x-8 mt-2 print:mt-1">
+                <div className="space-y-4">
+                    <SignatureSection title="ADUANA CENTRAL DE CARGA AEREA" subtitle="Firma y Sello" align="left" className="w-full" />
+                    <SignatureSection title="ADUANA DESTINO" subtitle="Firma y Sello" align="left" className="w-full" />
+                </div>
+                <div className="border border-black p-2 flex flex-col justify-between">
+                    <p className="text-center font-bold text-sm">TRANSITO</p>
+                    <div className="flex-grow flex flex-col justify-end">
+                        <DetailItem label="HORA DE SALIDA" value="" />
+                        <DetailItem label="HORA DE LLEGADA" value="" />
+                         <div className="h-[50px]"></div>
+                        <div className="border-b-2 border-black"></div>
+                        <p className="text-xs font-semibold text-center pt-1">Firma y Sello</p>
+                    </div>
+                </div>
+            </div>
           
       </div>
       <CardFooter className="justify-end gap-2 no-print border-t pt-4 mt-4">
