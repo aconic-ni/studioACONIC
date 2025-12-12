@@ -19,7 +19,6 @@ import { AforoCaseHistoryModal } from '@/components/reporter/AforoCaseHistoryMod
 import { IncidentReportModal } from '@/components/reporter/IncidentReportModal';
 import { Badge } from '@/components/ui/badge';
 import { IncidentReportDetails } from '@/components/reporter/IncidentReportDetails';
-import { ManageDocumentsModal } from '@/components/executive/ManageDocumentsModal';
 import { ValueDoubtModal } from '@/components/executive/ValueDoubtModal';
 import { DatePickerWithTime } from '@/components/reports/DatePickerWithTime';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -108,7 +107,6 @@ function ExecutivePageContent() {
   const [selectedCaseForIncident, setSelectedCaseForIncident] = useState<AforoCase | null>(null);
   const [selectedCaseForValueDoubt, setSelectedCaseForValueDoubt] = useState<AforoCase | null>(null);
   const [selectedIncidentForDetails, setSelectedIncidentForDetails] = useState<AforoCase | null>(null);
-  const [selectedCaseForDocs, setSelectedCaseForDocs] = useState<AforoCase | null>(null);
   const [selectedWorksheet, setSelectedWorksheet] = useState<Worksheet | null>(null);
   const [selectedCaseForComment, setSelectedCaseForComment] = useState<AforoCase | null>(null);
   const [selectedCaseForQuickRequest, setSelectedCaseForQuickRequest] = useState<WorksheetWithCase | null>(null);
@@ -628,7 +626,6 @@ function ExecutivePageContent() {
   
   const caseActions = {
     handleViewWorksheet,
-    setSelectedCaseForDocs,
     setSelectedCaseForQuickRequest,
     setSelectedCaseForPayment,
     setSelectedCaseForPaymentList,
@@ -705,7 +702,7 @@ function ExecutivePageContent() {
                                  <DropdownMenuItem onSelect={() => handleSearchPrevio(c.ne)}>
                                     <Search className="mr-2 h-4 w-4" /> Buscar Previo
                                 </DropdownMenuItem>
-                                <DropdownMenuItem onSelect={() => setSelectedCaseForDocs(c)} disabled={!c}>
+                                <DropdownMenuItem onSelect={() => router.push(`/executive/anexos?id=${c.id}`)} disabled={!c.worksheetId}>
                                     <FilePlus className="mr-2 h-4 w-4" /> Docs y Permisos
                                 </DropdownMenuItem>
                                 <DropdownMenuItem onSelect={() => setSelectedCaseForQuickRequest(c)} disabled={!c.worksheet}>
@@ -1032,7 +1029,6 @@ function ExecutivePageContent() {
         </Card>
       </div>
     </AppShell>
-    {selectedCaseForDocs && (<ManageDocumentsModal isOpen={!!selectedCaseForDocs} onClose={() => setSelectedCaseForDocs(null)} caseData={selectedCaseForDocs} />)}
     {selectedCaseForHistory && (<AforoCaseHistoryModal isOpen={!!selectedCaseForHistory} onClose={() => setSelectedCaseForHistory(null)} caseData={selectedCaseForHistory} />)}
     {selectedCaseForIncident && (<IncidentReportModal isOpen={!!selectedCaseForIncident} onClose={() => setSelectedCaseForIncident(null)} caseData={selectedCaseForIncident} />)}
     {selectedCaseForValueDoubt && (<ValueDoubtModal isOpen={!!selectedCaseForValueDoubt} onClose={() => setSelectedCaseForValueDoubt(null)} caseData={selectedCaseForValueDoubt} />)}
@@ -1085,3 +1081,4 @@ export default function ExecutivePage() {
         </Suspense>
     )
 }
+    
