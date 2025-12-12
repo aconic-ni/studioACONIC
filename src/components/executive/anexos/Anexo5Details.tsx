@@ -1,17 +1,16 @@
-
 "use client";
 import React, { useEffect, useState } from 'react';
 import Image from 'next/image';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
-import { X, Printer, FileText, User, Building, Weight, Truck, MapPin, Anchor, Plane, Globe, Package, ListChecks, FileSymlink, Link as LinkIcon, Eye, Shield, FileBadge, FileKey, Edit } from 'lucide-react';
+import { X, Printer, Edit } from 'lucide-react';
 import type { Worksheet, AppUser } from '@/types';
 import { Timestamp, collection, query, where, getDocs } from 'firebase/firestore';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '../ui/badge';
 import { format as formatDateFns } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { aduanas } from '@/lib/formData';
+import { aduanas, aduanaToShortCode } from '@/lib/formData';
 import { WorksheetDetails } from '../WorksheetDetails';
 import { cn } from "@/lib/utils";
 import { db } from '@/lib/firebase';
@@ -23,36 +22,18 @@ const formatShortDate = (timestamp: Timestamp | Date | null | undefined): string
   return formatDateFns(date, 'dd/MM/yyyy');
 };
 
-
 const getAduanaLabel = (code: string | undefined) => {
     if (!code) return 'N/A';
     const aduana = aduanas.find(a => a.value === code);
     return aduana ? aduana.label.substring(5) : code;
 };
 
-const DetailItem: React.FC<{ label: string; value?: string | number | null | boolean; className?: string }> = ({ label, value, className }) => {
-  let displayValue: React.ReactNode;
-  if (typeof value === 'boolean') {
-    displayValue = value ? 'Sí' : 'No';
-  } else {
-    displayValue = String(value ?? '');
-  }
-
-  return (
-    <div className={cn("border-b border-black flex justify-between items-baseline py-1 print:py-0.5", className)}>
-        <span className="text-xs font-semibold text-gray-700 print:text-[8pt]">{label}</span>
-        <p className="text-xs font-medium text-gray-800 print:text-[9pt]">{displayValue}</p>
-    </div>
-  );
-};
-
-const LinedDetailItem: React.FC<{ label: string; value?: string | number | null; className?: string }> = ({ label, value, className }) => (
+const DetailItem: React.FC<{ label: string; value?: string | number | null; className?: string }> = ({ label, value, className }) => (
     <div className={cn("border-b border-black flex justify-between items-baseline py-1 print:py-0.5", className)}>
         <span className="text-xs font-semibold text-gray-700 print:text-[8pt]">{label}</span>
         <p className="text-xs font-medium text-gray-800 print:text-[9pt]">{value || ''}</p>
     </div>
 );
-
 
 const TransportDetailItem: React.FC<{ label: string; value?: string | number | null; className?: string }> = ({ label, value, className }) => (
     <tr className={cn("border-b border-black last:border-b-0", className)}>
@@ -73,8 +54,7 @@ const SignatureSection: React.FC<{
     <div className={cn("flex flex-col", className)}>
        <div className="flex-grow border-b-2 border-black print:h-6 mb-1"></div>
       <div className={cn("text-xs print:text-[8pt]", textAlignClass)}>
-          <p className="font-semibold">Firma y Sello</p>
-          <p className="font-bold text-black">{title}</p>
+          <p className="font-semibold">{title}</p>
           {subtitle && <p className="text-gray-600 print:text-[7pt]">{subtitle}</p>}
           <div className="min-h-[30px] print:min-h-[20px] text-black font-semibold">
            {children}
@@ -85,34 +65,29 @@ const SignatureSection: React.FC<{
 };
 
 export const Anexo5Details: React.FC<{ worksheet: Worksheet; onClose: () => void; }> = ({ worksheet, onClose }) => {
-  const [agentesAduaneros, setAgentesAduaneros] = useState<AppUser[]>([]);
+  const [agente, setAgente] = useState<AppUser | null>(null);
 
   useEffect(() => {
-    const fetchAgents = async () => {
-        const q = query(collection(db, 'users'), where('roleTitle', '==', 'agente aduanero'));
-        const querySnapshot = await getDocs(q);
-        const agents = querySnapshot.docs.map(doc => ({ uid: doc.id, ...doc.data() } as AppUser));
-        setAgentesAduaneros(agents);
+    const fetchAgent = async () => {
+        if (worksheet.aforador && worksheet.aforador !== '-') {
+            const q = query(collection(db, 'users'), where('displayName', '==', worksheet.aforador));
+            const querySnapshot = await getDocs(q);
+            if (!querySnapshot.empty) {
+                const agentData = querySnapshot.docs[0].data() as AppUser;
+                setAgente(agentData);
+            }
+        }
     };
-    fetchAgents();
-  }, []);
+    fetchAgent();
+  }, [worksheet.aforador]);
 
   const handlePrint = () => {
     window.print();
   };
-
-  const getTransportDocTypeLabel = (type?: string | null) => {
-    switch (type) {
-      case 'guia_aerea': return 'Guía Aérea';
-      case 'bl': return 'BL';
-      case 'carta_porte': return 'Carta de Porte';
-      default: return 'N/A';
-    }
-  };
-
+  
   const productHeaders = ["CANTIDAD", "ORIGEN", "UM", "SAC", "PESO", "DESCRIPCION", "LINEA AEREA", "N° DE GUIA AEREA", "BULTO", "TOTAL"];
-
-  if (worksheet.worksheetType === 'hoja_de_trabajo' || !worksheet.worksheetType) {
+  
+  if (worksheet.worksheetType === 'hoja_de_trabajo' || worksheet.worksheetType === 'anexo_7' || !worksheet.worksheetType) {
     return <WorksheetDetails worksheet={worksheet} onClose={onClose} />;
   }
 
@@ -122,8 +97,6 @@ export const Anexo5Details: React.FC<{ worksheet: Worksheet; onClose: () => void
   const valorTotal = (worksheet.documents || []).reduce((sum, doc) => sum + (Number((doc as any).total) || 0), 0);
   const valorAduanero = (worksheet.valor || 0) + (worksheet.flete || 0) + (worksheet.seguro || 0) + (worksheet.otrosGastos || 0);
 
-  const selectedAgent = agentesAduaneros.find(agent => agent.displayName === worksheet.aforador);
-  
   const headerImageSrc = "/AconicExaminer/imagenes/HEADERANEX5DETAIL.svg";
 
   const MIN_ROWS = 9;
@@ -212,11 +185,7 @@ export const Anexo5Details: React.FC<{ worksheet: Worksheet; onClose: () => void
         </div>
 
         <div className="grid grid-cols-2 gap-x-8 mt-2 print:mt-1">
-            <div className="p-2 print:p-1 col-span-1">
-                <p className="text-xs font-semibold text-gray-500 print:text-[8pt]">NOTA:</p>
-                <p className="text-sm print:text-xs whitespace-pre-wrap min-h-[42px]">{worksheet.observations}</p>
-            </div>
-            <div className="w-full text-xs p-2 print:text-[8pt] print:p-1">
+             <div className="w-full text-xs p-2 print:text-[8pt] print:p-1">
                 <table className="w-full border-collapse print:text-[9pt]">
                     <thead><tr><th colSpan={2} className="border border-black text-center text-xs p-1 print:text-[8pt] font-bold">Conformación de Valor</th></tr></thead>
                     <tbody>
@@ -237,6 +206,10 @@ export const Anexo5Details: React.FC<{ worksheet: Worksheet; onClose: () => void
                     </tbody>
                 </table>
             </div>
+            <div className="p-2 print:p-1 col-span-1">
+                <p className="text-xs font-semibold text-gray-500 print:text-[8pt]">NOTA:</p>
+                <p className="text-sm print:text-xs whitespace-pre-wrap min-h-[42px]">{worksheet.observations}</p>
+            </div>
         </div>
         
         <div className="grid grid-cols-2 gap-x-8 mt-1 print:mt-1">
@@ -256,33 +229,31 @@ export const Anexo5Details: React.FC<{ worksheet: Worksheet; onClose: () => void
             </div>
             <div className="space-y-2 print:space-y-1 mt-1 print:mt-1">
                 <div className="space-y-1 p-2 print:p-1">
-                    <LinedDetailItem label="Bultos Totales" value={bultosTotales > 0 ? bultosTotales.toLocaleString('es-NI') : ''} />
-                    <LinedDetailItem label="Peso Total" value={pesoTotal > 0 ? pesoTotal.toLocaleString('es-NI', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : ''} />
-                    <LinedDetailItem label="Precinto" value={worksheet.precinto || ''} />
-                </div>
-                 <div className="w-full text-xs mt-1 border border-gray-400 rounded-md p-2 print:text-[8pt] print:p-1">
-                    <h4 className="text-sm font-semibold text-center mb-2 print:text-xs print:mb-1">TRÁNSITO</h4>
-                    <SignatureSection title="Firma y Sello" />
+                    <DetailItem label="Bultos Totales" value={bultosTotales > 0 ? bultosTotales.toLocaleString('es-NI') : ''} />
+                    <DetailItem label="Peso Total" value={pesoTotal > 0 ? pesoTotal.toLocaleString('es-NI', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : ''} />
+                    <DetailItem label="Precinto" value={worksheet.precinto || ''} />
+                    <DetailItem label="Precinto Lateral" value={worksheet.precintoLateral || ''} />
                 </div>
             </div>
         </div>
-
-        <div className="h-[20px]"></div>
+        
+        <div className="h-[50px] print:h-[20px]"></div>
         
         <div className="grid grid-cols-2 gap-x-8 mt-2 print:mt-1">
-             <SignatureSection title="ADUANA DESTINO" align="left" />
-             <SignatureSection title="TRAMITANTE" align="center">
-                {selectedAgent && (
-                    <div className="text-black font-semibold">
-                        <p>{selectedAgent.displayName || 'N/A'}</p>
-                        <p>Licencia: {selectedAgent.agentLicense || 'N/A'}</p>
-                        <p>Cédula: {selectedAgent.cedula || 'N/A'}</p>
+             <SignatureSection title="ADUANA DESTINO" subtitle="Firma y Sello" align="left" className="w-full" />
+             <div className="border-2 border-black p-2 flex flex-col justify-between">
+                <p className="text-center font-bold text-sm">TRAMITANTE</p>
+                {agente && (
+                    <div className="text-center text-black font-semibold text-xs">
+                        <p>{agente.displayName || 'N/A'}</p>
+                        <p>Licencia: {agente.agentLicense || 'N/A'}</p>
+                        <p>Cédula: {agente.cedula || 'N/A'}</p>
                         <p>AGENCIA ADUANERA ACONIC</p>
                     </div>
                 )}
-            </SignatureSection>
+                 <SignatureSection title="Firma y Sello" subtitle="" align="center" className="w-full"/>
+             </div>
         </div>
-
       </div>
        <CardFooter className="justify-end gap-2 no-print border-t pt-4 mt-4">
         <Button asChild variant="outline">
