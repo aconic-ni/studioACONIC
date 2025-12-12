@@ -4,7 +4,7 @@ import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { db } from '@/lib/firebase';
 import { collection, query, where, onSnapshot, Timestamp, orderBy, doc, updateDoc, addDoc, getDocs, writeBatch, getCountFromServer, getDoc } from 'firebase/firestore';
 import { useAuth } from '@/context/AuthContext';
-import type { AforoCase, DigitacionStatus, AforoCaseUpdate, AppUser, LastUpdateInfo, Worksheet, WorksheetWithCase } from '@/types';
+import type { AforoCase, DigitacionStatus, AforadorStatus, AforoCaseUpdate, AppUser, LastUpdateInfo, Worksheet, WorksheetWithCase } from '@/types';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Loader2, Inbox, History, Edit, User, PlusSquare, FileText, Info, Send, AlertTriangle, CheckSquare, ChevronsUpDown, Check, ChevronDown, ChevronRight, BookOpen, Search, MessageSquare, FileSignature, Repeat, Eye, Users, Scale, UserCheck, Shield, ShieldCheck, FileDigit, Truck, Anchor, Plane } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
@@ -100,7 +100,8 @@ export function DailyAforoCasesTable({ filters, setAllFetchedCases, displayCases
   const [selectedCaseForIncident, setSelectedCaseForIncident] = useState<AforoCase | null>(null);
   const [selectedWorksheet, setSelectedWorksheet] = useState<Worksheet | null>(null);
   const [selectedIncidentForDetails, setSelectedIncidentForDetails] = useState<AforoCase | null>(null);
-  const [assignmentModal, setAssignmentModal] = useState<{ isOpen: boolean; case: AforoCase | null; type: 'aforador' | 'revisor' }>({ isOpen: false, case: null, type: 'aforador' });
+  const [assignmentModal, setAssignmentModal] = useState<{ isOpen: boolean; case: AforoCase | null; type: 'aforador' | 'revisor' | 'bulk-aforador' | 'bulk-revisor' }>({ isOpen: false, case: null, type: 'aforador' });
+  const [statusModal, setStatusModal] = useState<{isOpen: boolean}>({isOpen: false});
   const [involvedUsersModal, setInvolvedUsersModal] = useState<{ isOpen: boolean; caseData: AforoCase | null }>({ isOpen: false, caseData: null });
   const [caseAuditLogs, setCaseAuditLogs] = useState<Map<string, AforoCaseUpdate[]>>(new Map());
   const [bulkActionResult, setBulkActionResult] = useState<{ isOpen: boolean, success: string[], skipped: string[] }>({ isOpen: false, success: [], skipped: [] });
@@ -158,6 +159,7 @@ export function DailyAforoCasesTable({ filters, setAllFetchedCases, displayCases
         batch.set(doc(updatesSubcollectionRef), updateLog);
 
         await batch.commit();
+
         if(!isTriggerFromFieldUpdate) {
             toast({ title: "Guardado Automático", description: `El campo se ha actualizado.` });
         }
@@ -417,48 +419,8 @@ export function DailyAforoCasesTable({ filters, setAllFetchedCases, displayCases
   const handleAssignToDigitization = async (caseItem: AforoCase, force: boolean = false) => {
     if (!user || !user.displayName) return;
 
-    const isPsmtCase = caseItem.consignee.toUpperCase().trim() === "PSMT NICARAGUA, SOCIEDAD ANONIMA";
-    const isPsmtSupervisor = user.role === 'supervisor' && user.roleTitle === 'PSMT';
-    const hasAcuse = caseItem.acuseDeRecibido === true || caseAuditLogs.get(caseItem.id)?.some(log => log.newValue === 'worksheet_received');
-
-    if (isPsmtSupervisor && isPsmtCase && hasAcuse && !force) {
-        setIsLoading(true);
-        const batch = writeBatch(db);
-        const caseDocRef = doc(db, 'AforoCases', caseItem.id);
-        const updatesSubcollectionRef = collection(caseDocRef, 'actualizaciones');
-        const now = Timestamp.now();
-        const userInfo = { by: user.displayName, at: now };
-        const newStatus: DigitacionStatus = 'Pendiente de Digitación';
-
-        batch.update(caseDocRef, { 
-            digitacionStatus: newStatus, 
-            digitacionStatusLastUpdate: userInfo 
-        });
-
-        const logComment = `Envío automático a digitación para caso PSMT con acuse.`;
-        batch.set(doc(updatesSubcollectionRef), { updatedAt: now, updatedBy: user.displayName, field: 'digitacionStatus', oldValue: caseItem.digitacionStatus, newValue: newStatus, comment: logComment });
-
-        try {
-            await batch.commit();
-            toast({ title: 'Proceso PSMT Acelerado', description: `Caso ${caseItem.ne} enviado a digitación.` });
-        } catch(e) { console.error(e); toast({ title: "Error en flujo PSMT", variant: "destructive"}); } 
-        finally { setIsLoading(false); }
-        return;
-    }
-    
     if (caseItem.revisorStatus !== 'Aprobado' || caseItem.preliquidationStatus !== 'Aprobada') {
         toast({ title: "Acción no permitida", description: "El caso debe estar Aprobado por el Revisor y la Preliquidación.", variant: "destructive" });
-        return;
-    }
-    
-    const isGeneralSupervisor = user.role === 'supervisor' && user.roleTitle !== 'PSMT';
-
-    if (isGeneralSupervisor && isPsmtCase) {
-        toast({ title: "Acción no permitida", description: "No puede enviar casos de PSMT a digitación.", variant: "destructive" });
-        return;
-    }
-    if (isPsmtSupervisor && !isPsmtCase) {
-        toast({ title: "Acción no permitida", description: "Solo puede enviar casos de PSMT a digitación.", variant: "destructive" });
         return;
     }
 
@@ -489,6 +451,38 @@ export function DailyAforoCasesTable({ filters, setAllFetchedCases, displayCases
      }
   };
 
+  const handleBulkAction = async (type: 'aforador' | 'revisor' | 'aforadorStatus', value: string) => {
+    if (selectedRows.length === 0) return;
+    const batch = writeBatch(db);
+    const now = Timestamp.now();
+    const userInfo = { by: user?.displayName || 'Sistema', at: now };
+
+    selectedRows.forEach(caseId => {
+        const caseRef = doc(db, 'AforoCases', caseId);
+        let updateData: {[key:string]: any} = {};
+        if (type === 'aforador') {
+            updateData = { aforador: value, assignmentDate: now, aforadorStatusLastUpdate: userInfo };
+        } else if (type === 'revisor') {
+            updateData = { revisorAsignado: value, revisorAsignadoLastUpdate: userInfo };
+        } else if (type === 'aforadorStatus') {
+            updateData = { aforadorStatus: value, aforadorStatusLastUpdate: userInfo };
+        }
+        batch.update(caseRef, updateData);
+    });
+
+    try {
+        await batch.commit();
+        toast({ title: "Acción Masiva Exitosa", description: `${selectedRows.length} casos actualizados.`});
+        setSelectedRows([]);
+        setAssignmentModal({ isOpen: false, case: null, type: 'aforador' });
+        setStatusModal({ isOpen: false });
+    } catch (e) {
+        toast({ title: "Error en Acción Masiva", variant: "destructive" });
+        console.error(e);
+    }
+  }
+
+
   const handleSendSelectedToDigitization = async () => {
     if (!user?.displayName || selectedRows.length === 0) return;
 
@@ -504,29 +498,28 @@ export function DailyAforoCasesTable({ filters, setAllFetchedCases, displayCases
         const caseItem = displayCases.find(c => c.id === caseId);
         if (!caseItem) continue;
 
-        const isPsmtCase = caseItem.consignee.toUpperCase().trim() === "PSMT NICARAGUA, SOCIEDAD ANONIMA";
-        const hasAcuse = caseItem.acuseDeRecibido === true || caseAuditLogs.get(caseId)?.some(log => log.newValue === 'worksheet_received');
-        const isReadyForStandardDigitization = caseItem.revisorStatus === 'Aprobado' && caseItem.preliquidationStatus === 'Aprobada';
-        
         let shouldProcess = false;
         let logComment = '';
 
         if (allSelectedArePsmt) {
+            const hasAcuse = caseItem.acuseDeRecibido === true || caseAuditLogs.get(caseId)?.some(log => log.newValue === 'worksheet_received');
             if (hasAcuse) {
                 shouldProcess = true;
-                logComment = 'Envío masivo: PSMT con acuse enviado a digitación.';
+                logComment = 'Envío masivo a digitación.';
             } else {
                 skippedCases.push(caseItem.ne);
             }
         } else {
-            if (!isPsmtCase && isReadyForStandardDigitization) {
+            const isReady = caseItem.revisorStatus === 'Aprobado' && caseItem.preliquidationStatus === 'Aprobada';
+            const isPsmt = caseItem.consignee.toUpperCase().trim() === "PSMT NICARAGUA, SOCIEDAD ANONIMA";
+            if (isReady && !isPsmt) {
                 shouldProcess = true;
                 logComment = 'Envío masivo a digitación.';
             } else {
                 skippedCases.push(caseItem.ne);
             }
         }
-
+        
         if (shouldProcess) {
             const caseDocRef = doc(db, 'AforoCases', caseItem.id);
             const updatesSubcollectionRef = collection(caseDocRef, 'actualizaciones');
@@ -598,7 +591,7 @@ export function DailyAforoCasesTable({ filters, setAllFetchedCases, displayCases
     const worksheetDocRef = doc(db, 'worksheets', caseItem.worksheetId);
     const docSnap = await getDoc(worksheetDocRef);
     if (docSnap.exists()) {
-        setSelectedWorksheet(docSnap.data() as Worksheet);
+        setSelectedWorksheet({ ...docSnap.data() as Worksheet, caseData: caseItem });
     } else {
         toast({ title: "Error", description: "No se pudo encontrar la hoja de trabajo.", variant: "destructive" });
     }
@@ -636,7 +629,7 @@ export function DailyAforoCasesTable({ filters, setAllFetchedCases, displayCases
   if (isMobile) {
     return (
         <div className="space-y-4">
-             <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2">
                 <Button variant="ghost" size="icon" onClick={collapseAllRows} className="h-8 w-8"><ChevronsUpDown className="h-4 w-4" /></Button>
                 {canEdit && <Button variant="outline" size="sm" onClick={handleBulkAcknowledge} disabled={selectedRows.length === 0}>Acuse Masivo ({selectedRows.length})</Button>}
                 {canEdit && <Button variant="secondary" size="sm" onClick={handleSendSelectedToDigitization} disabled={selectedRows.length === 0}>Enviar a Digitación ({selectedRows.length})</Button>}
@@ -671,8 +664,15 @@ export function DailyAforoCasesTable({ filters, setAllFetchedCases, displayCases
     <div className="overflow-x-auto table-container rounded-lg border">
       <div className="flex items-center gap-2 p-2">
           <Button variant="ghost" size="icon" onClick={collapseAllRows} className="h-8 w-8"><ChevronsUpDown className="h-4 w-4" /></Button>
-          {canEdit && <Button variant="outline" size="sm" onClick={handleBulkAcknowledge} disabled={selectedRows.length === 0}>Enviar Acuse ({selectedRows.length})</Button>}
-          {canEdit && <Button variant="secondary" size="sm" onClick={handleSendSelectedToDigitization} disabled={selectedRows.length === 0}>Enviar a Digitación ({selectedRows.length})</Button>}
+          {canEdit && (
+            <>
+              <Button variant="outline" size="sm" onClick={handleBulkAcknowledge} disabled={selectedRows.length === 0}>Enviar Acuse ({selectedRows.length})</Button>
+              <Button variant="outline" size="sm" onClick={() => setAssignmentModal({isOpen: true, case: null, type: 'bulk-aforador'})} disabled={selectedRows.length === 0}>Asignar Aforador ({selectedRows.length})</Button>
+              <Button variant="outline" size="sm" onClick={() => setAssignmentModal({isOpen: true, case: null, type: 'bulk-revisor'})} disabled={selectedRows.length === 0}>Asignar Revisor ({selectedRows.length})</Button>
+              <Button variant="outline" size="sm" onClick={() => setStatusModal({isOpen: true})} disabled={selectedRows.length === 0}>Asignar Estatus ({selectedRows.length})</Button>
+              <Button variant="secondary" size="sm" onClick={handleSendSelectedToDigitization} disabled={selectedRows.length === 0}>Enviar a Digitación ({selectedRows.length})</Button>
+            </>
+          )}
       </div>
       <Table>
         <TableHeader>
@@ -865,10 +865,7 @@ export function DailyAforoCasesTable({ filters, setAllFetchedCases, displayCases
                     </div>
               </TableCell>
               <TableCell>
-                  <div className="flex items-center">
-                    <Badge variant={caseItem.preliquidationStatus === 'Aprobada' ? 'default' : 'outline'}>{caseItem.preliquidationStatus || 'Pendiente'}</Badge>
-                    <LastUpdateTooltip lastUpdate={caseItem.preliquidationStatusLastUpdate} caseCreation={caseItem.createdAt} />
-                  </div>
+                 <Badge variant={caseItem.preliquidationStatus === 'Aprobada' ? 'default' : 'outline'}>{caseItem.preliquidationStatus || 'Pendiente'}</Badge>
               </TableCell>
               <TableCell>
                  <div className="flex items-center gap-2">
@@ -877,10 +874,7 @@ export function DailyAforoCasesTable({ filters, setAllFetchedCases, displayCases
                  </div>
               </TableCell>
               <TableCell>
-                  <div className="flex items-center">
-                    <Badge variant="outline">{caseItem.digitacionStatus || 'Pendiente'}</Badge>
-                    <LastUpdateTooltip lastUpdate={caseItem.digitacionStatusLastUpdate} caseCreation={caseItem.createdAt} />
-                  </div>
+                  <Badge variant="outline">{caseItem.digitacionStatus || 'Pendiente'}</Badge>
               </TableCell>
             </TableRow>
              {isExpanded && canExpandRow && (
@@ -896,7 +890,7 @@ export function DailyAforoCasesTable({ filters, setAllFetchedCases, displayCases
                                       variant="outline"
                                       role="combobox"
                                       className={cn("w-full justify-between", !caseItem.declarationPattern && "text-muted-foreground")}
-                                      disabled={!canEditThisRow || (isPatternValidated && !allowPatternEdit)}
+                                      disabled={!canEditThisRow}
                                       >
                                       {caseItem.declarationPattern
                                           ? tiposDeclaracion.find(
@@ -957,7 +951,7 @@ export function DailyAforoCasesTable({ filters, setAllFetchedCases, displayCases
                                   <Button
                                       variant="outline"
                                       onClick={() => openAssignmentModal(caseItem, 'aforador')}
-                                      disabled={!canEdit || !isPatternValidated}
+                                      disabled={!canEdit}
                                       className="w-full justify-between"
                                   >
                                       {caseItem.aforador || "Asignar..."}
@@ -965,11 +959,6 @@ export function DailyAforoCasesTable({ filters, setAllFetchedCases, displayCases
                                   </Button>
                                </div>
                            </TooltipTrigger>
-                           {!isPatternValidated &&
-                            <TooltipContent>
-                                <p>Debe validar el Modelo (Patrón) antes de asignar un aforador.</p>
-                            </TooltipContent>
-                           }
                         </Tooltip>
                       </div>
                       <div>
@@ -980,7 +969,7 @@ export function DailyAforoCasesTable({ filters, setAllFetchedCases, displayCases
                                 <Button
                                     variant="outline"
                                     onClick={() => openAssignmentModal(caseItem, 'revisor')}
-                                    disabled={!canEdit || !caseItem.totalPosiciones}
+                                    disabled={!canEdit}
                                     className="w-full justify-between"
                                 >
                                     {caseItem.revisorAsignado || "Asignar..."}
@@ -988,11 +977,6 @@ export function DailyAforoCasesTable({ filters, setAllFetchedCases, displayCases
                                 </Button>
                                 </div>
                            </TooltipTrigger>
-                           {!caseItem.totalPosiciones &&
-                                <TooltipContent>
-                                    <p>Debe ingresar el Total de Posiciones para poder asignar un revisor.</p>
-                                </TooltipContent>
-                           }
                         </Tooltip>
                       </div>
                       <div>
@@ -1056,20 +1040,43 @@ export function DailyAforoCasesTable({ filters, setAllFetchedCases, displayCases
             worksheet={selectedWorksheet}
         />
     )}
-    {assignmentModal.isOpen && assignmentModal.case && (
+    {assignmentModal.isOpen && (
         <AssignUserModal
             isOpen={assignmentModal.isOpen}
             onClose={() => setAssignmentModal({ isOpen: false, case: null, type: 'aforador' })}
             caseData={assignmentModal.case}
             assignableUsers={
-                assignmentModal.type === 'aforador'
-                    ? assignableUsers.filter(u => u.role === 'aforador' || u.role === 'coordinadora' || u.role === 'supervisor')
-                    : assignableUsers.filter(u => u.roleTitle === 'agente aduanero' || (u.role === 'supervisor' && u.roleTitle === 'PSMT'))
+              assignmentModal.type.includes('bulk')
+                ? assignmentModal.type === 'bulk-aforador'
+                  ? assignableUsers.filter(u => u.role === 'aforador' || u.role === 'coordinadora' || u.role === 'supervisor')
+                  : assignableUsers.filter(u => u.roleTitle === 'agente aduanero' || (u.role === 'supervisor' && u.roleTitle === 'PSMT'))
+                : assignmentModal.type === 'aforador'
+                  ? assignableUsers.filter(u => u.role === 'aforador' || u.role === 'coordinadora' || u.role === 'supervisor')
+                  : assignableUsers.filter(u => u.roleTitle === 'agente aduanero' || (u.role === 'supervisor' && u.roleTitle === 'PSMT'))
             }
-            onAssign={(caseId, userName) => handleAssignUser(caseId, userName, assignmentModal.type)}
-            title={`Asignar ${assignmentModal.type === 'aforador' ? 'Aforador' : 'Revisor'}`}
-            description={`Seleccione un usuario para asignar al caso NE: ${assignmentModal.case.ne}`}
+            onAssign={(caseId, userName) => assignmentModal.type.includes('bulk') ? handleBulkAction(assignmentModal.type.split('-')[1] as 'aforador' | 'revisor', userName) : handleAssignUser(caseId, userName, assignmentModal.type as 'aforador' | 'revisor')}
+            title={`Asignar ${assignmentModal.type.includes('bulk') ? (assignmentModal.type.split('-')[1] === 'aforador' ? 'Aforador Masivo' : 'Revisor Masivo') : (assignmentModal.type === 'aforador' ? 'Aforador' : 'Revisor')}`}
+            description={assignmentModal.case ? `Seleccione un usuario para asignar al caso NE: ${assignmentModal.case.ne}` : `Seleccione un usuario para asignar a los ${selectedRows.length} casos seleccionados.`}
         />
+    )}
+    {statusModal.isOpen && (
+      <Dialog open={statusModal.isOpen} onOpenChange={() => setStatusModal({isOpen: false})}>
+          <DialogContent>
+              <DialogHeader>
+                  <DialogTitle>Asignar Estatus de Aforador Masivo</DialogTitle>
+                  <DialogDescription>Seleccione el estatus a aplicar a los {selectedRows.length} casos seleccionados.</DialogDescription>
+              </DialogHeader>
+              <Select onValueChange={(value) => { handleBulkAction('aforadorStatus', value); setStatusModal({isOpen: false}); }}>
+                <SelectTrigger><SelectValue placeholder="Seleccionar estatus..." /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Pendiente ">Pendiente </SelectItem>
+                  <SelectItem value="En proceso">En proceso</SelectItem>
+                  <SelectItem value="Incompleto">Incompleto</SelectItem>
+                  <SelectItem value="En revisión">En revisión</SelectItem>
+                </SelectContent>
+              </Select>
+          </DialogContent>
+      </Dialog>
     )}
     {involvedUsersModal.isOpen && involvedUsersModal.caseData && (
         <InvolvedUsersModal
@@ -1113,3 +1120,4 @@ export function DailyAforoCasesTable({ filters, setAllFetchedCases, displayCases
   );
 }
 
+    
