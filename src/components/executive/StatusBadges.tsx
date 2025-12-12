@@ -53,8 +53,11 @@ const BadgeIcon: React.FC<{
   );
 };
 
-const AcuseBadge: React.FC<{ log: AforoCaseUpdate | null | undefined }> = ({ log }) => {
-    if (!log) {
+const AcuseBadge: React.FC<{ acuseDeRecibido?: boolean; acuseLog?: AforoCaseUpdate | null }> = ({ acuseDeRecibido, acuseLog }) => {
+    const hasAcuse = acuseDeRecibido === true || !!acuseLog;
+    const receivedBy = acuseLog?.updatedBy;
+
+    if (!hasAcuse) {
         return (
              <Tooltip>
                 <TooltipTrigger asChild>
@@ -71,7 +74,7 @@ const AcuseBadge: React.FC<{ log: AforoCaseUpdate | null | undefined }> = ({ log
                 <div><ShieldCheck className="h-5 w-5 text-blue-500" /></div>
             </TooltipTrigger>
             <TooltipContent>
-                <p>Recibido por {log.updatedBy}</p>
+                {receivedBy ? <p>Recibido por {receivedBy}</p> : <p>Acuse de recibido confirmado</p>}
             </TooltipContent>
         </Tooltip>
     );
@@ -154,7 +157,7 @@ export function StatusBadges({ caseData }: StatusBadgesProps) {
   return (
     <TooltipProvider>
         <div className="flex items-center gap-1.5">
-            <AcuseBadge log={caseData.acuseLog} />
+            <AcuseBadge acuseDeRecibido={caseData.acuseDeRecibido} acuseLog={caseData.acuseLog} />
             <DocumentTypeBadge worksheetType={caseData.worksheet?.worksheetType} />
             <BadgeIcon Icon={GitBranch} tooltipText="Permisos" isComplete={hasPermits ? allPermitsDone : null} />
             <BadgeIcon Icon={Banknote} tooltipText="Pagos" isComplete={hasPayments ? allPaymentsDone : null} />

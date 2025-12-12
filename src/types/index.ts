@@ -173,6 +173,7 @@ export interface AforoCase {
   createdAt: Timestamp;
   totalPosiciones?: number;
   entregadoAforoAt?: Timestamp | null;
+  acuseDeRecibido?: boolean;
   
   revisorAsignado?: string | null;
   revisorAsignadoLastUpdate?: LastUpdateInfo | null;

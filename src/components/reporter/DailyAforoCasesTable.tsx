@@ -1,3 +1,4 @@
+
 "use client";
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { db } from '@/lib/firebase';
@@ -252,6 +253,8 @@ export function DailyAforoCasesTable({ filters, setAllFetchedCases, displayCases
     if (!user || !user.displayName) return;
     const caseDocRef = doc(db, 'AforoCases', caseId);
     const updatesSubcollectionRef = collection(caseDocRef, 'actualizaciones');
+    const batch = writeBatch(db);
+
     try {
         const logEntry: AforoCaseUpdate = {
             updatedAt: Timestamp.now(),
@@ -261,7 +264,11 @@ export function DailyAforoCasesTable({ filters, setAllFetchedCases, displayCases
             newValue: 'worksheet_received',
             comment: `El supervisor ${user.displayName} confirma la recepción de la hoja de trabajo.`
         };
-        await addDoc(updatesSubcollectionRef, logEntry);
+        batch.set(doc(updatesSubcollectionRef), logEntry);
+        batch.update(caseDocRef, { acuseDeRecibido: true });
+
+        await batch.commit();
+        
         toast({ title: "Acuse Registrado", description: "Se ha registrado la recepción de la hoja de trabajo en la bitácora." });
     } catch (error) {
         console.error("Error acknowledging worksheet:", error);
@@ -819,7 +826,7 @@ export function DailyAforoCasesTable({ filters, setAllFetchedCases, displayCases
                 </div>
               </TableCell>
               <TableCell>
-                  <StatusBadges caseData={caseItem} acuseLog={acuseLog} />
+                  <StatusBadges caseData={{...caseItem, acuseDeRecibido: caseItem.acuseDeRecibido, acuseLog: acuseLog }} />
               </TableCell>
               <TableCell>
                 <div className="flex items-center gap-1">
@@ -894,7 +901,10 @@ export function DailyAforoCasesTable({ filters, setAllFetchedCases, displayCases
                     </div>
               </TableCell>
               <TableCell>
+                  <div className="flex items-center">
                     <Badge variant={caseItem.preliquidationStatus === 'Aprobada' ? 'default' : 'outline'}>{caseItem.preliquidationStatus || 'Pendiente'}</Badge>
+                    <LastUpdateTooltip lastUpdate={caseItem.preliquidationStatusLastUpdate} caseCreation={caseItem.createdAt} />
+                  </div>
               </TableCell>
               <TableCell>
                  <div className="flex items-center gap-2">
