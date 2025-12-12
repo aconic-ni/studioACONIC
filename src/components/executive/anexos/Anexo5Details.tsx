@@ -1,3 +1,4 @@
+
 "use client";
 import React, { useEffect, useState } from 'react';
 import Image from 'next/image';
@@ -269,7 +270,7 @@ export const Anexo5Details: React.FC<{ worksheet: Worksheet; onClose: () => void
         <div className="h-[20px]"></div>
         
         <div className="grid grid-cols-2 gap-x-8 mt-2 print:mt-1">
-             <SignatureSection title="ADUANA CENTRAL CARGA AEREA" align="left" />
+             <SignatureSection title="ADUANA DESTINO" align="left" />
              <SignatureSection title="TRAMITANTE" align="center">
                 {selectedAgent && (
                     <div className="text-black font-semibold">
