@@ -40,7 +40,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { WorksheetDetailModal } from './WorksheetDetailModal';
 import { ScrollArea } from '../ui/scroll-area';
 import { Anexo5Details } from '../executive/anexos/Anexo5Details';
-import { Dialog, DialogDescription, DialogHeader, DialogTitle } from '../ui/dialog';
+import { Dialog, DialogDescription, DialogHeader, DialogTitle, DialogContent } from '../ui/dialog';
 
 
 interface DailyAforoCasesTableProps {
@@ -921,7 +921,8 @@ export function DailyAforoCasesTable({ filters, setAllFetchedCases, displayCases
                                                           (document.activeElement as HTMLElement)?.blur();
                                                       }}
                                                   >
-                                                      <Check className={cn("mr-2 h-4 w-4", tipo.value === caseItem.declarationPattern ? "opacity-100" : "opacity-0")} />
+                                                      <Check className={cn("mr-2 h-4 w-4", tipo.value === caseItem.declarationPattern ? "opacity-100" : "opacity-0"
+                                                      )} />
                                                       <div className="flex flex-col">
                                                         <span className="font-bold">{tipo.value}</span>
                                                         <span className="text-xs text-muted-foreground">{tipo.label}</span>
