@@ -344,7 +344,11 @@ export function DailyAforoCasesTable({ filters, setAllFetchedCases, displayCases
             .map(caseItem => ({
                 ...caseItem,
                 worksheet: worksheetsMap.get(caseItem.worksheetId || '') || null,
-            }));
+            }))
+             .filter(c => 
+                c.worksheet?.worksheetType === 'hoja_de_trabajo' || 
+                c.worksheet?.worksheetType === undefined
+            );
             
         const auditLogPromises = combinedData.map(async (caseItem) => {
             const updatesRef = collection(db, 'AforoCases', caseItem.id, 'actualizaciones');
