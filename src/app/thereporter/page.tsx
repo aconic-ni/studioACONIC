@@ -4,7 +4,7 @@ import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
 import { AppShell } from '@/components/layout/AppShell';
-import { Loader2, PartyPopper, PlusCircle, ChevronDown, Search, Download, Calendar, CalendarDays, CalendarRange, Filter, Send } from 'lucide-react';
+import { Loader2, PartyPopper, PlusCircle, ChevronDown, Search, Download, Calendar, CalendarDays, CalendarRange, Filter, Send, KeyRound } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import {
@@ -30,6 +30,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { startOfMonth, endOfMonth, isSameDay, startOfDay, endOfDay } from 'date-fns';
 import { useToast } from '@/hooks/use-toast';
 import { useIsMobile } from '@/hooks/use-mobile';
+import { Dialog, DialogHeader, DialogTitle, DialogDescription, DialogContent, DialogFooter } from '@/components/ui/dialog';
+import { Label } from '@/components/ui/label';
 
 
 type DateFilterType = 'range' | 'month' | 'today';
@@ -66,25 +68,14 @@ export default function TheReporterPage() {
     consignee?: string;
     dateRange?: DateRange;
     dateFilterType: DateFilterType;
-    neCol?: string;
-    ejecutivoCol?: string;
-    consignatarioCol?: string;
-    aforadorCol?: string;
-    revisorCol?: string;
   }>({
     dateFilterType: 'range',
   });
 
-  // Column filter states
-  const [neColFilter, setNeColFilter] = useState('');
-  const [ejecutivoColFilter, setEjecutivoColFilter] = useState('');
-  const [consignatarioColFilter, setConsignatarioColFilter] = useState('');
-  const [aforadorColFilter, setAforadorColFilter] = useState('');
-  const [revisorColFilter, setRevisorColFilter] = useState('');
-
   const [allFetchedCases, setAllFetchedCases] = useState<WorksheetWithCase[]>([]);
   const [isExporting, setIsExporting] = useState(false);
   const [isSendingToDigitization, setIsSendingToDigitization] = useState(false);
+
 
   const canCreateReport = user?.role === 'aforador' || user?.role === 'admin';
   const canSendToDigitization = user?.role === 'admin' || (user?.role === 'supervisor' && user?.roleTitle === 'PSMT');
@@ -113,18 +104,17 @@ export default function TheReporterPage() {
         dateRange = { from: today, to: today };
     }
 
-    setAppliedDbFilters({
-      ne: neInput || undefined,
-      consignee: consigneeInput || undefined,
-      dateRange: dateRange,
-      dateFilterType: dateFilterType,
-      neCol: neColFilter || undefined,
-      ejecutivoCol: ejecutivoColFilter || undefined,
-      consignatarioCol: consignatarioColFilter || undefined,
-      aforadorCol: aforadorColFilter || undefined,
-      revisorCol: revisorColFilter || undefined,
-    });
-  };
+    const filtersToApply: typeof appliedDbFilters = {
+        dateFilterType: dateFilterType,
+    };
+
+    if (neInput.trim()) filtersToApply.ne = neInput.trim();
+    if (consigneeInput.trim()) filtersToApply.consignee = consigneeInput.trim();
+    if (dateRange) filtersToApply.dateRange = dateRange;
+
+    setAppliedDbFilters(filtersToApply);
+};
+
 
   const filteredCases = useMemo(() => {
     let filtered = allFetchedCases;
@@ -133,15 +123,9 @@ export default function TheReporterPage() {
       return allFetchedCases.filter(c => !c.declaracionAduanera);
     }
     
-    if (appliedDbFilters.neCol) filtered = filtered.filter(c => c.ne.toLowerCase().includes(appliedDbFilters.neCol!.toLowerCase()));
-    if (appliedDbFilters.ejecutivoCol) filtered = filtered.filter(c => c.executive.toLowerCase().includes(appliedDbFilters.ejecutivoCol!.toLowerCase()));
-    if (appliedDbFilters.consignatarioCol) filtered = filtered.filter(c => c.consignee.toLowerCase().includes(appliedDbFilters.consignatarioCol!.toLowerCase()));
-    if (appliedDbFilters.aforadorCol) filtered = filtered.filter(c => (c.aforador || '').toLowerCase().includes(appliedDbFilters.aforadorCol!.toLowerCase()));
-    if (appliedDbFilters.revisorCol) filtered = filtered.filter(c => (c.revisorAsignado || '').toLowerCase().includes(appliedDbFilters.revisorCol!.toLowerCase()));
-
     return filtered;
 
-  }, [allFetchedCases, showPendingOnly, appliedDbFilters]);
+  }, [allFetchedCases, showPendingOnly]);
 
   const handleExport = async () => {
     if (filteredCases.length === 0) {
@@ -236,16 +220,11 @@ export default function TheReporterPage() {
     setConsigneeInput('');
     setDateRangeInput(undefined);
     setShowPendingOnly(false);
-    setNeColFilter('');
-    setEjecutivoColFilter('');
-    setConsignatarioColFilter('');
-    setAforadorColFilter('');
-    setRevisorColFilter('');
     setAppliedDbFilters({ 
         dateFilterType: 'range',
     });
   }
-
+  
   if (loading || !user || !user.hasReportsAccess) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
@@ -253,8 +232,6 @@ export default function TheReporterPage() {
       </div>
     );
   }
-  
-  const welcomeName = user?.displayName ? user.displayName.split(' ')[0] : 'Usuario';
 
   return (
     <AppShell>

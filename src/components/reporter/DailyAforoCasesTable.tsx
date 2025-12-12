@@ -35,7 +35,7 @@ import { FirestorePermissionError } from '@/firebase/errors';
 import { IncidentReportModal } from './IncidentReportModal';
 import { IncidentReportDetails } from './IncidentReportDetails';
 import { DatePickerWithTime } from '@/components/reports/DatePickerWithTime';
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '../ui/alert-dialog';
 import { Dialog, DialogHeader, DialogTitle, DialogDescription, DialogContent, DialogFooter } from '@/components/ui/dialog';
 import { WorksheetDetailModal } from './WorksheetDetailModal';
 import { ScrollArea } from '../ui/scroll-area';
@@ -49,11 +49,6 @@ interface DailyAforoCasesTableProps {
     consignee?: string;
     dateRange?: DateRange;
     dateFilterType: 'range' | 'month' | 'today';
-    neCol?: string;
-    ejecutivoCol?: string;
-    consignatarioCol?: string;
-    aforadorCol?: string;
-    revisorCol?: string;
   };
   setAllFetchedCases: (cases: WorksheetWithCase[]) => void;
   displayCases: WorksheetWithCase[];
@@ -292,29 +287,62 @@ export function DailyAforoCasesTable({ filters, setAllFetchedCases, displayCases
     setError(null);
   
     const fetchAssignableUsers = async () => {
-      // Logic to fetch users...
+        const usersMap = new Map<string, AppUser>();
+        const rolesToFetch = ['aforador', 'coordinadora', 'supervisor', 'digitador', 'agente'];
+        
+        try {
+            const usersQuery = query(collection(db, 'users'), where('role', 'in', rolesToFetch));
+            const querySnapshot = await getDocs(usersQuery);
+            querySnapshot.forEach(doc => {
+                const userData = { uid: doc.id, ...doc.data() } as AppUser;
+                if (!usersMap.has(userData.uid) && userData.displayName) {
+                    usersMap.set(userData.uid, userData);
+                }
+            });
+            setAssignableUsers(Array.from(usersMap.values()));
+        } catch(e) {
+            console.error("Error fetching users for aforo table", e);
+        }
     };
     fetchAssignableUsers();
+    
+    let q;
+
+    if (filters.ne?.trim() || filters.consignee?.trim()) {
+      q = query(collection(db, 'AforoCases'), orderBy('createdAt', 'desc'));
+    } else {
+      q = query(
+        collection(db, 'worksheets'),
+        where('worksheetType', 'in', ['hoja_de_trabajo', null, undefined]),
+        orderBy('createdAt', 'desc')
+      );
+    }
   
-    const worksheetsQuery = query(
-      collection(db, 'worksheets'),
-      where('worksheetType', 'in', ['hoja_de_trabajo', null, undefined])
-    );
-  
-    const unsubscribe = onSnapshot(worksheetsQuery, 
-      async (worksheetsSnapshot) => {
-        const worksheetIds = worksheetsSnapshot.docs.map(doc => doc.id);
-        const worksheetsMap = new Map(worksheetsSnapshot.docs.map(doc => [doc.id, { id: doc.id, ...doc.data() } as Worksheet]));
+    const unsubscribe = onSnapshot(q, 
+      async (snapshot) => {
+        let caseIdsToFetch: string[];
+        const worksheetsMap = new Map<string, Worksheet>();
+        let aforoCasesData: AforoCase[] = [];
+
+        if (filters.ne?.trim() || filters.consignee?.trim()) {
+            aforoCasesData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as AforoCase));
+            caseIdsToFetch = aforoCasesData.map(c => c.id);
+        } else {
+            caseIdsToFetch = snapshot.docs.map(doc => doc.id);
+            snapshot.forEach(doc => {
+                worksheetsMap.set(doc.id, { id: doc.id, ...doc.data() } as Worksheet);
+            });
+        }
         
-        if (worksheetIds.length === 0) {
+        if (caseIdsToFetch.length === 0) {
           setAllFetchedCases([]);
           setIsLoading(false);
           return;
         }
 
         const casePromises = [];
-        for (let i = 0; i < worksheetIds.length; i += 30) {
-            const chunk = worksheetIds.slice(i, i + 30);
+        for (let i = 0; i < caseIdsToFetch.length; i += 30) {
+            const chunk = caseIdsToFetch.slice(i, i + 30);
             casePromises.push(
                 getDocs(query(collection(db, 'AforoCases'), where(documentId(), 'in', chunk)))
             );
@@ -322,12 +350,19 @@ export function DailyAforoCasesTable({ filters, setAllFetchedCases, displayCases
         
         try {
             const caseSnapshots = await Promise.all(casePromises);
-            const aforoCasesData: AforoCase[] = [];
-            caseSnapshots.forEach(snapshot => {
-                snapshot.forEach(doc => {
-                    aforoCasesData.push({ id: doc.id, ...doc.data() } as AforoCase);
-                });
-            });
+            
+            if (filters.ne?.trim() || filters.consignee?.trim()) {
+                 caseSnapshots.forEach(snap => {
+                     snap.forEach(doc => {
+                        const existingIndex = aforoCasesData.findIndex(c => c.id === doc.id);
+                        if (existingIndex === -1) {
+                           aforoCasesData.push({ id: doc.id, ...doc.data() } as AforoCase);
+                        }
+                    });
+                 });
+            } else {
+                aforoCasesData = caseSnapshots.flatMap(snap => snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as AforoCase)));
+            }
 
             const combinedData = aforoCasesData.map(caseItem => ({
                 ...caseItem,
@@ -335,14 +370,7 @@ export function DailyAforoCasesTable({ filters, setAllFetchedCases, displayCases
             }));
 
             let filtered = combinedData;
-            const isSearchActive = !!(filters.ne?.trim() || filters.consignee?.trim() || filters.dateRange?.from);
-
-            if (!isSearchActive) {
-                filtered = filtered.filter(c => 
-                    !c.digitacionStatus || c.digitacionStatus === 'Pendiente' || c.digitacionStatus === 'Pendiente de Digitación'
-                );
-            }
-
+            
             if (filters.ne) {
                 filtered = filtered.filter(c => c.ne.toUpperCase().includes(filters.ne!.toUpperCase()));
             }
@@ -359,24 +387,32 @@ export function DailyAforoCasesTable({ filters, setAllFetchedCases, displayCases
             }
 
             setAllFetchedCases(filtered);
-            setIsLoading(false);
-
         } catch (error) {
             console.error("Error fetching AforoCases for worksheets:", error);
             setError("No se pudieron cargar los casos de aforo correspondientes.");
-            setIsLoading(false);
+        } finally {
+          setIsLoading(false);
         }
       },
       (error: any) => {
-        console.error("ERROR FETCHING WORKSHEETS:", error);
-        const detailedError = `Error de Firestore: ${error.message}. Es muy probable que falte un índice compuesto. Revise la consola del navegador (F12) para ver un enlace que permita crearlo.`;
-        setError(detailedError);
-        toast({ 
-            title: "Error al Cargar Datos de Aforo", 
-            description: "No se pudieron cargar las hojas de trabajo. Verifique la consola para más detalles.", 
-            variant: "destructive",
-            duration: 20000 
-        });
+        console.error("ERROR FETCHING DATA:", error);
+        try {
+            // Attempt to create a rich error for developers.
+            const permissionError = new FirestorePermissionError({
+                path: 'worksheets or AforoCases',
+                operation: 'list',
+            }, error);
+            errorEmitter.emit('permission-error', permissionError);
+        } catch (e) {
+            // Fallback for any other error.
+            setError(`Error de Firestore: ${error.message}. Es probable que necesite un índice. Revise la consola (F12).`);
+            toast({ 
+                title: "Error al Cargar Datos de Aforo", 
+                description: "No se pudieron cargar las hojas de trabajo. Verifique la consola para más detalles.", 
+                variant: "destructive",
+                duration: 20000 
+            });
+        }
         setIsLoading(false);
       }
     );
@@ -921,7 +957,7 @@ export function DailyAforoCasesTable({ filters, setAllFetchedCases, displayCases
             </TableRow>
              {isExpanded && canExpandRow && (
                 <TableRow className="bg-muted/30 hover:bg-muted/40">
-                  <TableCell colSpan={15} className="p-0">
+                  <TableCell colSpan={13} className="p-0">
                     <div className="p-4 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                       <div className="flex items-end gap-2">
                           <div className="flex-grow">
