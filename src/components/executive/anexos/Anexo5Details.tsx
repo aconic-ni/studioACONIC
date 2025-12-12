@@ -37,13 +37,6 @@ const DetailItem: React.FC<{ label: string; value?: string | number | null; clas
     </div>
 );
 
-const LinedDetailItem: React.FC<{ label: string; value?: string | number | null; className?: string }> = ({ label, value, className }) => (
-    <div className={cn("border-b border-black flex justify-between items-baseline py-1 print:py-0.5", className)}>
-        <span className="text-xs font-semibold text-gray-700 print:text-[8pt]">{label}</span>
-        <p className="text-xs font-medium text-gray-800 print:text-[9pt]">{value || ''}</p>
-    </div>
-);
-
 const TransportDetailItem: React.FC<{ label: string; value?: string | number | null; className?: string }> = ({ label, value, className }) => (
     <tr className={cn("border-b border-black last:border-b-0", className)}>
         <td className="text-xs font-semibold text-gray-700 print:text-[8pt] p-1 w-2/5 border-r border-black">{label}</td>
@@ -226,10 +219,10 @@ export const Anexo5Details: React.FC<{ worksheet: Worksheet; onClose: () => void
                   <p className="text-sm print:text-xs whitespace-pre-wrap min-h-[42px]">{worksheet.observations}</p>
               </div>
               <div className="space-y-1 p-2 print:p-1 col-span-1">
-                  <LinedDetailItem label="Bultos Totales" value={bultosTotales > 0 ? bultosTotales.toLocaleString('es-NI') : ''} />
-                  <LinedDetailItem label="Peso Total" value={pesoTotal > 0 ? pesoTotal.toLocaleString('es-NI', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : ''} />
-                  <LinedDetailItem label="Precinto" value={worksheet.precinto || ''} />
-                  <LinedDetailItem label="Precinto Lateral" value={worksheet.precintoLateral || ''} />
+                  <DetailItem label="Bultos Totales" value={bultosTotales > 0 ? bultosTotales.toLocaleString('es-NI') : ''} />
+                  <DetailItem label="Peso Total" value={pesoTotal > 0 ? pesoTotal.toLocaleString('es-NI', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : ''} />
+                  <DetailItem label="Precinto" value={worksheet.precinto || ''} />
+                  <DetailItem label="Precinto Lateral" value={worksheet.precintoLateral || ''} />
                   <div className="h-[25px]"></div>
                   <div className="border-b-2 border-black"></div>
                   <p className="text-xs font-semibold text-center pt-1">Firma Inspector ACCA</p>
@@ -254,7 +247,7 @@ export const Anexo5Details: React.FC<{ worksheet: Worksheet; onClose: () => void
                       </tbody>
                   </table>
               </div>
-              <div className="border-t border-b border-black mt-1 print:mt-1 p-2 flex flex-col justify-between">
+              <div className="border border-black mt-1 print:mt-1 p-2 flex flex-col justify-between">
                   <p className="text-center font-bold text-sm">TRAMITANTE</p>
                   {agente && (
                       <div className="text-center text-black font-semibold text-xs">
@@ -264,25 +257,24 @@ export const Anexo5Details: React.FC<{ worksheet: Worksheet; onClose: () => void
                           <p>AGENCIA ADUANERA ACONIC</p>
                       </div>
                   )}
-                  <SignatureSection title="Firma y Sello" align="center" showSignatureLine={!agente}/>
-              </div>
-          </div>
-          
-          <div className="grid grid-cols-2 gap-x-8 mt-2 print:mt-1">
-              <SignatureSection title="ADUANA CENTRAL DE CARGA AEREA" subtitle="Firma y Sello" align="left" className="w-full" />
-              <SignatureSection title="ADUANA DESTINO" subtitle="Firma y Sello" align="left" className="w-full" />
-          </div>
-
-          <div className="grid grid-cols-2 gap-x-8 mt-2 print:mt-1">
-              <div className="border border-black p-2 flex flex-col justify-between">
-                  <p className="text-center font-bold text-sm">TRANSITO</p>
                   <div className="space-y-4">
                       <div className="flex-grow border-b-2 border-black print:h-6 mb-1 h-[50px]"></div>
                       <p className="text-xs font-semibold text-gray-700 print:text-[8pt] text-center">Firma y Sello</p>
                   </div>
-                  <DetailItem label="HORA DE SALIDA" value="" />
-                  <DetailItem label="HORA DE LLEGADA" value="" />
               </div>
+            </div>
+
+          <div className="grid grid-cols-2 gap-x-8 mt-2 print:mt-1">
+              <div className="space-y-4">
+                  <SignatureSection title="ADUANA CENTRAL DE CARGA AEREA" subtitle="Firma y Sello" align="left" className="w-full" />
+                  <SignatureSection title="ADUANA DESTINO" subtitle="Firma y Sello" align="left" className="w-full" />
+              </div>
+              <div className="border border-black p-2 flex flex-col justify-between">
+                  <p className="text-center font-bold text-sm">TRANSITO</p>
+                  <p className="text-xs font-semibold text-gray-700 print:text-[8pt] text-center">Firma y Sello</p>
+                            <DetailItem label="HORA DE SALIDA" value="" />
+                            <DetailItem label="HORA DE LLEGADA" value="" />
+               </div>
           </div>
           
       </div>
