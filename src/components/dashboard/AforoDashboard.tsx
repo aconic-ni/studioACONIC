@@ -1,3 +1,4 @@
+
 "use client";
 import { useState, useMemo, useCallback } from 'react';
 import type { AforoCase } from '@/types';
@@ -97,7 +98,7 @@ export function AforoDashboard({ allCases }: AforoDashboardProps) {
                  start = specificDate ? startOfDay(specificDate) : startOfDay(now);
                  end = specificDate ? endOfDay(specificDate) : endOfDay(now);
                 break;
-            case 'today':
+             case 'today':
                 start = startOfDay(now);
                 end = endOfDay(now);
                 break;
@@ -110,7 +111,8 @@ export function AforoDashboard({ allCases }: AforoDashboardProps) {
 
         const casesForAssignedMetric = allCases.filter(c => {
              const assignmentDate = (c.assignmentDate as Timestamp)?.toDate();
-             return assignmentDate && assignmentDate >= start && assignmentDate <= end;
+             const isPsmt = c.consignee?.toUpperCase().trim() === "PSMT NICARAGUA, SOCIEDAD ANONIMA";
+             return !isPsmt && assignmentDate && assignmentDate >= start && assignmentDate <= end;
         });
 
         casesForAssignedMetric.forEach(c => {
@@ -123,6 +125,10 @@ export function AforoDashboard({ allCases }: AforoDashboardProps) {
 
         filteredCases.forEach(c => {
             const aforadorName = c.aforador || 'Sin Asignar';
+            const isPsmt = c.consignee?.toUpperCase().trim() === "PSMT NICARAGUA, SOCIEDAD ANONIMA";
+            
+            if (isPsmt) return; // Exclude PSMT from general stats for "readyForReview" and "revalidated"
+
             if (!aforadorStats[aforadorName]) {
                 aforadorStats[aforadorName] = { assigned: 0, readyForReview: 0, revalidated: 0 };
             }
@@ -266,7 +272,7 @@ export function AforoDashboard({ allCases }: AforoDashboardProps) {
                 <div className="grid gap-4 md:grid-cols-1 lg:grid-cols-3">
                     <AforoPieChartCard
                         title="Casos Asignados por Aforador"
-                        description="Total de casos asignados en el período."
+                        description="Total de casos asignados en el período (Excluye PSMT)."
                         data={aforoData.assignedData}
                     />
                     <AforoPieChartCard
