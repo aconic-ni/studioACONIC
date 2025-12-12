@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
+import React, { Suspense, useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
 import { AppShell } from '@/components/layout/AppShell';
@@ -17,7 +17,7 @@ import { format, parse } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { MobilePermitCard } from '@/components/permisos/MobilePermitCard';
-import { PermitCommentModal } from '../executive/PermitCommentModal';
+import { PermitCommentModal } from '@/components/executive/PermitCommentModal';
 import { useToast } from '@/hooks/use-toast';
 import * as XLSX from 'xlsx';
 
@@ -146,8 +146,8 @@ export default function PermisosPage() {
       );
     }
     
-    const statusOrder = { 'Pendiente': 1, 'En Trámite': 2, 'Rechazado': 3, 'Entregado': 4 };
-    filtered.sort((a, b) => (statusOrder[a.status] || 5) - (statusOrder[b.status] || 5));
+    const statusOrder: { [key in DocumentStatus]: number } = { 'Pendiente': 1, 'En Trámite': 2, 'Rechazado': 3, 'Entregado': 4, 'Sometido de Nuevo': 5 };
+    filtered.sort((a, b) => (statusOrder[a.status] || 99) - (statusOrder[b.status] || 99));
 
     return filtered;
   }, [allPermits, searchTerm, focusMode]);
