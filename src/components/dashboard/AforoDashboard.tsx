@@ -77,7 +77,7 @@ export function AforoDashboard({ allCases }: AforoDashboardProps) {
 
 
     const aforoData = useMemo(() => {
-        const aforadorStats: { [key: string]: { assigned: number; readyForReview: number; revalidated: number } } = {};
+        const aforadorStats: { [key: string]: { assigned: number; readyForReview: number; revalidated: number; posiciones: number } } = {};
         
         let start: Date, end: Date;
         const now = new Date();
@@ -118,9 +118,10 @@ export function AforoDashboard({ allCases }: AforoDashboardProps) {
         casesForAssignedMetric.forEach(c => {
             const aforadorName = c.aforador || 'Sin Asignar';
             if (!aforadorStats[aforadorName]) {
-                aforadorStats[aforadorName] = { assigned: 0, readyForReview: 0, revalidated: 0 };
+                aforadorStats[aforadorName] = { assigned: 0, readyForReview: 0, revalidated: 0, posiciones: 0 };
             }
             aforadorStats[aforadorName].assigned += 1;
+            aforadorStats[aforadorName].posiciones += Number(c.totalPosiciones || 0);
         });
 
         filteredCases.forEach(c => {
@@ -130,7 +131,7 @@ export function AforoDashboard({ allCases }: AforoDashboardProps) {
             if (isPsmt) return; // Exclude PSMT from general stats for "readyForReview" and "revalidated"
 
             if (!aforadorStats[aforadorName]) {
-                aforadorStats[aforadorName] = { assigned: 0, readyForReview: 0, revalidated: 0 };
+                aforadorStats[aforadorName] = { assigned: 0, readyForReview: 0, revalidated: 0, posiciones: 0 };
             }
             if (c.aforadorStatus === 'En revisión') {
                 aforadorStats[aforadorName].readyForReview += 1;
@@ -143,14 +144,15 @@ export function AforoDashboard({ allCases }: AforoDashboardProps) {
         const assignedData = Object.entries(aforadorStats).map(([name, data]) => ({ name, value: data.assigned }));
         const readyForReviewData = Object.entries(aforadorStats).map(([name, data]) => ({ name, value: data.readyForReview }));
         const revalidatedData = Object.entries(aforadorStats).map(([name, data]) => ({ name, value: data.revalidated }));
+        const posicionesData = Object.entries(aforadorStats).map(([name, data]) => ({ name, value: data.posiciones }));
 
-        return { assignedData, readyForReviewData, revalidatedData };
+        return { assignedData, readyForReviewData, revalidatedData, posicionesData };
 
     }, [filteredCases, allCases, filterType, dateRange, selectedMonth, selectedYear, specificDate]);
 
     const psmtData = useMemo(() => {
         const psmtCases = allCases.filter(c => c.consignee?.toUpperCase().trim() === "PSMT NICARAGUA, SOCIEDAD ANONIMA");
-        const aforadorStats: { [key: string]: number } = {};
+        const aforadorStats: { [key: string]: { assigned: number; posiciones: number } } = {};
 
         let start: Date, end: Date;
         const now = new Date();
@@ -189,10 +191,17 @@ export function AforoDashboard({ allCases }: AforoDashboardProps) {
 
         casesForAssignedMetric.forEach(c => {
             const aforadorName = c.aforador || 'Sin Asignar';
-            aforadorStats[aforadorName] = (aforadorStats[aforadorName] || 0) + 1;
+            if (!aforadorStats[aforadorName]) {
+                aforadorStats[aforadorName] = { assigned: 0, posiciones: 0 };
+            }
+            aforadorStats[aforadorName].assigned += 1;
+            aforadorStats[aforadorName].posiciones += Number(c.totalPosiciones || 0);
         });
 
-        return Object.entries(aforadorStats).map(([name, value]) => ({ name, value }));
+        return {
+            assignedData: Object.entries(aforadorStats).map(([name, data]) => ({ name, value: data.assigned })),
+            posicionesData: Object.entries(aforadorStats).map(([name, data]) => ({ name, value: data.posiciones })),
+        };
 
     }, [allCases, filterType, dateRange, selectedMonth, selectedYear, specificDate]);
 
@@ -269,11 +278,16 @@ export function AforoDashboard({ allCases }: AforoDashboardProps) {
             
             <div className="space-y-2">
                  <h3 className="text-xl font-semibold">Métricas de Aforo</h3>
-                <div className="grid gap-4 md:grid-cols-1 lg:grid-cols-3">
+                <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-2">
                     <AforoPieChartCard
                         title="Casos Asignados por Aforador"
                         description="Total de casos asignados en el período (Excluye PSMT)."
                         data={aforoData.assignedData}
+                    />
+                    <AforoPieChartCard
+                        title="Posiciones Trabajadas por Aforador"
+                        description="Suma de posiciones de los casos asignados (Excluye PSMT)."
+                        data={aforoData.posicionesData}
                     />
                     <AforoPieChartCard
                         title="Casos Listos para Revisión"
@@ -290,11 +304,16 @@ export function AforoDashboard({ allCases }: AforoDashboardProps) {
 
             <div className="space-y-2 pt-6">
                  <h3 className="text-xl font-semibold">Métricas de PSMT</h3>
-                <div className="grid gap-4 md:grid-cols-1 lg:grid-cols-3">
+                <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-2">
                     <AforoPieChartCard
                         title="Casos PSMT Asignados por Aforador"
                         description="Total de casos PSMT asignados en el período."
-                        data={psmtData}
+                        data={psmtData.assignedData}
+                    />
+                     <AforoPieChartCard
+                        title="Posiciones PSMT Trabajadas por Aforador"
+                        description="Suma de posiciones de los casos PSMT asignados."
+                        data={psmtData.posicionesData}
                     />
                 </div>
             </div>
