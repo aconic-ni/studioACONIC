@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { Suspense, useState, useEffect, useMemo, useCallback, useRef } from 'react';
@@ -7,22 +8,28 @@ import { AppShell } from '@/components/layout/AppShell';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Loader2, Search, SlidersHorizontal, MessageSquare, Download, Upload } from 'lucide-react';
+import { Loader2, Search, SlidersHorizontal, MessageSquare, Download, Upload, GitCommit, Check } from 'lucide-react';
 import { db } from '@/lib/firebase';
-import { collection, query, onSnapshot, orderBy, Timestamp, where, type Query, getDocs, collectionGroup, doc, getDoc, writeBatch } from 'firebase/firestore';
-import type { Worksheet, RequiredPermit, AppUser } from '@/types';
+import { collection, query, onSnapshot, orderBy, Timestamp, where, type Query, getDocs, doc, writeBatch } from 'firebase/firestore';
+import type { Worksheet, RequiredPermit, AppUser, PermitDelivery } from '@/types';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { format, parse } from 'date-fns';
+import { format, differenceInDays } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { MobilePermitCard } from '@/components/permisos/MobilePermitCard';
 import { PermitCommentModal } from '@/components/executive/PermitCommentModal';
 import { useToast } from '@/hooks/use-toast';
 import * as XLSX from 'xlsx';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
+import { PermitDeliveryTicket } from '@/components/permisos/PermitDeliveryTicket';
+import { cn } from '@/lib/utils';
 
 
 export interface PermitRow extends RequiredPermit {
+  worksheetId: string; // Keep track of the parent worksheet
   ne: string;
   reference?: string;
   executive: string;
@@ -45,7 +52,12 @@ export default function PermisosPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [focusMode, setFocusMode] = useState(true);
-  const [userConsigneeDirectory, setUserConsigneeDirectory] = useState<string[]>([]);
+  const [selectedRows, setSelectedRows] = useState<string[]>([]);
+  const [isDeliveryModalOpen, setIsDeliveryModalOpen] = useState(false);
+  const [deliveryRecipient, setDeliveryRecipient] = useState('');
+  const [ticketData, setTicketData] = useState<{ permits: PermitRow[], recipient: string } | null>(null);
+
+  const [groupMembers, setGroupMembers] = useState<AppUser[]>([]);
   const [selectedPermitForComment, setSelectedPermitForComment] = useState<PermitRow | null>(null);
   const [isImporting, setIsImporting] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -58,6 +70,22 @@ export default function PermisosPage() {
 
   useEffect(() => {
     if (!user || !user.email) return;
+    
+    const fetchUsers = async () => {
+        if (!user) return;
+        const execRoles = ['admin', 'supervisor', 'coordinadora', 'ejecutivo'];
+        const isManagement = execRoles.includes(user.role || '');
+        if (isManagement && user.visibilityGroup && user.visibilityGroup.length > 0) {
+           setGroupMembers(user.visibilityGroup as AppUser[]);
+        } else if (isManagement) {
+            const execQuery = query(collection(db, 'users'), where('role', 'in', ['ejecutivo', 'coordinadora']));
+            const querySnapshot = await getDocs(execQuery);
+            const members = querySnapshot.docs.map(doc => ({ uid: doc.id, ...doc.data() } as AppUser));
+            setGroupMembers(members);
+        }
+    };
+    fetchUsers();
+
 
     const handleSnapshot = (snapshot: any) => {
         const fetchedPermits: PermitRow[] = [];
@@ -67,6 +95,7 @@ export default function PermisosPage() {
                 worksheet.requiredPermits.forEach(permit => {
                     fetchedPermits.push({
                         ...permit,
+                        worksheetId: worksheet.id,
                         ne: worksheet.ne,
                         reference: worksheet.reference,
                         executive: worksheet.executive,
@@ -92,28 +121,18 @@ export default function PermisosPage() {
         if (user.role === 'admin' || user.role === 'supervisor' || user.role === 'coordinadora') {
             q = query(worksheetsRef, orderBy('createdAt', 'desc'));
         } else if (user.role === 'ejecutivo' && user.visibilityGroup && user.visibilityGroup.length > 0) {
-            const uidsToQuery = Array.from(new Set([user.uid, ...user.visibilityGroup.map(m => m.uid)]));
-            
-            const usersQuery = query(collection(db, 'users'), where('__name__', 'in', uidsToQuery));
-            const userDocs = await getDocs(usersQuery);
-            const groupEmails = userDocs.docs.map(d => d.data().email).filter(Boolean);
-            
-            if (groupEmails.length > 0) {
-                 q = query(worksheetsRef, where('createdBy', 'in', groupEmails), orderBy('createdAt', 'desc'));
-            } else {
-                 q = query(worksheetsRef, where('createdBy', '==', user.email), orderBy('createdAt', 'desc'));
-            }
+            const groupEmails = user.visibilityGroup.map(m => m.email).filter(Boolean);
+            q = query(worksheetsRef, where('createdBy', 'in', [user.email, ...groupEmails]), orderBy('createdAt', 'desc'));
         } else if (user.role === 'invitado') {
              const dirRef = collection(db, `users/${user.uid}/consigneeDirectory`);
              const dirSnap = await getDocs(dirRef);
              const directoryNames = dirSnap.docs.map(d => d.data().name);
-             setUserConsigneeDirectory(directoryNames);
              if (directoryNames.length > 0) {
                 q = query(worksheetsRef, where('consignee', 'in', directoryNames), orderBy('createdAt', 'desc'));
              } else {
                 setAllPermits([]);
                 setIsLoading(false);
-                return () => {}; // Return an empty unsubscribe function
+                return () => {};
              }
         } else {
             q = query(worksheetsRef, where('createdBy', '==', user.email), orderBy('createdAt', 'desc'));
@@ -130,7 +149,7 @@ export default function PermisosPage() {
     let filtered = allPermits;
     
     if (focusMode) {
-      filtered = filtered.filter(p => p.status !== 'Entregado');
+      filtered = filtered.filter(p => p.status !== 'Entregado' && !p.permitDelivery);
     }
 
     if (searchTerm) {
@@ -146,8 +165,25 @@ export default function PermisosPage() {
       );
     }
     
-    const statusOrder: { [key in DocumentStatus]: number } = { 'Pendiente': 1, 'En Trámite': 2, 'Rechazado': 3, 'Entregado': 4, 'Sometido de Nuevo': 5 };
-    filtered.sort((a, b) => (statusOrder[a.status] || 99) - (statusOrder[b.status] || 99));
+    const statusOrder: { [key in DocumentStatus]: number } = { 'Pendiente': 1, 'En Trámite': 2, 'Rechazado': 3, 'Sometido de Nuevo': 4, 'Entregado': 5 };
+    filtered.sort((a, b) => {
+        const aDueDate = a.estimatedDeliveryDate?.toDate() || new Date(8640000000000000);
+        const bDueDate = b.estimatedDeliveryDate?.toDate() || new Date(8640000000000000);
+        
+        if (a.status !== 'Entregado' && b.status === 'Entregado') return -1;
+        if (a.status === 'Entregado' && b.status !== 'Entregado') return 1;
+
+        const aDaysLeft = differenceInDays(aDueDate, new Date());
+        const bDaysLeft = differenceInDays(bDueDate, new Date());
+        
+        if (aDaysLeft <= 3 && bDaysLeft > 3) return -1;
+        if (aDaysLeft > 3 && bDaysLeft <= 3) return 1;
+
+        if (aDaysLeft < bDaysLeft) return -1;
+        if (aDaysLeft > bDaysLeft) return 1;
+        
+        return (statusOrder[a.status] || 99) - (statusOrder[b.status] || 99);
+    });
 
     return filtered;
   }, [allPermits, searchTerm, focusMode]);
@@ -157,6 +193,7 @@ export default function PermisosPage() {
         case 'Entregado': return 'default';
         case 'Rechazado': return 'destructive';
         case 'En Trámite': return 'secondary';
+        case 'Sometido de Nuevo': return 'secondary';
         case 'Pendiente':
         default:
             return 'outline';
@@ -208,7 +245,7 @@ export default function PermisosPage() {
                         if (!dateStr) return null;
                         const parsed = typeof dateStr === 'number' 
                             ? new Date(Date.UTC(0, 0, dateStr - 1))
-                            : parse(dateStr, 'dd/MM/yyyy', new Date());
+                            : new Date(dateStr);
                         return isNaN(parsed.getTime()) ? null : Timestamp.fromDate(parsed);
                     };
 
@@ -251,10 +288,66 @@ export default function PermisosPage() {
     };
     reader.readAsArrayBuffer(file);
   };
+  
+  const handleConfirmDelivery = async () => {
+    if (!deliveryRecipient) {
+        toast({ title: 'Error', description: 'Por favor, seleccione un destinatario.', variant: 'destructive'});
+        return;
+    }
+    if (!user || !user.displayName) return;
 
+    setIsSubmitting(true);
+    const selectedPermits = allPermits.filter(p => selectedRows.includes(p.id));
+    const newTicketData = { permits: selectedPermits, recipient: deliveryRecipient };
+    
+    const batch = writeBatch(db);
+    const worksheetsToUpdate = new Map<string, RequiredPermit[]>();
+
+    selectedPermits.forEach(permit => {
+        const deliveryInfo: PermitDelivery = {
+            deliveredTo: deliveryRecipient,
+            deliveredBy: user!.displayName!,
+            deliveredAt: Timestamp.now(),
+        };
+        const updatedPermit: RequiredPermit = { ...permit, status: 'Entregado', permitDelivery: deliveryInfo };
+        
+        if (!worksheetsToUpdate.has(permit.worksheetId)) {
+            const originalWorksheet = allPermits.filter(p => p.worksheetId === permit.worksheetId);
+            worksheetsToUpdate.set(permit.worksheetId, originalWorksheet);
+        }
+        
+        const existingPermits = worksheetsToUpdate.get(permit.worksheetId)!;
+        const permitIndex = existingPermits.findIndex(p => p.id === permit.id);
+        if (permitIndex !== -1) {
+            existingPermits[permitIndex] = updatedPermit;
+        }
+    });
+
+    worksheetsToUpdate.forEach((permits, worksheetId) => {
+        const wsRef = doc(db, 'worksheets', worksheetId);
+        batch.update(wsRef, { requiredPermits: permits });
+    });
+    
+    try {
+        await batch.commit();
+        setTicketData(newTicketData);
+        setIsDeliveryModalOpen(false);
+        setSelectedRows([]);
+        toast({ title: 'Entrega Registrada', description: `${selectedPermits.length} permisos marcados como entregados.` });
+    } catch (error) {
+        console.error("Error confirming delivery: ", error);
+        toast({ title: 'Error', description: 'No se pudo registrar la entrega.', variant: 'destructive' });
+    } finally {
+        setIsSubmitting(false);
+    }
+  };
 
   if (authLoading || !user) {
     return <div className="min-h-screen flex items-center justify-center bg-background"><Loader2 className="h-12 w-12 animate-spin text-primary" /></div>;
+  }
+  
+  if (ticketData) {
+      return <PermitDeliveryTicket data={ticketData} onClose={() => setTicketData(null)} />;
   }
   
   const content = () => {
@@ -284,44 +377,76 @@ export default function PermisosPage() {
             <Table>
               <TableHeader>
                 <TableRow>
+                  <TableHead className="w-12">
+                     <Checkbox
+                        checked={selectedRows.length > 0 && selectedRows.length === filteredPermits.length}
+                        onCheckedChange={() => {
+                            if (selectedRows.length === filteredPermits.length) {
+                                setSelectedRows([]);
+                            } else {
+                                setSelectedRows(filteredPermits.map(p => p.id));
+                            }
+                        }}
+                     />
+                  </TableHead>
                   <TableHead>NE</TableHead>
                   <TableHead>Consignatario</TableHead>
-                  <TableHead>Referencia</TableHead>
                   <TableHead>Factura Asociada</TableHead>
                   <TableHead>Permiso</TableHead>
                   <TableHead>Tipo de Trámite</TableHead>
                   <TableHead>Estado</TableHead>
-                  <TableHead>Ejecutivo Asignado</TableHead>
+                  <TableHead>Ejecutivo</TableHead>
                   <TableHead>Fecha Sometido</TableHead>
-                  <TableHead>Fecha Entrega Estimada</TableHead>
+                  <TableHead>Fecha Retiro</TableHead>
                   <TableHead>Comentarios</TableHead>
+                  <TableHead>Estado Entrega</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredPermits.map(permit => (
-                  <TableRow key={permit.id}>
-                    <TableCell className="font-medium">{permit.ne}</TableCell>
-                    <TableCell>{permit.consignee}</TableCell>
-                    <TableCell>{permit.reference || 'N/A'}</TableCell>
-                    <TableCell>{permit.facturaNumber || 'N/A'}</TableCell>
-                    <TableCell>{permit.name}</TableCell>
-                    <TableCell>{permit.tipoTramite || 'N/A'}</TableCell>
-                    <TableCell>
-                       <Badge variant={getStatusBadgeVariant(permit.status)}>{permit.status}</Badge>
-                    </TableCell>
-                    <TableCell>{permit.assignedExecutive || permit.executive}</TableCell>
-                    <TableCell>{formatDate(permit.tramiteDate)}</TableCell>
-                    <TableCell>{formatDate(permit.estimatedDeliveryDate)}</TableCell>
-                    <TableCell>
-                        <Button variant="ghost" size="icon" onClick={() => setSelectedPermitForComment(permit)}>
-                            <MessageSquare className="h-4 w-4" />
-                             {permit.comments && permit.comments.length > 0 && (
-                                <Badge variant="destructive" className="absolute -top-1 -right-1 h-4 w-4 p-0 justify-center text-xs">{permit.comments.length}</Badge>
-                            )}
-                        </Button>
-                    </TableCell>
-                  </TableRow>
-                ))}
+                {filteredPermits.map(permit => {
+                    const daysLeft = permit.estimatedDeliveryDate ? differenceInDays(permit.estimatedDeliveryDate.toDate(), new Date()) : null;
+                    const rowClass = cn(
+                        (permit.status !== 'Entregado' && daysLeft !== null && daysLeft <= 3) && 'bg-yellow-100 dark:bg-yellow-900/30'
+                    );
+                    return (
+                      <TableRow key={permit.id} className={rowClass}>
+                        <TableCell>
+                           <Checkbox
+                                checked={selectedRows.includes(permit.id)}
+                                onCheckedChange={() => {
+                                    setSelectedRows(prev => 
+                                        prev.includes(permit.id) 
+                                        ? prev.filter(id => id !== permit.id)
+                                        : [...prev, permit.id]
+                                    );
+                                }}
+                            />
+                        </TableCell>
+                        <TableCell className="font-medium">{permit.ne}</TableCell>
+                        <TableCell>{permit.consignee}</TableCell>
+                        <TableCell>{permit.facturaNumber || 'N/A'}</TableCell>
+                        <TableCell>{permit.name}</TableCell>
+                        <TableCell>{permit.tipoTramite || 'N/A'}</TableCell>
+                        <TableCell><Badge variant={getStatusBadgeVariant(permit.status)}>{permit.status}</Badge></TableCell>
+                        <TableCell>{permit.assignedExecutive || permit.executive}</TableCell>
+                        <TableCell>{formatDate(permit.tramiteDate)}</TableCell>
+                        <TableCell>{formatDate(permit.estimatedDeliveryDate)}</TableCell>
+                        <TableCell>
+                            <Button variant="ghost" size="icon" onClick={() => setSelectedPermitForComment(permit)}>
+                                <MessageSquare className="h-4 w-4" />
+                                 {permit.comments && permit.comments.length > 0 && (
+                                    <Badge variant="destructive" className="absolute -top-1 -right-1 h-4 w-4 p-0 justify-center text-xs">{permit.comments.length}</Badge>
+                                )}
+                            </Button>
+                        </TableCell>
+                         <TableCell>
+                            {permit.permitDelivery ? (
+                                <Badge className="bg-blue-100 text-blue-700">Entregado a {permit.permitDelivery.deliveredTo}</Badge>
+                            ) : <Badge variant="outline">Pendiente</Badge>}
+                        </TableCell>
+                      </TableRow>
+                    )
+                })}
               </TableBody>
             </Table>
         </div>
@@ -332,7 +457,7 @@ export default function PermisosPage() {
     <>
     <AppShell>
       <div className="py-2 md:py-5">
-        <Card className="w-full max-w-7xl mx-auto custom-shadow">
+        <Card className="w-full max-w-screen-2xl mx-auto custom-shadow">
           <CardHeader>
              <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-4">
                 <div>
@@ -343,10 +468,13 @@ export default function PermisosPage() {
                     <input type="file" ref={fileInputRef} onChange={handleFileImport} className="hidden" accept=".xlsx, .xls" />
                     <Button onClick={() => fileInputRef.current?.click()} variant="outline" disabled={isImporting}>
                         {isImporting ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : <Upload className="mr-2 h-4 w-4" />}
-                        Importar Permisos
+                        Importar
                     </Button>
                     <Button onClick={handleDownloadTemplate} variant="outline">
-                        <Download className="mr-2 h-4 w-4" /> Descargar Plantilla
+                        <Download className="mr-2 h-4 w-4" /> Plantilla
+                    </Button>
+                     <Button onClick={() => setIsDeliveryModalOpen(true)} disabled={selectedRows.length === 0}>
+                        <GitCommit className="mr-2 h-4 w-4" /> Generar Entrega ({selectedRows.length})
                     </Button>
                 </div>
             </div>
@@ -354,7 +482,7 @@ export default function PermisosPage() {
                  <div className="relative flex-grow w-full sm:w-auto">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
                     <Input 
-                        placeholder="Buscar por NE, Referencia, Factura, Ejecutivo, Permiso o Consignatario..."
+                        placeholder="Buscar en todos los campos..."
                         className="pl-10 w-full"
                         value={searchTerm}
                         onChange={e => setSearchTerm(e.target.value)}
@@ -366,7 +494,7 @@ export default function PermisosPage() {
                     className="w-full sm:w-auto"
                 >
                     <SlidersHorizontal className="mr-2 h-4 w-4"/>
-                    {focusMode ? 'Pendientes' : 'Viendo Todos'}
+                    {focusMode ? 'Pendientes de Entrega' : 'Viendo Todos'}
                 </Button>
                 <p className="text-sm text-muted-foreground w-full sm:w-auto text-center sm:text-left">
                     Total de permisos: {filteredPermits.length}
@@ -384,10 +512,49 @@ export default function PermisosPage() {
             isOpen={!!selectedPermitForComment}
             onClose={() => setSelectedPermitForComment(null)}
             permit={selectedPermitForComment}
-            worksheetId={selectedPermitForComment.ne}
-            onCommentsUpdate={() => {}}
+            worksheetId={selectedPermitForComment.worksheetId}
+            onCommentsUpdate={() => {}} // Read-only in this context
         />
     )}
+     <Dialog open={isDeliveryModalOpen} onOpenChange={setIsDeliveryModalOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Confirmar Entrega de Permisos</DialogTitle>
+            <DialogDescription>
+              Seleccione la persona que recibe los {selectedRows.length} permisos seleccionados.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-4">
+             <Command className="rounded-lg border shadow-sm">
+                <CommandInput placeholder="Buscar persona..." />
+                <CommandList>
+                    <CommandEmpty>No se encontró persona.</CommandEmpty>
+                    <CommandGroup>
+                        {groupMembers.map(member => (
+                            <CommandItem
+                                key={member.uid}
+                                value={member.displayName || ''}
+                                onSelect={(currentValue) => {
+                                    setDeliveryRecipient(currentValue === deliveryRecipient ? "" : member.displayName || '');
+                                }}
+                            >
+                                <Check className={cn("mr-2 h-4 w-4", deliveryRecipient === member.displayName ? "opacity-100" : "opacity-0")} />
+                                {member.displayName}
+                            </CommandItem>
+                        ))}
+                    </CommandGroup>
+                </CommandList>
+            </Command>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsDeliveryModalOpen(false)}>Cancelar</Button>
+            <Button onClick={handleConfirmDelivery} disabled={!deliveryRecipient || isSubmitting}>
+              {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin"/>}
+              Confirmar y Generar Ticket
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </>
   );
 }

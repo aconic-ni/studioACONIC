@@ -276,6 +276,13 @@ export interface PermitComment {
     createdAt: Timestamp;
 }
 
+export interface PermitDelivery {
+  deliveredTo: string;
+  deliveredBy: string;
+  deliveredAt: Timestamp;
+}
+
+
 export interface RequiredPermit {
     id: string;
     name: string;
@@ -285,6 +292,7 @@ export interface RequiredPermit {
     estimatedDeliveryDate?: Timestamp | null;
     assignedExecutive?: string;
     comments?: PermitComment[];
+    permitDelivery?: PermitDelivery;
     // Unified field
     tipoTramite?: string;
     // INE Specific fields
