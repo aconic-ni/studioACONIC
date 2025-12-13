@@ -56,6 +56,7 @@ export default function PermisosPage() {
   const [isDeliveryModalOpen, setIsDeliveryModalOpen] = useState(false);
   const [deliveryRecipient, setDeliveryRecipient] = useState('');
   const [ticketData, setTicketData] = useState<{ permits: PermitRow[], recipient: string } | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const [groupMembers, setGroupMembers] = useState<AppUser[]>([]);
   const [selectedPermitForComment, setSelectedPermitForComment] = useState<PermitRow | null>(null);
@@ -546,7 +547,7 @@ export default function PermisosPage() {
                 </CommandList>
             </Command>
           </div>
-          <DialogFooter>
+          <DialogFooter className="pt-4">
             <Button variant="outline" onClick={() => setIsDeliveryModalOpen(false)}>Cancelar</Button>
             <Button onClick={handleConfirmDelivery} disabled={!deliveryRecipient || isSubmitting}>
               {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin"/>}
