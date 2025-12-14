@@ -10,7 +10,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Loader2, Search, SlidersHorizontal, MessageSquare, Download, Upload, GitCommit, Check, FileEdit } from 'lucide-react';
 import { db } from '@/lib/firebase';
-import { collection, query, onSnapshot, orderBy, Timestamp, where, type Query, getDocs, doc, writeBatch } from 'firebase/firestore';
+import { collection, query, onSnapshot, orderBy, Timestamp, where, type Query, getDocs, doc, writeBatch, getDoc } from 'firebase/firestore';
 import type { Worksheet, RequiredPermit, AppUser, PermitDelivery } from '@/types';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
