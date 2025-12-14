@@ -11,7 +11,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Loader2, Search, SlidersHorizontal, MessageSquare, Download, Upload, GitCommit, Check, FileEdit } from 'lucide-react';
 import { db } from '@/lib/firebase';
 import { collection, query, onSnapshot, orderBy, Timestamp, where, type Query, getDocs, doc, writeBatch, getDoc } from 'firebase/firestore';
-import type { Worksheet, RequiredPermit, AppUser, PermitDelivery } from '@/types';
+import type { Worksheet, RequiredPermit, AppUser, PermitDelivery, DocumentStatus } from '@/types';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { format, differenceInDays } from 'date-fns';
@@ -28,11 +28,12 @@ import { PermitDeliveryTicket } from '@/components/permisos/PermitDeliveryTicket
 import { cn } from '@/lib/utils';
 import { PermitDetailsModal } from '@/components/executive/worksheet/PermitDetailsModal';
 import { permitOptions } from '@/lib/formData';
-import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import { RadioGroup, RadioGroupItem } from '../ui/radio-group';
 import Link from 'next/link';
 import { DatePicker } from '@/components/reports/DatePicker';
 import { downloadPermisosAsExcel } from '@/lib/fileExporterPermisos';
 import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 
 export interface PermitRow extends RequiredPermit {
@@ -68,6 +69,7 @@ export default function PermisosPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
   const [isBulkUpdateModalOpen, setIsBulkUpdateModalOpen] = useState(false);
+  const [isBulkStatusModalOpen, setIsBulkStatusModalOpen] = useState(false);
   const [bulkTramiteDate, setBulkTramiteDate] = useState<Date | undefined>();
   const [bulkRetiroDate, setBulkRetiroDate] = useState<Date | undefined>();
 
@@ -416,6 +418,47 @@ export default function PermisosPage() {
     }
 };
 
+  const handleBulkStatusUpdate = async (newStatus: DocumentStatus) => {
+    if (selectedRows.length === 0) return;
+    setIsSubmitting(true);
+    const batch = writeBatch(db);
+    const worksheetsToUpdate = new Map<string, RequiredPermit[]>();
+    const selectedPermitsInfo = allPermits.filter(p => selectedRows.includes(p.id));
+
+    for (const permitInfo of selectedPermitsInfo) {
+        if (!worksheetsToUpdate.has(permitInfo.worksheetId)) {
+            const wsDoc = await getDoc(doc(db, 'worksheets', permitInfo.worksheetId));
+            if (wsDoc.exists()) {
+                worksheetsToUpdate.set(permitInfo.worksheetId, (wsDoc.data() as Worksheet).requiredPermits || []);
+            }
+        }
+
+        const existingPermits = worksheetsToUpdate.get(permitInfo.worksheetId);
+        if (existingPermits) {
+            const permitIndex = existingPermits.findIndex(p => p.id === permitInfo.id);
+            if (permitIndex !== -1) {
+                existingPermits[permitIndex].status = newStatus;
+            }
+        }
+    }
+
+    worksheetsToUpdate.forEach((permits, worksheetId) => {
+        batch.update(doc(db, 'worksheets', worksheetId), { requiredPermits: permits });
+    });
+
+    try {
+        await batch.commit();
+        toast({ title: "Actualización Exitosa", description: `${selectedRows.length} permisos han cambiado a '${newStatus}'.` });
+        setSelectedRows([]);
+    } catch(e) {
+        toast({ title: "Error", description: "No se pudieron actualizar los estados.", variant: "destructive" });
+    } finally {
+        setIsSubmitting(false);
+        setIsBulkStatusModalOpen(false);
+    }
+  };
+
+
   const handleExportExcel = () => {
     if (filteredPermits.length === 0) {
       toast({ title: "Sin Datos", description: "No hay permisos para exportar.", variant: "secondary" });
@@ -565,6 +608,9 @@ export default function PermisosPage() {
                      <Button onClick={() => setIsBulkUpdateModalOpen(true)} variant="outline" disabled={selectedRows.length === 0}>
                         <FileEdit className="mr-2 h-4 w-4" /> Modificación Masiva ({selectedRows.length})
                      </Button>
+                      <Button onClick={() => setIsBulkStatusModalOpen(true)} variant="outline" disabled={selectedRows.length === 0}>
+                        <FileEdit className="mr-2 h-4 w-4" /> Asignar Estatus ({selectedRows.length})
+                      </Button>
                      <Button onClick={handleExportExcel} variant="outline" disabled={isExporting}>
                         {isExporting ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : <Download className="mr-2 h-4 w-4" />}
                         Exportar a Excel
@@ -609,7 +655,9 @@ export default function PermisosPage() {
             onClose={() => setSelectedPermitForComment(null)}
             permit={selectedPermitForComment}
             worksheetId={selectedPermitForComment.worksheetId}
-            onCommentsUpdate={() => {}} // Read-only in this context
+            onCommentsUpdate={(newComments) => {
+              setAllPermits(prev => prev.map(p => p.id === selectedPermitForComment.id ? {...p, comments: newComments} : p));
+            }}
         />
     )}
      <Dialog open={isDeliveryModalOpen} onOpenChange={setIsDeliveryModalOpen}>
@@ -675,6 +723,29 @@ export default function PermisosPage() {
               {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin"/>}
               Aplicar Cambios
             </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      <Dialog open={isBulkStatusModalOpen} onOpenChange={setIsBulkStatusModalOpen}>
+        <DialogContent>
+          <DialogHeader>
+              <DialogTitle>Actualización Masiva de Estado</DialogTitle>
+              <DialogDescription>Seleccione el estado a aplicar a los {selectedRows.length} permisos seleccionados.</DialogDescription>
+          </DialogHeader>
+          <div className="py-4">
+            <Select onValueChange={(value) => handleBulkStatusUpdate(value as DocumentStatus)}>
+                <SelectTrigger><SelectValue placeholder="Seleccionar nuevo estado..." /></SelectTrigger>
+                <SelectContent>
+                    <SelectItem value="Pendiente">Pendiente</SelectItem>
+                    <SelectItem value="En Trámite">En Trámite</SelectItem>
+                    <SelectItem value="Entregado">Entregado</SelectItem>
+                    <SelectItem value="Rechazado">Rechazado</SelectItem>
+                    <SelectItem value="Sometido de Nuevo">Sometido de Nuevo</SelectItem>
+                </SelectContent>
+            </Select>
+          </div>
+          <DialogFooter>
+              <Button variant="outline" onClick={() => setIsBulkStatusModalOpen(false)}>Cancelar</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
