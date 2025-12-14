@@ -32,6 +32,7 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import Link from 'next/link';
 import { DatePicker } from '@/components/reports/DatePicker';
 import { downloadPermisosAsExcel } from '@/lib/fileExporterPermisos';
+import { Label } from '@/components/ui/label';
 
 
 export interface PermitRow extends RequiredPermit {
