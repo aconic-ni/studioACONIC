@@ -28,9 +28,9 @@ import { PermitDeliveryTicket } from '@/components/permisos/PermitDeliveryTicket
 import { cn } from '@/lib/utils';
 import { PermitDetailsModal } from '@/components/executive/worksheet/PermitDetailsModal';
 import { permitOptions } from '@/lib/formData';
-import { RadioGroup, RadioGroupItem } from '../ui/radio-group';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import Link from 'next/link';
-import { DatePicker } from '../reports/DatePicker';
+import { DatePicker } from '@/components/reports/DatePicker';
 import { downloadPermisosAsExcel } from '@/lib/fileExporterPermisos';
 
 
@@ -559,7 +559,7 @@ export default function PermisosPage() {
                      <Button onClick={() => setIsBulkUpdateModalOpen(true)} variant="outline" disabled={selectedRows.length === 0}>
                         <FileEdit className="mr-2 h-4 w-4" /> Modificación Masiva ({selectedRows.length})
                      </Button>
-                     <Button onClick={() => handleExportExcel()} variant="outline" disabled={isExporting}>
+                     <Button onClick={handleExportExcel} variant="outline" disabled={isExporting}>
                         {isExporting ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : <Download className="mr-2 h-4 w-4" />}
                         Exportar a Excel
                      </Button>
