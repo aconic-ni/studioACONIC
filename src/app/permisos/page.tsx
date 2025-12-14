@@ -41,12 +41,14 @@ export interface PermitRow extends RequiredPermit {
   reference?: string;
   executive: string;
   consignee?: string;
+  worksheetCreatedAt: Timestamp;
 }
 
-const formatDate = (timestamp: Timestamp | null | undefined): string => {
+const formatDate = (timestamp: Timestamp | null | undefined, short: boolean = false): string => {
   if (!timestamp) return 'N/A';
   const date = timestamp.toDate();
-  return format(date, 'dd/MM/yy', { locale: es });
+  const formatString = short ? 'dd/MM/yy' : 'dd/MM/yy HH:mm';
+  return format(date, formatString, { locale: es });
 };
 
 export default function PermisosPage() {
@@ -113,6 +115,7 @@ export default function PermisosPage() {
                         reference: worksheet.reference,
                         executive: worksheet.executive,
                         consignee: worksheet.consignee,
+                        worksheetCreatedAt: worksheet.createdAt,
                     });
                 });
             }
@@ -471,6 +474,7 @@ export default function PermisosPage() {
                         }}
                      />
                   </TableHead>
+                  <TableHead>Fecha de Reporte</TableHead>
                   <TableHead>NE</TableHead>
                   <TableHead>Consignatario</TableHead>
                   <TableHead>Factura Asociada</TableHead>
@@ -505,6 +509,7 @@ export default function PermisosPage() {
                                 }}
                             />
                         </TableCell>
+                        <TableCell className="font-medium">{formatDate(permit.worksheetCreatedAt, true)}</TableCell>
                         <TableCell className="font-medium">{permit.ne}</TableCell>
                         <TableCell>{permit.consignee}</TableCell>
                         <TableCell>{permit.facturaNumber || 'N/A'}</TableCell>
@@ -512,8 +517,8 @@ export default function PermisosPage() {
                         <TableCell>{permit.tipoTramite || 'N/A'}</TableCell>
                         <TableCell><Badge variant={getStatusBadgeVariant(permit.status)}>{permit.status}</Badge></TableCell>
                         <TableCell>{permit.assignedExecutive || permit.executive}</TableCell>
-                        <TableCell>{formatDate(permit.tramiteDate)}</TableCell>
-                        <TableCell>{formatDate(permit.estimatedDeliveryDate)}</TableCell>
+                        <TableCell>{formatDate(permit.tramiteDate, false)}</TableCell>
+                        <TableCell>{formatDate(permit.estimatedDeliveryDate, false)}</TableCell>
                         <TableCell>
                             <Button variant="ghost" size="icon" onClick={() => setSelectedPermitForComment(permit)}>
                                 <MessageSquare className="h-4 w-4" />
@@ -527,7 +532,7 @@ export default function PermisosPage() {
                                 <Badge className="bg-blue-100 text-blue-700">{permit.permitDelivery.deliveredTo}</Badge>
                             ) : <Badge variant="outline">Pendiente</Badge>}
                         </TableCell>
-                        <TableCell>{formatDate(permit.permitDelivery?.deliveredAt)}</TableCell>
+                        <TableCell>{formatDate(permit.permitDelivery?.deliveredAt, true)}</TableCell>
                       </TableRow>
                     )
                 })}
