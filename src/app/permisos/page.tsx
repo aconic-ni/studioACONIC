@@ -8,7 +8,7 @@ import { AppShell } from '@/components/layout/AppShell';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Loader2, Search, SlidersHorizontal, MessageSquare, Download, Upload, GitCommit, Check } from 'lucide-react';
+import { Loader2, Search, SlidersHorizontal, MessageSquare, Download, Upload, GitCommit, Check, FileEdit } from 'lucide-react';
 import { db } from '@/lib/firebase';
 import { collection, query, onSnapshot, orderBy, Timestamp, where, type Query, getDocs, doc, writeBatch } from 'firebase/firestore';
 import type { Worksheet, RequiredPermit, AppUser, PermitDelivery } from '@/types';
@@ -26,6 +26,12 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 import { PermitDeliveryTicket } from '@/components/permisos/PermitDeliveryTicket';
 import { cn } from '@/lib/utils';
+import { PermitDetailsModal } from '@/components/executive/worksheet/PermitDetailsModal';
+import { permitOptions } from '@/lib/formData';
+import { RadioGroup, RadioGroupItem } from '../ui/radio-group';
+import Link from 'next/link';
+import { DatePicker } from '../reports/DatePicker';
+import { downloadPermisosAsExcel } from '@/lib/fileExporterPermisos';
 
 
 export interface PermitRow extends RequiredPermit {
@@ -57,6 +63,11 @@ export default function PermisosPage() {
   const [deliveryRecipient, setDeliveryRecipient] = useState('');
   const [ticketData, setTicketData] = useState<{ permits: PermitRow[], recipient: string } | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isExporting, setIsExporting] = useState(false);
+  const [isBulkUpdateModalOpen, setIsBulkUpdateModalOpen] = useState(false);
+  const [bulkTramiteDate, setBulkTramiteDate] = useState<Date | undefined>();
+  const [bulkRetiroDate, setBulkRetiroDate] = useState<Date | undefined>();
+
 
   const [groupMembers, setGroupMembers] = useState<AppUser[]>([]);
   const [selectedPermitForComment, setSelectedPermitForComment] = useState<PermitRow | null>(null);
@@ -304,25 +315,31 @@ export default function PermisosPage() {
     const batch = writeBatch(db);
     const worksheetsToUpdate = new Map<string, RequiredPermit[]>();
 
-    selectedPermits.forEach(permit => {
-        const deliveryInfo: PermitDelivery = {
-            deliveredTo: deliveryRecipient,
-            deliveredBy: user!.displayName!,
-            deliveredAt: Timestamp.now(),
-        };
-        const updatedPermit: RequiredPermit = { ...permit, status: 'Entregado', permitDelivery: deliveryInfo };
-        
+    // Prepare updates
+    for (const permit of selectedPermits) {
         if (!worksheetsToUpdate.has(permit.worksheetId)) {
-            const originalWorksheet = allPermits.filter(p => p.worksheetId === permit.worksheetId);
-            worksheetsToUpdate.set(permit.worksheetId, originalWorksheet);
+            const wsDoc = await getDoc(doc(db, 'worksheets', permit.worksheetId));
+            if (wsDoc.exists()) {
+                worksheetsToUpdate.set(permit.worksheetId, (wsDoc.data() as Worksheet).requiredPermits || []);
+            }
         }
-        
-        const existingPermits = worksheetsToUpdate.get(permit.worksheetId)!;
-        const permitIndex = existingPermits.findIndex(p => p.id === permit.id);
-        if (permitIndex !== -1) {
-            existingPermits[permitIndex] = updatedPermit;
+
+        const existingPermits = worksheetsToUpdate.get(permit.worksheetId);
+        if (existingPermits) {
+            const permitIndex = existingPermits.findIndex(p => p.id === permit.id);
+            if (permitIndex !== -1) {
+                existingPermits[permitIndex] = {
+                    ...existingPermits[permitIndex],
+                    status: 'Entregado',
+                    permitDelivery: {
+                        deliveredTo: deliveryRecipient,
+                        deliveredBy: user.displayName,
+                        deliveredAt: Timestamp.now(),
+                    },
+                };
+            }
         }
-    });
+    }
 
     worksheetsToUpdate.forEach((permits, worksheetId) => {
         const wsRef = doc(db, 'worksheets', worksheetId);
@@ -342,6 +359,69 @@ export default function PermisosPage() {
         setIsSubmitting(false);
     }
   };
+
+  const handleBulkUpdate = async () => {
+    if (selectedRows.length === 0 || (!bulkTramiteDate && !bulkRetiroDate)) {
+        toast({ title: "Sin cambios", description: "Seleccione al menos un permiso y una fecha para actualizar." });
+        return;
+    }
+
+    setIsSubmitting(true);
+    const batch = writeBatch(db);
+    const worksheetsToUpdate = new Map<string, RequiredPermit[]>();
+    const selectedPermitsInfo = allPermits.filter(p => selectedRows.includes(p.id));
+
+    for (const permitInfo of selectedPermitsInfo) {
+        if (!worksheetsToUpdate.has(permitInfo.worksheetId)) {
+            const wsDoc = await getDoc(doc(db, 'worksheets', permitInfo.worksheetId));
+            if (wsDoc.exists()) {
+                worksheetsToUpdate.set(permitInfo.worksheetId, (wsDoc.data() as Worksheet).requiredPermits || []);
+            }
+        }
+
+        const existingPermits = worksheetsToUpdate.get(permitInfo.worksheetId);
+        if (existingPermits) {
+            const permitIndex = existingPermits.findIndex(p => p.id === permitInfo.id);
+            if (permitIndex !== -1) {
+                if (bulkTramiteDate) {
+                    existingPermits[permitIndex].tramiteDate = Timestamp.fromDate(bulkTramiteDate);
+                }
+                if (bulkRetiroDate) {
+                    existingPermits[permitIndex].estimatedDeliveryDate = Timestamp.fromDate(bulkRetiroDate);
+                }
+            }
+        }
+    }
+
+    worksheetsToUpdate.forEach((permits, worksheetId) => {
+        batch.update(doc(db, 'worksheets', worksheetId), { requiredPermits: permits });
+    });
+
+    try {
+        await batch.commit();
+        toast({ title: 'Actualización Exitosa', description: `${selectedRows.length} permisos han sido actualizados.` });
+        setIsBulkUpdateModalOpen(false);
+        setSelectedRows([]);
+        setBulkTramiteDate(undefined);
+        setBulkRetiroDate(undefined);
+    } catch (error) {
+        console.error("Error bulk updating permits:", error);
+        toast({ title: 'Error', description: 'No se pudieron actualizar los permisos.', variant: 'destructive' });
+    } finally {
+        setIsSubmitting(false);
+    }
+};
+
+  const handleExportExcel = () => {
+    if (filteredPermits.length === 0) {
+      toast({ title: "Sin Datos", description: "No hay permisos para exportar.", variant: "secondary" });
+      return;
+    }
+    setIsExporting(true);
+    downloadPermisosAsExcel(filteredPermits);
+    setIsExporting(false);
+  };
+
 
   if (authLoading || !user) {
     return <div className="min-h-screen flex items-center justify-center bg-background"><Loader2 className="h-12 w-12 animate-spin text-primary" /></div>;
@@ -400,7 +480,8 @@ export default function PermisosPage() {
                   <TableHead>Fecha Sometido</TableHead>
                   <TableHead>Fecha Retiro</TableHead>
                   <TableHead>Comentarios</TableHead>
-                  <TableHead>Estado Entrega</TableHead>
+                  <TableHead>Entregado a</TableHead>
+                  <TableHead>Fecha de Remisión</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -442,9 +523,10 @@ export default function PermisosPage() {
                         </TableCell>
                          <TableCell>
                             {permit.permitDelivery ? (
-                                <Badge className="bg-blue-100 text-blue-700">Entregado a {permit.permitDelivery.deliveredTo}</Badge>
+                                <Badge className="bg-blue-100 text-blue-700">{permit.permitDelivery.deliveredTo}</Badge>
                             ) : <Badge variant="outline">Pendiente</Badge>}
                         </TableCell>
+                        <TableCell>{formatDate(permit.permitDelivery?.deliveredAt)}</TableCell>
                       </TableRow>
                     )
                 })}
@@ -474,6 +556,13 @@ export default function PermisosPage() {
                     <Button onClick={handleDownloadTemplate} variant="outline">
                         <Download className="mr-2 h-4 w-4" /> Plantilla
                     </Button>
+                     <Button onClick={() => setIsBulkUpdateModalOpen(true)} variant="outline" disabled={selectedRows.length === 0}>
+                        <FileEdit className="mr-2 h-4 w-4" /> Modificación Masiva ({selectedRows.length})
+                     </Button>
+                     <Button onClick={() => handleExportExcel()} variant="outline" disabled={isExporting}>
+                        {isExporting ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : <Download className="mr-2 h-4 w-4" />}
+                        Exportar a Excel
+                     </Button>
                      <Button onClick={() => setIsDeliveryModalOpen(true)} disabled={selectedRows.length === 0}>
                         <GitCommit className="mr-2 h-4 w-4" /> Generar Entrega ({selectedRows.length})
                     </Button>
@@ -552,6 +641,33 @@ export default function PermisosPage() {
             <Button onClick={handleConfirmDelivery} disabled={!deliveryRecipient || isSubmitting}>
               {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin"/>}
               Confirmar y Generar Ticket
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      <Dialog open={isBulkUpdateModalOpen} onOpenChange={setIsBulkUpdateModalOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Actualización Masiva de Fechas</DialogTitle>
+            <DialogDescription>
+              Seleccione las fechas que desea aplicar a los {selectedRows.length} permisos seleccionados. Los campos que deje en blanco no se modificarán.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+                <Label>Fecha de Trámite</Label>
+                <DatePicker date={bulkTramiteDate} onDateChange={setBulkTramiteDate} />
+            </div>
+            <div className="space-y-2">
+                <Label>Fecha de Retiro (Estimada)</Label>
+                <DatePicker date={bulkRetiroDate} onDateChange={setBulkRetiroDate} />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsBulkUpdateModalOpen(false)}>Cancelar</Button>
+            <Button onClick={handleBulkUpdate} disabled={isSubmitting}>
+              {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin"/>}
+              Aplicar Cambios
             </Button>
           </DialogFooter>
         </DialogContent>
