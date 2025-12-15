@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { Suspense, useState, useEffect, useMemo, useCallback, useRef } from 'react';
@@ -76,7 +77,7 @@ export default function PermisosPage() {
 
 
   const [groupMembers, setGroupMembers] = useState<AppUser[]>([]);
-  const [selectedPermitForComment, setSelectedPermitForComment] = useState<PermitRow | null>(null);
+  const [selectedPermitForComment, setSelectedPermitForComment] = useState<{permit: RequiredPermit, index: number} | null>(null);
   const [isImporting, setIsImporting] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -396,12 +397,14 @@ export default function PermisosPage() {
         if (existingPermits) {
             const permitIndex = existingPermits.findIndex(p => p.id === permitInfo.id);
             if (permitIndex !== -1) {
+                const updatedPermit = { ...existingPermits[permitIndex] };
                 if (bulkTramiteDate) {
-                    existingPermits[permitIndex].tramiteDate = Timestamp.fromDate(bulkTramiteDate);
+                    updatedPermit.tramiteDate = Timestamp.fromDate(bulkTramiteDate);
                 }
                 if (bulkRetiroDate) {
-                    existingPermits[permitIndex].estimatedDeliveryDate = Timestamp.fromDate(bulkRetiroDate);
+                    updatedPermit.estimatedDeliveryDate = Timestamp.fromDate(bulkRetiroDate);
                 }
+                existingPermits[permitIndex] = updatedPermit;
             }
         }
     }
@@ -532,9 +535,9 @@ export default function PermisosPage() {
                   <TableHead>Permiso</TableHead>
                   <TableHead>Tipo de Trámite</TableHead>
                   <TableHead>Estado</TableHead>
-                  <TableHead>Ejecutivo</TableHead>
+                  <TableHead>Ejecutivo Asignado</TableHead>
                   <TableHead>Fecha Sometido</TableHead>
-                  <TableHead>Fecha Retiro</TableHead>
+                  <TableHead>Fecha Retiro Estimada</TableHead>
                   <TableHead>Comentarios</TableHead>
                   <TableHead>Entregado a</TableHead>
                   <TableHead>Fecha de Remisión</TableHead>
@@ -572,7 +575,7 @@ export default function PermisosPage() {
                         <TableCell>{formatDate(permit.tramiteDate, false)}</TableCell>
                         <TableCell>{formatDate(permit.estimatedDeliveryDate, false)}</TableCell>
                         <TableCell>
-                            <Button variant="ghost" size="icon" onClick={() => setSelectedPermitForComment(permit)}>
+                            <Button variant="ghost" size="icon" onClick={() => setSelectedPermitForComment({ permit, index: -1 })}>
                                 <MessageSquare className="h-4 w-4" />
                                  {permit.comments && permit.comments.length > 0 && (
                                     <Badge variant="destructive" className="absolute -top-1 -right-1 h-4 w-4 p-0 justify-center text-xs">{permit.comments.length}</Badge>
@@ -663,7 +666,7 @@ export default function PermisosPage() {
             isOpen={!!selectedPermitForComment}
             onClose={() => setSelectedPermitForComment(null)}
             permit={selectedPermitForComment.permit}
-            worksheetId={selectedPermitForComment.ne}
+            worksheetId={selectedPermitForComment.permit.ne}
             onCommentsUpdate={() => {}}
         />
     )}
