@@ -1,4 +1,3 @@
-
 "use client";
 import React, { useEffect, useState, useMemo, useCallback, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
@@ -7,7 +6,7 @@ import { useAuth } from '@/context/AuthContext';
 import { AppShell } from '@/components/layout/AppShell';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Loader2, FilePlus, Search, Edit, Eye, History, PlusSquare, UserCheck, Inbox, AlertTriangle, Download, ChevronsUpDown, Info, CheckCircle, CalendarRange, Calendar, CalendarDays, ShieldAlert, BookOpen, FileCheck2, MessageSquare, View, Banknote, Bell as BellIcon, RefreshCw, Send, StickyNote, Scale, Briefcase, KeyRound } from 'lucide-react';
+import { Loader2, FilePlus, Search, Edit, Eye, History, PlusSquare, UserCheck, Inbox, AlertTriangle, Download, ChevronsUpDown, Info, CheckCircle, CalendarRange, Calendar, CalendarDays, ShieldAlert, BookOpen, FileCheck2, MessageSquare, View, Banknote, Bell as BellIcon, RefreshCw, Send, StickyNote, Scale, Briefcase, KeyRound, Copy, Archive } from 'lucide-react';
 import { db } from '@/lib/firebase';
 import { collection, query, where, onSnapshot, orderBy, Timestamp, doc, getDoc, updateDoc, writeBatch, addDoc, getDocs, collectionGroup, serverTimestamp } from 'firebase/firestore';
 import type { Worksheet, AforoCase, AforadorStatus, AforoCaseStatus, DigitacionStatus, WorksheetWithCase, AforoCaseUpdate, PreliquidationStatus, IncidentType, LastUpdateInfo, ExecutiveComment, InitialDataContext, AppUser, SolicitudRecord, ExamDocument, FacturacionStatus } from '@/types';
@@ -15,6 +14,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { format, toDate, isSameDay, startOfDay, endOfDay, startOfMonth, endOfMonth, differenceInDays } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
 import { AforoCaseHistoryModal } from '@/components/reporter/AforoCaseHistoryModal';
 import { IncidentReportModal } from '@/components/reporter/IncidentReportModal';
 import { Badge } from '@/components/ui/badge';
@@ -55,7 +55,6 @@ import { Dialog, DialogHeader, DialogTitle, DialogDescription, DialogContent, Di
 
 type DateFilterType = 'range' | 'month' | 'today';
 type TabValue = 'worksheets' | 'anexos' | 'corporate';
-
 
 const months = [
     { value: 0, label: 'Enero' }, { value: 1, label: 'Febrero' }, { value: 2, label: 'Marzo' },
@@ -144,6 +143,11 @@ function ExecutivePageContent() {
   const [selectedCaseForProcess, setSelectedCaseForProcess] = useState<AforoCase | null>(null);
   const [isDeathkeyModalOpen, setIsDeathkeyModalOpen] = useState(false);
   const [pinInput, setPinInput] = useState('');
+  
+  const [duplicateAndRetireModalOpen, setDuplicateAndRetireModalOpen] = useState(false);
+  const [caseToDuplicate, setCaseToDuplicate] = useState<WorksheetWithCase | null>(null);
+  const [newNeForDuplicate, setNewNeForDuplicate] = useState('');
+  const [duplicateReason, setDuplicateReason] = useState('');
 
   const [searchTerm, setSearchTerm] = useState('');
   const [savingState, setSavingState] = useState<{ [key: string]: boolean }>({});
@@ -561,10 +565,9 @@ function ExecutivePageContent() {
           const start = startOfDay(appliedFilters.dateRange.from);
           const end = appliedFilters.dateRange.to ? endOfDay(appliedFilters.dateRange.to) : endOfDay(appliedFilters.dateRange.from);
           
-          filtered = filtered.filter(c => {
-              if (!c.createdAt) return false;
-              const createdAtDate = c.createdAt.toDate();
-              return createdAtDate >= start && createdAtDate <= end;
+          filtered = filtered.filter(item => {
+              const itemDate = item.createdAt?.toDate();
+              return itemDate && itemDate >= start && itemDate <= end;
           });
       }
   
@@ -699,6 +702,68 @@ function ExecutivePageContent() {
         setIsLoading(false);
     }
   };
+
+  const handleDuplicateAndRetire = async () => {
+    if (!user || !user.displayName || !caseToDuplicate || !caseToDuplicate.worksheet) {
+        toast({title: 'Error', description: 'No se puede procesar la solicitud. Faltan datos.', variant: 'destructive'});
+        return;
+    }
+    const newNe = newNeForDuplicate.trim().toUpperCase();
+    if (!newNe) {
+        toast({title: 'Error', description: 'El nuevo NE no puede estar vacío.', variant: 'destructive'});
+        return;
+    }
+
+    setSavingState(prev => ({...prev, [caseToDuplicate.id]: true}));
+    
+    const originalCaseRef = doc(db, 'AforoCases', caseToDuplicate.id);
+    const originalWorksheetRef = doc(db, 'worksheets', caseToDuplicate.worksheetId!);
+    const newCaseRef = doc(db, 'AforoCases', newNe);
+    const newWorksheetRef = doc(db, 'worksheets', newNe);
+    
+    const batch = writeBatch(db);
+
+    try {
+        const [newCaseSnap, newWorksheetSnap] = await Promise.all([getDoc(newCaseRef), getDoc(newWorksheetRef)]);
+        if (newCaseSnap.exists() || newWorksheetSnap.exists()) {
+            toast({ title: "Duplicado", description: `Ya existe un registro con el NE ${newNe}.`, variant: "destructive" });
+            setSavingState(prev => ({...prev, [caseToDuplicate.id]: false}));
+            return;
+        }
+
+        // 1. Create new worksheet
+        const newWorksheetData = { ...caseToDuplicate.worksheet, id: newNe, ne: newNe, createdAt: Timestamp.now(), createdBy: user.email };
+        batch.set(newWorksheetRef, newWorksheetData);
+        
+        // 2. Create new case
+        const newCaseData = { ...caseToDuplicate, id: newNe, ne: newNe, createdAt: Timestamp.now(), createdBy: user.uid, digitacionStatus: 'Pendiente', executiveComments: [{id: uuidv4(), author: user.displayName, text: `Duplicado del NE: ${caseToDuplicate.ne}. Motivo: ${duplicateReason}`, createdAt: Timestamp.now()}] };
+        batch.set(newCaseRef, newCaseData);
+
+        // 3. Update old case
+        batch.update(originalCaseRef, { digitacionStatus: 'TRASLADADO' });
+        
+        // 4. Log the action on the old case
+        const logRef = doc(collection(originalCaseRef, 'actualizaciones'));
+        const updateLog: AforoCaseUpdate = {
+            updatedAt: Timestamp.now(),
+            updatedBy: user.displayName,
+            field: 'digitacionStatus',
+            oldValue: caseToDuplicate.digitacionStatus,
+            newValue: 'TRASLADADO',
+            comment: `Caso trasladado al nuevo NE: ${newNe}. Motivo: ${duplicateReason}`
+        };
+        batch.set(logRef, updateLog);
+
+        await batch.commit();
+        toast({title: 'Operación Exitosa', description: `El caso ${caseToDuplicate.ne} ha sido duplicado a ${newNe} y retirado.`});
+        setDuplicateAndRetireModalOpen(false);
+    } catch(e) {
+        console.error("Error duplicating and retiring", e);
+        toast({title: 'Error', description: 'No se pudo completar la operación.', variant: 'destructive'});
+    } finally {
+        setSavingState(prev => ({...prev, [caseToDuplicate.id]: false}));
+    }
+};
 
 
 
@@ -837,6 +902,12 @@ function ExecutivePageContent() {
                                 <DropdownMenuSeparator />
                                 <DropdownMenuItem onSelect={() => setSelectedCaseForHistory(c)} disabled={!c}><History className="mr-2 h-4 w-4" /> Ver Bitácora</DropdownMenuItem>
                                 {c.incidentReported && (<DropdownMenuItem onSelect={() => handleViewIncidents(c)}><Eye className="mr-2 h-4 w-4" /> Ver Incidencia</DropdownMenuItem>)}
+                                {user?.role === 'admin' && <DropdownMenuItem onClick={() => setCaseToArchive(c)} className="text-destructive"><Archive className="mr-2 h-4 w-4" /> Archivar</DropdownMenuItem>}
+                                {(user?.role === 'admin' || user?.role === 'coordinadora') && c.worksheet?.worksheetType === 'hoja_de_trabajo' && (
+                                    <DropdownMenuItem onClick={() => { setCaseToDuplicate(c); setDuplicateAndRetireModalOpen(true); }} className="text-destructive">
+                                        <Copy className="mr-2 h-4 w-4" /> Duplicar y Retirar
+                                    </DropdownMenuItem>
+                                )}
                               </DropdownMenuContent>
                             </DropdownMenu>
                              <Tooltip>
@@ -1225,6 +1296,43 @@ function ExecutivePageContent() {
                 <Button variant="destructive" onClick={handleDeathkey} disabled={isLoading}>
                     {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin"/>}
                     Confirmar y Ejecutar
+                </Button>
+            </DialogFooter>
+        </DialogContent>
+    </Dialog>
+    <Dialog open={duplicateAndRetireModalOpen} onOpenChange={setDuplicateAndRetireModalOpen}>
+        <DialogContent>
+            <DialogHeader>
+                <DialogTitle>Duplicar y Retirar Hoja de Trabajo</DialogTitle>
+                <DialogDescription>
+                    Está a punto de duplicar el caso <span className="font-bold">{caseToDuplicate?.ne}</span>. La hoja de trabajo original será marcada como trasladada.
+                </DialogDescription>
+            </DialogHeader>
+            <div className="py-4 space-y-4">
+                <div className="space-y-2">
+                    <Label htmlFor="new-ne-input">Nuevo NE para el caso duplicado</Label>
+                    <Input
+                        id="new-ne-input"
+                        value={newNeForDuplicate}
+                        onChange={(e) => setNewNeForDuplicate(e.target.value)}
+                        placeholder="Ingrese el nuevo NE"
+                    />
+                </div>
+                 <div className="space-y-2">
+                    <Label htmlFor="reason-input">Motivo (Opcional)</Label>
+                    <Textarea
+                        id="reason-input"
+                        value={duplicateReason}
+                        onChange={(e) => setDuplicateReason(e.target.value)}
+                        placeholder="Explique por qué se está duplicando este caso."
+                    />
+                </div>
+            </div>
+            <DialogFooter>
+                <Button variant="outline" onClick={() => setDuplicateAndRetireModalOpen(false)}>Cancelar</Button>
+                <Button onClick={handleDuplicateAndRetire} disabled={savingState[caseToDuplicate?.id || ''] || !newNeForDuplicate}>
+                    {savingState[caseToDuplicate?.id || ''] && <Loader2 className="mr-2 h-4 w-4 animate-spin"/>}
+                    Confirmar Duplicación
                 </Button>
             </DialogFooter>
         </DialogContent>
