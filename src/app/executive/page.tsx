@@ -1069,7 +1069,7 @@ function ExecutivePageContent() {
     <AppShell>
       <div className="py-2 md:py-5 space-y-6">
         <AnnouncementsCarousel />
-        <Tabs defaultValue="worksheets" className="w-full" onValueChange={setActiveTab}>
+        <Tabs defaultValue="worksheets" className="w-full" onValueChange={handleTabChange}>
             <Card>
                  <CardHeader>
                     <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-4">
@@ -1344,3 +1344,5 @@ export default function ExecutivePage() {
         </Suspense>
     )
 }
+
+    
