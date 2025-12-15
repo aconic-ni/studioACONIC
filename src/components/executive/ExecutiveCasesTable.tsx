@@ -20,6 +20,7 @@ import {
 } from 'lucide-react';
 import { StatusBadges } from './StatusBadges';
 import Link from 'next/link';
+import { useAuth } from '@/context/AuthContext';
 
 interface ExecutiveCasesTableProps {
   cases: WorksheetWithCase[];
@@ -59,6 +60,13 @@ const getPreliquidationStatusBadge = (status?: PreliquidationStatus) => {
     }
 };
 
+const getIncidentTypeDisplay = (c: AforoCase) => {
+    const types = [];
+    if (c.incidentType === 'Rectificacion') types.push('Rectificación');
+    if (c.hasValueDoubt) types.push('Duda de Valor');
+    return types.length > 0 ? types.join(' / ') : 'N/A';
+  };
+
 export function ExecutiveCasesTable({
   cases,
   savingState,
@@ -92,16 +100,16 @@ export function ExecutiveCasesTable({
                 />
               </TableHead>
               <TableHead>Acciones</TableHead>
-              <TableHead><Input placeholder="NE..." className="h-8 text-xs" value={neFilter} onChange={e => setNeFilter(e.target.value)} /></TableHead>
+              <TableHead><Input placeholder="NE..." className="h-8 text-xs" value={neFilter} onChange={e => setNeFilter(e.target.value)}/></TableHead>
               <TableHead>Insignias</TableHead>
-              <TableHead><Input placeholder="Ejecutivo..." className="h-8 text-xs" value={ejecutivoFilter} onChange={e => setEjecutivoFilter(e.target.value)} /></TableHead>
-              <TableHead><Input placeholder="Consignatario..." className="h-8 text-xs" value={consignatarioFilter} onChange={e => setConsignatarioFilter(e.target.value)} /></TableHead>
-              <TableHead><Input placeholder="Factura..." className="h-8 text-xs" value={facturaFilter} onChange={e => setFacturaFilter(e.target.value)} /></TableHead>
+              <TableHead><Input placeholder="Ejecutivo..." className="h-8 text-xs" value={ejecutivoFilter} onChange={e => setEjecutivoFilter(e.target.value)}/></TableHead>
+              <TableHead><Input placeholder="Consignatario..." className="h-8 text-xs" value={consignatarioFilter} onChange={e => setConsignatarioFilter(e.target.value)}/></TableHead>
+              <TableHead><Input placeholder="Factura..." className="h-8 text-xs" value={facturaFilter} onChange={e => setFacturaFilter(e.target.value)}/></TableHead>
               <TableHead>Preliquidación</TableHead>
               <TableHead>Estado General</TableHead>
-              <TableHead><Input placeholder="Selectividad..." className="h-8 text-xs" value={selectividadFilter} onChange={e => setSelectividadFilter(e.target.value)} /></TableHead>
+              <TableHead><Input placeholder="Selectividad..." className="h-8 text-xs" value={selectividadFilter} onChange={e => setSelectividadFilter(e.target.value)}/></TableHead>
               <TableHead>Fecha Despacho</TableHead>
-              <TableHead><Input placeholder="Incidencia..." className="h-8 text-xs" value={incidentTypeFilter} onChange={e => setIncidentTypeFilter(e.target.value)} /></TableHead>
+              <TableHead><Input placeholder="Incidencia..." className="h-8 text-xs" value={incidentTypeFilter} onChange={e => setIncidentTypeFilter(e.target.value)}/></TableHead>
               <TableHead>Facturado</TableHead>
             </TableRow>
           </TableHeader>
@@ -161,7 +169,19 @@ export function ExecutiveCasesTable({
                   <TableCell><StatusBadges caseData={c} /></TableCell>
                   <TableCell>{c.executive}</TableCell>
                   <TableCell>{c.consignee}</TableCell>
-                  <TableCell>{firstFactura}{remainingFacturasCount > 0 && <Badge variant="secondary" className="ml-2">+{remainingFacturasCount}</Badge>}</TableCell>
+                  <TableCell>
+                    <div className="flex items-center gap-2">
+                      <span>{firstFactura}</span>
+                      {remainingFacturasCount > 0 && (
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Badge variant="secondary" className="cursor-pointer">+{remainingFacturasCount}</Badge>
+                          </TooltipTrigger>
+                          <TooltipContent><ul className="list-disc list-inside">{facturas.slice(1).map((f, i) => <li key={i}>{f}</li>)}</ul></TooltipContent>
+                        </Tooltip>
+                      )}
+                    </div>
+                  </TableCell>
                   <TableCell>
                     <div className="flex items-center">
                       {c.revisorStatus === 'Aprobado' && c.preliquidationStatus !== 'Aprobada' ? (
@@ -185,10 +205,21 @@ export function ExecutiveCasesTable({
                           <SelectItem value="ROJO">ROJO</SelectItem>
                         </SelectContent>
                       </Select>
+                      {c.selectividad === 'AMARILLO' && (
+                        <Tooltip>
+                          <TooltipTrigger asChild><Badge variant="secondary" className="cursor-help"><Info className="h-4 w-4" /></Badge></TooltipTrigger>
+                          <TooltipContent><p>CONSULTA DE VALORES</p></TooltipContent>
+                        </Tooltip>
+                      )}
                     </div>
                   </TableCell>
                   <TableCell>
-                    <DatePickerWithTime date={(c.fechaDespacho as Timestamp)?.toDate()} onDateChange={(d) => onAutoSave(c.id, 'fechaDespacho', d ? Timestamp.fromDate(d) : null)} disabled={savingState[c.id] || (c.selectividad !== 'VERDE' && c.selectividad !== 'ROJO')} />
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild><div><DatePickerWithTime date={(c.fechaDespacho as Timestamp)?.toDate()} onDateChange={(d) => onAutoSave(c.id, 'fechaDespacho', d ? Timestamp.fromDate(d) : null)} disabled={savingState[c.id] || (c.selectividad !== 'VERDE' && c.selectividad !== 'ROJO')} /></div></TooltipTrigger>
+                        {(c.selectividad !== 'VERDE' && c.selectividad !== 'ROJO') && (<TooltipContent><p>Debe seleccionar un estado de selectividad (Verde o Rojo) antes de registrar el despacho.</p></TooltipContent>)}
+                      </Tooltip>
+                    </TooltipProvider>
                   </TableCell>
                   <TableCell>{getIncidentTypeDisplay(c)}</TableCell>
                   <TableCell>
@@ -198,7 +229,7 @@ export function ExecutiveCasesTable({
                     </div>
                   </TableCell>
                 </TableRow>
-              );
+              )
             })}
           </TableBody>
         </Table>
