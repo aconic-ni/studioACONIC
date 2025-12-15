@@ -21,6 +21,7 @@ import {
 import { StatusBadges } from './StatusBadges';
 import Link from 'next/link';
 import { useAuth } from '@/context/AuthContext';
+import { Switch } from '@/components/ui/switch';
 
 interface ExecutiveCasesTableProps {
   cases: WorksheetWithCase[];
@@ -166,9 +167,23 @@ export function ExecutiveCasesTable({
                     </div>
                   </TableCell>
                   <TableCell className="font-medium">{c.ne}</TableCell>
-                  <TableCell><StatusBadges caseData={c} /></TableCell>
+                  <TableCell>
+                      <StatusBadges caseData={c} />
+                  </TableCell>
                   <TableCell>{c.executive}</TableCell>
-                  <TableCell>{c.consignee}</TableCell>
+                  <TableCell>
+                    {c.consignee.length > 13 ? (
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <span className="flex items-center gap-1 cursor-help">
+                            {`${c.consignee.substring(0, 13)}...`}
+                            <Info className="h-4 w-4 text-muted-foreground" />
+                          </span>
+                        </TooltipTrigger>
+                        <TooltipContent><p>{c.consignee}</p></TooltipContent>
+                      </Tooltip>
+                    ) : ( c.consignee )}
+                  </TableCell>
                   <TableCell>
                     <div className="flex items-center gap-2">
                       <span>{firstFactura}</span>
