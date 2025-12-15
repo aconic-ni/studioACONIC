@@ -689,6 +689,17 @@ function ExecutivePageContent() {
     }
 };
 
+  const handleOpenPaymentRequest = () => {
+    const initialData: InitialDataContext = {
+        ne: `SOL-${format(new Date(), 'ddMMyy-HHmmss')}`,
+        manager: user?.displayName || 'Usuario Desconocido',
+        date: new Date(),
+        recipient: '',
+        isMemorandum: false,
+    };
+    setInitialContextData(initialData);
+    setIsRequestPaymentModalOpen(true);
+  };
 
 
   const welcomeName = user?.displayName ? user.displayName.split(' ')[0] : 'Usuario';
