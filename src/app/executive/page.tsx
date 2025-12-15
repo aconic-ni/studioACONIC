@@ -1,3 +1,4 @@
+
 "use client";
 import React, { useEffect, useState, useMemo, useCallback, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
@@ -51,6 +52,7 @@ import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { StatusProcessModal } from '@/components/executive/StatusProcessModal';
 import { Dialog, DialogHeader, DialogTitle, DialogDescription, DialogContent, DialogFooter } from '@/components/ui/dialog';
+import { v4 as uuidv4 } from 'uuid';
 
 
 type DateFilterType = 'range' | 'month' | 'today';
@@ -999,12 +1001,6 @@ function ExecutivePageContent() {
                             </div>
                         </TableCell>
                         <TableCell>
-                            <div className="flex items-center">
-                                {getPreliquidationStatusBadge(c.preliquidationStatus)}
-                                <LastUpdateTooltip lastUpdate={c.preliquidationStatusLastUpdate} caseCreation={c.createdAt} />
-                            </div>
-                        </TableCell>
-                        <TableCell>
                             <TooltipProvider>
                                 <Tooltip>
                                     <TooltipTrigger asChild>
@@ -1073,7 +1069,7 @@ function ExecutivePageContent() {
     <AppShell>
       <div className="py-2 md:py-5 space-y-6">
         <AnnouncementsCarousel />
-        <Tabs defaultValue={activeTab} className="w-full" onValueChange={handleTabChange}>
+        <Tabs defaultValue="worksheets" className="w-full" onValueChange={setActiveTab}>
             <Card>
                  <CardHeader>
                     <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-4">
