@@ -742,7 +742,7 @@ function ExecutivePageContent() {
         batch.set(newCaseRef, newCaseData);
 
         // 3. Update old case
-        batch.update(originalCaseRef, { digitacionStatus: 'TRASLADADO' });
+        batch.update(originalCaseRef, { digitacionStatus: 'TRASLADADO', isArchived: true });
         
         // 4. Log the action on the old case
         const logRef = doc(collection(originalCaseRef, 'actualizaciones'));
@@ -838,9 +838,9 @@ function ExecutivePageContent() {
                 <TableHead><Input placeholder="Ejecutivo..." className="h-8 text-xs" value={ejecutivoFilter} onChange={e => setEjecutivoFilter(e.target.value)}/></TableHead>
                 <TableHead><Input placeholder="Consignatario..." className="h-8 text-xs" value={consignatarioFilter} onChange={e => setConsignatarioFilter(e.target.value)}/></TableHead>
                 <TableHead><Input placeholder="Factura..." className="h-8 text-xs" value={facturaFilter} onChange={e => setFacturaFilter(e.target.value)}/></TableHead>
+                <TableHead>Preliquidación</TableHead>
                 <TableHead>Estado General</TableHead>
                 <TableHead><Input placeholder="Selectividad..." className="h-8 text-xs" value={selectividadFilter} onChange={e => setSelectividadFilter(e.target.value)}/></TableHead>
-                <TableHead>Preliquidación</TableHead>
                 <TableHead>Fecha Despacho</TableHead>
                 <TableHead><Input placeholder="Incidencia..." className="h-8 text-xs" value={incidentTypeFilter} onChange={e => setIncidentTypeFilter(e.target.value)}/></TableHead>
                 <TableHead>Facturado</TableHead>
@@ -878,7 +878,7 @@ function ExecutivePageContent() {
                                     <Search className="mr-2 h-4 w-4" /> Buscar Previo
                                 </DropdownMenuItem>
                                  <DropdownMenuItem asChild>
-                                   <Link href={`/executive/anexos?type=${c.worksheet?.worksheetType === 'anexo_7' ? 'anexo_7' : 'anexo_5'}&id=${c.id}`}>
+                                   <Link href={`/managerpermisos?id=${c.id}`}>
                                       <FilePlus className="mr-2 h-4 w-4" /> Docs y Permisos
                                   </Link>
                                  </DropdownMenuItem>
@@ -963,6 +963,18 @@ function ExecutivePageContent() {
                                     </Tooltip>
                                 )}
                             </div>
+                        </TableCell>
+                        <TableCell>
+                           <div className="flex items-center">
+                              {c.revisorStatus === 'Aprobado' && c.preliquidationStatus !== 'Aprobada' ? (
+                                  <Button size="sm" onClick={() => approvePreliquidation(c.id)} disabled={savingState[c.id]}>
+                                      <CheckCircle className="mr-2 h-4 w-4" /> Aprobar
+                                  </Button>
+                              ) : (
+                                  getPreliquidationStatusBadge(c.preliquidationStatus)
+                              )}
+                              <LastUpdateTooltip lastUpdate={c.preliquidationStatusLastUpdate} caseCreation={c.createdAt} />
+                           </div>
                         </TableCell>
                         <TableCell>
                             <div className="flex items-center group relative">
@@ -1346,3 +1358,4 @@ export default function ExecutivePage() {
 }
 
     
+
