@@ -1,7 +1,6 @@
-
 "use client";
 import { useState, useMemo, useCallback } from 'react';
-import type { AforoCase } from '@/types';
+import type { AforoCase, WorksheetWithCase } from '@/types';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../ui/card';
 import type { DateRange } from 'react-day-picker';
@@ -79,6 +78,10 @@ export function AforoDashboard({ allCases }: AforoDashboardProps) {
     const aforoData = useMemo(() => {
         const aforadorStats: { [key: string]: { assigned: number; readyForReview: number; revalidated: number; posiciones: number } } = {};
         
+        const hojaDeTrabajoCases = allCases.filter(c => 
+            (c as WorksheetWithCase).worksheet?.worksheetType === 'hoja_de_trabajo' || (c as WorksheetWithCase).worksheet?.worksheetType === undefined
+        );
+        
         let start: Date, end: Date;
         const now = new Date();
         switch(filterType) {
@@ -109,7 +112,7 @@ export function AforoDashboard({ allCases }: AforoDashboardProps) {
                 break;
         }
 
-        const casesForAssignedMetric = allCases.filter(c => {
+        const casesForAssignedMetric = hojaDeTrabajoCases.filter(c => {
              const assignmentDate = (c.assignmentDate as Timestamp)?.toDate();
              const isPsmt = c.consignee?.toUpperCase().trim() === "PSMT NICARAGUA, SOCIEDAD ANONIMA";
              return !isPsmt && assignmentDate && assignmentDate >= start && assignmentDate <= end;
@@ -124,7 +127,11 @@ export function AforoDashboard({ allCases }: AforoDashboardProps) {
             aforadorStats[aforadorName].posiciones += Number(c.totalPosiciones || 0);
         });
 
-        filteredCases.forEach(c => {
+        const filteredHojaDeTrabajoCases = filteredCases.filter(c => 
+            (c as WorksheetWithCase).worksheet?.worksheetType === 'hoja_de_trabajo' || (c as WorksheetWithCase).worksheet?.worksheetType === undefined
+        );
+
+        filteredHojaDeTrabajoCases.forEach(c => {
             const aforadorName = c.aforador || 'Sin Asignar';
             const isPsmt = c.consignee?.toUpperCase().trim() === "PSMT NICARAGUA, SOCIEDAD ANONIMA";
             
@@ -209,7 +216,11 @@ export function AforoDashboard({ allCases }: AforoDashboardProps) {
     const digitacionData = useMemo(() => {
         const digitadorStats: { [key: string]: { assigned: number; liquidated: number; stored: number } } = {};
 
-        filteredCases.forEach(c => {
+        const filteredHojaDeTrabajoCases = filteredCases.filter(c => 
+            (c as WorksheetWithCase).worksheet?.worksheetType === 'hoja_de_trabajo' || (c as WorksheetWithCase).worksheet?.worksheetType === undefined
+        );
+
+        filteredHojaDeTrabajoCases.forEach(c => {
             const digitadorName = c.digitadorAsignado || 'Sin Asignar';
              if (!digitadorStats[digitadorName]) {
                 digitadorStats[digitadorName] = { assigned: 0, liquidated: 0, stored: 0 };
@@ -277,7 +288,7 @@ export function AforoDashboard({ allCases }: AforoDashboardProps) {
             </Card>
             
             <div className="space-y-2">
-                 <h3 className="text-xl font-semibold">Métricas de Aforo</h3>
+                 <h3 className="text-xl font-semibold">Métricas de Aforo (Hojas de Trabajo)</h3>
                 <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-2">
                     <AforoPieChartCard
                         title="Casos Asignados por Aforador"
@@ -319,7 +330,7 @@ export function AforoDashboard({ allCases }: AforoDashboardProps) {
             </div>
 
             <div className="space-y-2 pt-6">
-                 <h3 className="text-xl font-semibold">Métricas de Digitación</h3>
+                 <h3 className="text-xl font-semibold">Métricas de Digitación (Hojas de Trabajo)</h3>
                  <div className="grid gap-4 md:grid-cols-1 lg:grid-cols-3">
                     <AforoPieChartCard
                         title="Casos Asignados por Digitador"

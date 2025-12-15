@@ -1,4 +1,3 @@
-
 "use client";
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { db } from '@/lib/firebase';
@@ -319,8 +318,7 @@ export function DailyAforoCasesTable({ filters, setAllFetchedCases, displayCases
 
     const excludedTypes = ['anexo_5', 'anexo_7', 'corporate_report'];
     let mainQuery = query(
-        collection(db, 'worksheets'),
-        where('worksheetType', 'not-in', excludedTypes)
+        collection(db, 'worksheets')
     );
 
     if (filters.ne?.trim()) {
@@ -333,17 +331,18 @@ export function DailyAforoCasesTable({ filters, setAllFetchedCases, displayCases
   
     const unsubscribe = onSnapshot(mainQuery, 
       async (snapshot) => {
-        if (snapshot.empty) {
+        const allWorksheets = snapshot.docs
+          .map(doc => ({ id: doc.id, ...doc.data() } as Worksheet))
+          .filter(ws => ws.worksheetType === 'hoja_de_trabajo' || ws.worksheetType === undefined);
+
+        if (allWorksheets.length === 0) {
             setAllFetchedCases([]);
             setIsLoading(false);
             return;
         }
 
-        const worksheetIds = snapshot.docs.map(doc => doc.id);
-        const worksheetsMap = new Map<string, Worksheet>();
-        snapshot.forEach(doc => {
-            worksheetsMap.set(doc.id, { id: doc.id, ...doc.data() } as Worksheet);
-        });
+        const worksheetIds = allWorksheets.map(doc => doc.id);
+        const worksheetsMap = new Map<string, Worksheet>(allWorksheets.map(ws => [ws.id, ws]));
 
         const casePromises = [];
         for (let i = 0; i < worksheetIds.length; i += 30) {
