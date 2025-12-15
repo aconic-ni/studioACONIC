@@ -1,0 +1,56 @@
+type User @table {
+  username: String!
+  email: String!
+  displayName: String!
+  role: String!
+  department: String
+  manager: User
+}
+
+type ProcessDefinition @table {
+  name: String!
+  description: String!
+  createdBy: User!
+  createdAt: Timestamp!
+  isActive: Boolean
+  version: Int
+}
+
+type ProcessInstance @table {
+  processDefinition: ProcessDefinition!
+  initiator: User!
+  status: String!
+  createdAt: Timestamp!
+  completedAt: Timestamp
+  currentStep: Int
+}
+
+type TaskDefinition @table {
+  processDefinition: ProcessDefinition!
+  name: String!
+  description: String!
+  stepOrder: Int!
+  taskType: String!
+  assignedRole: String
+  approvalRequired: Boolean
+}
+
+type TaskInstance @table {
+  processInstance: ProcessInstance!
+  taskDefinition: TaskDefinition!
+  assignedTo: User!
+  status: String!
+  createdAt: Timestamp!
+  completedAt: Timestamp
+  dueDate: Timestamp
+  notes: String
+  attachments: [String]
+}
+
+type Approval @table {
+  taskInstance: TaskInstance!
+  approver: User!
+  status: String!
+  approvedAt: Timestamp!
+  comments: String
+}

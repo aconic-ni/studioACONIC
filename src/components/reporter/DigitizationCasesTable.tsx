@@ -1,3 +1,4 @@
+
 "use client";
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { db } from '@/lib/firebase';
@@ -27,7 +28,7 @@ interface DigitizationCasesTableProps {
     ne?: string;
   };
   setAllFetchedCases: (cases: WorksheetWithCase[]) => void;
-  displayCases: WorksheetWithCase[];
+  showPendingOnly: boolean;
 }
 
 const formatDate = (date: Date | Timestamp | null | undefined): string => {
@@ -60,13 +61,14 @@ const LastUpdateTooltip = ({ lastUpdate, caseCreation }: { lastUpdate?: LastUpda
 };
 
 
-export function DigitizationCasesTable({ filters, setAllFetchedCases, displayCases }: DigitizationCasesTableProps) {
+export function DigitizationCasesTable({ filters, setAllFetchedCases, showPendingOnly }: DigitizationCasesTableProps) {
   const { user } = useAuth();
   const { toast } = useToast();
   const isMobile = useIsMobile();
   const [assignableUsers, setAssignableUsers] = useState<AppUser[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [savingState, setSavingState] = useState<{ [key: string]: boolean }>({});
+  const [displayCases, setDisplayCases] = useState<AforoCase[]>([]);
   
   const [selectedCaseForHistory, setSelectedCaseForHistory] = useState<AforoCase | null>(null);
   const [selectedCaseForComment, setSelectedCaseForComment] = useState<AforoCase | null>(null);
@@ -74,7 +76,7 @@ export function DigitizationCasesTable({ filters, setAllFetchedCases, displayCas
   const [selectedCaseForAssignment, setSelectedCaseForAssignment] = useState<AforoCase | null>(null);
 
 
-  const handleAutoSave = useCallback(async (caseId: string, field: keyof AforoCase, value: any) => {
+  const handleAutoSave = useCallback(async (caseId: string, field: keyof AforoCase, value: any, isTriggerFromFieldUpdate: boolean = false) => {
     if (!user || !user.displayName) {
         toast({ title: "No autenticado", description: "Debe iniciar sesión para guardar cambios." });
         return;
@@ -119,8 +121,9 @@ export function DigitizationCasesTable({ filters, setAllFetchedCases, displayCas
 
         await batch.commit();
 
-        toast({ title: "Guardado Automático", description: `El campo se ha actualizado.` });
-
+        if(!isTriggerFromFieldUpdate) {
+            toast({ title: "Guardado Automático", description: `El campo se ha actualizado.` });
+        }
     } catch (error) {
         console.error("Error updating case:", error);
         toast({ title: "Error", description: `No se pudo guardar el cambio.`, variant: "destructive" });
@@ -159,7 +162,7 @@ export function DigitizationCasesTable({ filters, setAllFetchedCases, displayCas
     if (filters.ne?.trim()) {
         qCases = query(collection(db, 'AforoCases'), where('ne', '==', filters.ne.trim().toUpperCase()));
     } else {
-        const statuses = ['Pendiente de Digitación', 'En Proceso', 'Almacenado'];
+        const statuses = ['Pendiente de Digitación', 'En Proceso', 'Almacenado', 'Trámite Completo'];
         qCases = query(
             collection(db, 'AforoCases'),
             where('digitacionStatus', 'in', statuses),
@@ -168,32 +171,19 @@ export function DigitizationCasesTable({ filters, setAllFetchedCases, displayCas
         );
     }
 
-    const unsubscribe = onSnapshot(qCases, async (snapshot) => {
-        const aforoCasesData: AforoCase[] = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as AforoCase));
+    const unsubscribe = onSnapshot(qCases, (snapshot) => {
+        const fetchedCases: AforoCase[] = [];
+        snapshot.forEach((doc) => {
+            fetchedCases.push({ id: doc.id, ...doc.data() } as AforoCase);
+        });
         
-        const worksheetsSnap = await getDocs(collection(db, 'worksheets'));
-        const worksheetsMap = new Map(worksheetsSnap.docs.map(doc => [doc.id, { id: doc.id, ...doc.data() } as Worksheet]));
-
-        const casesWithWorksheetInfo = aforoCasesData
-            .map(caseItem => ({
-                ...caseItem,
-                worksheet: worksheetsMap.get(caseItem.worksheetId || '') || null,
-            }))
-             .filter(c => 
-                c.worksheet?.worksheetType === 'hoja_de_trabajo' || 
-                c.worksheet?.worksheetType === undefined
-            );
-
-
-        let filtered = casesWithWorksheetInfo;
-        
-        if (filters.ne) {
-            filtered = filtered.filter(c => c.ne.toUpperCase().includes(filters.ne!.toUpperCase()));
+        let filtered = fetchedCases;
+        if(showPendingOnly) {
+            filtered = filtered.filter(c => c.digitacionStatus !== 'Trámite Completo');
         }
 
-        filtered.sort((a, b) => (b.createdAt?.toMillis() ?? 0) - (a.createdAt?.toMillis() ?? 0));
-        
-        setAllFetchedCases(filtered);
+        setAllFetchedCases(filtered as WorksheetWithCase[]);
+        setDisplayCases(filtered);
         setIsLoading(false);
     }, (error) => {
         console.error("Error fetching digitization cases: ", error);
@@ -202,7 +192,7 @@ export function DigitizationCasesTable({ filters, setAllFetchedCases, displayCas
     });
 
     return () => unsubscribe();
-  }, [filters, toast, setAllFetchedCases]);
+  }, [filters, toast, setAllFetchedCases, showPendingOnly]);
 
   const handleAssignDigitador = (caseId: string, digitadorName: string) => {
      handleAutoSave(caseId, 'digitadorAsignado', digitadorName);
@@ -247,22 +237,22 @@ export function DigitizationCasesTable({ filters, setAllFetchedCases, displayCas
   
   if (isMobile) {
     return (
-        <div className="space-y-4">
-            {displayCases.map((caseItem) => (
-                <MobileDigitacionCard 
-                    key={caseItem.id}
-                    caseItem={caseItem}
-                    canEdit={canEdit}
-                    isDigitador={isDigitador}
-                    savingState={savingState}
-                    handleStatusChange={handleStatusChange}
-                    handleAutoSave={handleAutoSave}
-                    openCommentModal={openCommentModal}
-                    openHistoryModal={openHistoryModal}
-                    setSelectedCaseForAssignment={setSelectedCaseForAssignment}
-                />
-            ))}
-        </div>
+      <div className="space-y-4">
+        {displayCases.map((caseItem) => (
+            <MobileDigitacionCard
+                key={caseItem.id}
+                caseItem={caseItem}
+                canEdit={canEdit}
+                isDigitador={isDigitador}
+                savingState={savingState}
+                handleStatusChange={handleStatusChange}
+                handleAutoSave={handleAutoSave}
+                openCommentModal={openCommentModal}
+                openHistoryModal={openHistoryModal}
+                setSelectedCaseForAssignment={setSelectedCaseForAssignment}
+            />
+        ))}
+      </div>
     )
   }
 

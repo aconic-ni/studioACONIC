@@ -27,12 +27,8 @@ import { collection, getDocs, query, where, collectionGroup, orderBy, writeBatch
 import { db } from '@/lib/firebase';
 import { downloadAforoReportAsExcel } from '@/lib/fileExporterAforo';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { startOfMonth, endOfMonth, isSameDay, startOfDay, endOfDay } from 'date-fns';
+import { startOfMonth, endOfMonth } from 'date-fns';
 import { useToast } from '@/hooks/use-toast';
-import { useIsMobile } from '@/hooks/use-mobile';
-import { Dialog, DialogHeader, DialogTitle, DialogDescription, DialogContent, DialogFooter } from '@/components/ui/dialog';
-import { Label } from '@/components/ui/label';
-
 
 type DateFilterType = 'range' | 'month' | 'today';
 
@@ -50,8 +46,8 @@ export default function TheReporterPage() {
   const { user, loading } = useAuth();
   const router = useRouter();
   const { toast } = useToast();
-  const isMobile = useIsMobile();
   const [isAforoModalOpen, setIsAforoModalOpen] = useState(false);
+  const [isSendingToDigitization, setIsSendingToDigitization] = useState(false);
   
   // State for filter inputs
   const [neInput, setNeInput] = useState('');
@@ -71,10 +67,9 @@ export default function TheReporterPage() {
   }>({
     dateFilterType: 'range',
   });
-
-  const [allFetchedCases, setAllFetchedCases] = useState<WorksheetWithCase[]>([]);
+  
+  const [allCasesForExport, setAllCasesForExport] = useState<WorksheetWithCase[]>([]);
   const [isExporting, setIsExporting] = useState(false);
-  const [isSendingToDigitization, setIsSendingToDigitization] = useState(false);
 
 
   const canCreateReport = user?.role === 'aforador' || user?.role === 'admin';
@@ -115,20 +110,8 @@ export default function TheReporterPage() {
     setAppliedDbFilters(filtersToApply);
 };
 
-
-  const filteredCases = useMemo(() => {
-    let filtered = allFetchedCases;
-
-    if (showPendingOnly) {
-      return allFetchedCases.filter(c => !c.declaracionAduanera);
-    }
-    
-    return filtered;
-
-  }, [allFetchedCases, showPendingOnly]);
-
   const handleExport = async () => {
-    if (filteredCases.length === 0) {
+    if (allCasesForExport.length === 0) {
         toast({ title: "No hay datos", description: "No hay casos en la tabla para exportar.", variant: "secondary" });
         return;
     };
@@ -137,7 +120,7 @@ export default function TheReporterPage() {
     try {
         const auditLogs: (AforoCaseUpdate & { caseNe: string })[] = [];
         
-        for (const caseItem of filteredCases) {
+        for (const caseItem of allCasesForExport) {
             const logsQuery = query(collection(db, 'AforoCases', caseItem.id, 'actualizaciones'), orderBy('updatedAt', 'asc'));
             const logSnapshot = await getDocs(logsQuery);
             logSnapshot.forEach(logDoc => {
@@ -148,11 +131,11 @@ export default function TheReporterPage() {
             });
         }
         
-        await downloadAforoReportAsExcel(filteredCases, auditLogs);
+        await downloadAforoReportAsExcel(allCasesForExport, auditLogs);
         
     } catch (e) {
         console.error("Error exporting data with audit logs: ", e);
-        toast({ title: "Error de Exportación", description: "No se pudieron obtener todos los registros de auditoría.", variant: "destructive" });
+        toast({ title: "Error de Exportación", description: "No se pudieron obtener todos los detalles para el reporte.", variant: "destructive" });
     } finally {
         setIsExporting(false);
     }
@@ -298,7 +281,7 @@ export default function TheReporterPage() {
                                         <Filter className="mr-2 h-4 w-4" /> Pendientes
                                     </Button>
                                     <Button variant="outline" onClick={clearFilters}>Limpiar Filtros</Button>
-                                    <Button onClick={handleExport} disabled={filteredCases.length === 0 || isExporting}>
+                                    <Button onClick={handleExport} disabled={allCasesForExport.length === 0 || isExporting}>
                                        {isExporting ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : <Download className="mr-2 h-4 w-4" />}
                                        {isExporting ? 'Exportando...' : 'Exportar'}
                                     </Button>
@@ -311,15 +294,15 @@ export default function TheReporterPage() {
                      <TabsContent value="aforo">
                         <DailyAforoCasesTable 
                            filters={appliedDbFilters} 
-                           setAllFetchedCases={setAllFetchedCases}
-                           displayCases={filteredCases}
+                           setAllFetchedCases={setAllCasesForExport}
+                           showPendingOnly={showPendingOnly}
                         />
                     </TabsContent>
                     <TabsContent value="digitacion">
                         <DigitizationCasesTable 
                            filters={appliedDbFilters}
-                           setAllFetchedCases={setAllFetchedCases}
-                           displayCases={filteredCases}
+                           setAllFetchedCases={setAllCasesForExport}
+                           showPendingOnly={showPendingOnly}
                         />
                     </TabsContent>
                 </CardContent>
