@@ -233,7 +233,7 @@ export default function PermisosPage() {
     XLSX.writeFile(wb, "plantilla_permisos.xlsx");
   };
 
-  const handleFileImport = async (event: React.ChangeEvent<HTMLInputElement>) => {
+ const handleFileImport = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
 
@@ -251,12 +251,16 @@ export default function PermisosPage() {
 
             const batch = writeBatch(db);
             let updatedCount = 0;
+            let skippedCount = 0;
 
             for (const row of json) {
                 const ne = row['NE']?.toString().trim();
                 const permitName = row['Permiso']?.toString().trim();
                 
-                if (!ne || !permitName) continue;
+                if (!ne || !permitName) {
+                    skippedCount++;
+                    continue;
+                }
 
                 const wsRef = doc(db, 'worksheets', ne);
                 const wsSnap = await getDoc(wsRef);
@@ -266,8 +270,8 @@ export default function PermisosPage() {
                     const permits = wsData.requiredPermits || [];
                     const existingPermitIndex = permits.findIndex(p => p.name === permitName);
 
-                    const parseDate = (dateStr: string | number) => {
-                        if (!dateStr) return null;
+                    const parseDate = (dateStr: string | number | null | undefined): Timestamp | null => {
+                        if (dateStr === null || dateStr === undefined || String(dateStr).trim() === '' || String(dateStr).trim().toUpperCase() === 'N/A') return null;
                         const parsed = typeof dateStr === 'number' 
                             ? new Date(Date.UTC(0, 0, dateStr - 1))
                             : new Date(dateStr);
@@ -284,6 +288,9 @@ export default function PermisosPage() {
                         tipoTramite: row['Tipo'] || undefined,
                     };
                     
+                    // Remove undefined properties before merging/pushing
+                    Object.keys(permitData).forEach(key => permitData[key as keyof typeof permitData] === undefined && delete permitData[key as keyof typeof permitData]);
+
                     if (existingPermitIndex !== -1) {
                         permits[existingPermitIndex] = { ...permits[existingPermitIndex], ...permitData };
                     } else {
@@ -292,14 +299,16 @@ export default function PermisosPage() {
                     
                     batch.update(wsRef, { requiredPermits: permits });
                     updatedCount++;
+                } else {
+                    skippedCount++;
                 }
             }
 
             if (updatedCount > 0) {
                 await batch.commit();
-                toast({ title: "Importación Completa", description: `${updatedCount} registros de permisos han sido actualizados/añadidos.` });
+                toast({ title: "Importación Completa", description: `${updatedCount} registros de permisos han sido actualizados/añadidos. ${skippedCount > 0 ? `${skippedCount} filas omitidas (NE no encontrado).`: ''}` });
             } else {
-                 toast({ title: "Sin Cambios", description: "No se encontraron NEs coincidentes en el archivo para actualizar." });
+                 toast({ title: "Sin Cambios", description: `No se encontraron NEs coincidentes en el archivo para actualizar. Se omitieron ${skippedCount} filas.` });
             }
 
         } catch (error: any) {
@@ -374,7 +383,7 @@ export default function PermisosPage() {
     }
   };
 
-  const handleBulkUpdate = async () => {
+ const handleBulkUpdate = async () => {
     if (selectedRows.length === 0 || (!bulkTramiteDate && !bulkRetiroDate)) {
         toast({ title: "Sin cambios", description: "Seleccione al menos un permiso y una fecha para actualizar." });
         return;
@@ -410,7 +419,12 @@ export default function PermisosPage() {
     }
 
     worksheetsToUpdate.forEach((permits, worksheetId) => {
-        batch.update(doc(db, 'worksheets', worksheetId), { requiredPermits: permits });
+        const dataToUpdate = { requiredPermits: permits.map(p => ({
+            ...p,
+            tramiteDate: p.tramiteDate || null,
+            estimatedDeliveryDate: p.estimatedDeliveryDate || null,
+        }))};
+        batch.update(doc(db, 'worksheets', worksheetId), dataToUpdate);
     });
 
     try {
