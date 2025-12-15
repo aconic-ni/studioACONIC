@@ -73,8 +73,13 @@ export default function HomePage() {
             <CardContent className="flex flex-col items-center justify-center text-center gap-6 p-8">
                 <FileText className="h-20 w-20 text-primary" strokeWidth={1.5} />
                 <div className="space-y-1">
-                    <CardTitle className="text-3xl font-bold">CustomsEX-p</CardTitle>
-                    <CardDescription className="text-sm">Sistema de Gestión de Operaciones</CardDescription>
+                    <CardTitle className="text-4xl font-montserrat">
+                      <span className="font-bold">EX</span>
+                      <span className="font-normal">'OS</span>
+                    </CardTitle>
+                    <CardDescription className="text-xs text-muted-foreground pt-1">
+                        Examiner Operative System
+                    </CardDescription>
                 </div>
             </CardContent>
         </Card>

@@ -1,6 +1,6 @@
 
 import type { Metadata } from 'next';
-import { Inter } from 'next/font/google'; // Changed from Geist to Inter
+import { Inter, Montserrat } from 'next/font/google';
 import './globals.css';
 import { AuthProvider } from '@/context/AuthContext';
 import { AppProvider } from '@/context/AppContext';
@@ -9,13 +9,20 @@ import { FirebaseAppProvider } from '@/context/FirebaseAppContext'; // Renamed t
 import { use } from 'react';
 import { FirebaseErrorListener } from '@/components/FirebaseErrorListener';
 
-const inter = Inter({ // Changed from Geist to Inter
-  variable: '--font-inter', // Changed variable name
+const inter = Inter({
+  variable: '--font-inter',
   subsets: ['latin'],
+  display: 'swap',
+});
+
+const montserrat = Montserrat({
+  variable: '--font-montserrat',
+  subsets: ['latin'],
+  display: 'swap',
 });
 
 export const metadata: Metadata = {
-  title: 'ACONIC Examiner', // Updated title
+  title: "EX'OS", // Updated title
   description: 'Sistema de Examenes Previos by Jordy Stvaer', // Updated description
 };
 
@@ -26,7 +33,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="es">
-      <body className={`${inter.variable} font-sans antialiased`} suppressHydrationWarning={true}> {/* Use Inter variable */}
+      <body className={`${inter.variable} ${montserrat.variable} font-sans antialiased`} suppressHydrationWarning={true}>
         <FirebaseAppProvider>
           <AuthProvider>
             <AppProvider>

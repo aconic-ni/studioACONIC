@@ -52,11 +52,15 @@ const renderAppIdentity = (user: any) => {
     const LogoIcon = navLinkDetails['reportsPrevios'].icon;
 
     return (
-        <Link href={homePath}>
-            <div className="flex items-center gap-2">
-                <LogoIcon className="h-8 w-8 text-primary" />
-                <h1 className="text-xl md:text-2xl font-bold text-foreground">CustomsEX-p</h1>
-            </div>
+        <Link href={homePath} className="flex items-center gap-3">
+          <LogoIcon className="h-8 w-8 text-primary" />
+          <div className="flex flex-col">
+            <h1 className="font-montserrat text-2xl md:text-3xl font-bold text-foreground leading-none">
+              <span className="font-extrabold">EX</span>
+              <span className="font-medium">'OS</span>
+            </h1>
+            <p className="text-[8px] text-muted-foreground tracking-wider -mt-1">Examiner Operative System</p>
+          </div>
         </Link>
     );
 };
@@ -261,8 +265,13 @@ export function AppHeader() {
 
                        <div className="flex flex-col items-center gap-4 p-4 pt-0 border-b">
                          <div className="flex items-center justify-center gap-2">
-                             <LogoIcon className="h-8 w-8 text-primary" />
-                            <h1 className="text-xl md:text-2xl font-bold text-foreground">CustomsEX-p</h1>
+                           <div className="flex flex-col items-center">
+                              <h1 className="font-montserrat text-3xl font-bold text-foreground leading-none">
+                                <span className="font-extrabold">EX</span>
+                                <span className="font-medium">'OS</span>
+                              </h1>
+                              <p className="text-[9px] text-muted-foreground tracking-wider">Examiner Operative System</p>
+                            </div>
                           </div>
                           {(user.roleTitle || user.role) && <Badge variant="secondary" className="mx-auto">{user.roleTitle || user.role}</Badge>}
                           <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
