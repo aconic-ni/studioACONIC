@@ -51,9 +51,11 @@ import { Dialog, DialogHeader, DialogTitle, DialogDescription, DialogContent, Di
 import { v4 as uuidv4 } from 'uuid';
 import { ExecutiveCasesTable } from '@/components/executive/ExecutiveCasesTable';
 import { MobileCasesList } from '@/components/executive/MobileCasesList';
+import { Textarea } from '../ui/textarea';
 
 
 type DateFilterType = 'range' | 'month' | 'today';
+type TabValue = 'worksheets' | 'anexos' | 'corporate';
 
 const months = [
     { value: 0, label: 'Enero' }, { value: 1, label: 'Febrero' }, { value: 2, label: 'Marzo' },
@@ -1045,3 +1047,5 @@ export default function ExecutivePage() {
         </Suspense>
     )
 }
+
+    
