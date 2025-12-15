@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { Suspense, useState, useEffect, useMemo, useCallback, useRef } from 'react';
@@ -34,6 +33,7 @@ import { DatePicker } from '@/components/reports/DatePicker';
 import { downloadPermisosAsExcel } from '@/lib/fileExporterPermisos';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { v4 as uuidv4 } from 'uuid';
 
 
 export interface PermitRow extends RequiredPermit {
@@ -663,7 +663,7 @@ export default function PermisosPage() {
             isOpen={!!selectedPermitForComment}
             onClose={() => setSelectedPermitForComment(null)}
             permit={selectedPermitForComment.permit}
-            worksheetId={selectedPermitForComment.worksheetId}
+            worksheetId={selectedPermitForComment.ne}
             onCommentsUpdate={() => {}}
         />
     )}
