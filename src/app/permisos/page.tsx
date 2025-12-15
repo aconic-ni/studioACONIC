@@ -18,7 +18,7 @@ import { format, differenceInDays } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { MobilePermitCard } from '@/components/permisos/MobilePermitCard';
-import { PermitCommentModal } from '@/components/executive/PermitCommentModal';
+import { PermitCommentModal } from '../executive/PermitCommentModal';
 import { useToast } from '@/hooks/use-toast';
 import * as XLSX from 'xlsx';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -43,6 +43,7 @@ export interface PermitRow extends RequiredPermit {
   executive: string;
   consignee?: string;
   worksheetCreatedAt: Timestamp;
+  eta?: Timestamp | null;
 }
 
 const formatDate = (timestamp: Timestamp | null | undefined, short: boolean = false): string => {
@@ -92,13 +93,16 @@ export default function PermisosPage() {
         if (!user) return;
         const execRoles = ['admin', 'supervisor', 'coordinadora', 'ejecutivo'];
         const isManagement = execRoles.includes(user.role || '');
-        if (isManagement && user.visibilityGroup && user.visibilityGroup.length > 0) {
-           setGroupMembers(user.visibilityGroup as AppUser[]);
-        } else if (isManagement) {
+        if (isManagement) {
+            const groupMembersFromAuth = user.visibilityGroup || [];
             const execQuery = query(collection(db, 'users'), where('role', 'in', ['ejecutivo', 'coordinadora']));
             const querySnapshot = await getDocs(execQuery);
             const members = querySnapshot.docs.map(doc => ({ uid: doc.id, ...doc.data() } as AppUser));
-            setGroupMembers(members);
+
+             // Combine and remove duplicates
+            const combined = [...groupMembersFromAuth, ...members];
+            const uniqueMembers = Array.from(new Map(combined.map(item => [item.uid, item])).values());
+            setGroupMembers(uniqueMembers);
         }
     };
     fetchUsers();
@@ -118,6 +122,7 @@ export default function PermisosPage() {
                         executive: worksheet.executive,
                         consignee: worksheet.consignee,
                         worksheetCreatedAt: worksheet.createdAt,
+                        eta: worksheet.eta,
                     });
                 });
             }
@@ -139,8 +144,8 @@ export default function PermisosPage() {
         if (user.role === 'admin' || user.role === 'supervisor' || user.role === 'coordinadora') {
             q = query(worksheetsRef, orderBy('createdAt', 'desc'));
         } else if (user.role === 'ejecutivo' && user.visibilityGroup && user.visibilityGroup.length > 0) {
-            const groupEmails = user.visibilityGroup.map(m => m.email).filter(Boolean);
-            q = query(worksheetsRef, where('createdBy', 'in', [user.email, ...groupEmails]), orderBy('createdAt', 'desc'));
+            const groupEmails = Array.from(new Set([user.email, ...user.visibilityGroup.map(m => m.email)])).filter(Boolean);
+            q = query(worksheetsRef, where('createdBy', 'in', groupEmails), orderBy('createdAt', 'desc'));
         } else if (user.role === 'invitado') {
              const dirRef = collection(db, `users/${user.uid}/consigneeDirectory`);
              const dirSnap = await getDocs(dirRef);
@@ -183,7 +188,7 @@ export default function PermisosPage() {
       );
     }
     
-    const statusOrder: { [key in DocumentStatus]: number } = { 'Pendiente': 1, 'En Trámite': 2, 'Rechazado': 3, 'Sometido de Nuevo': 4, 'Entregado': 5 };
+    const statusOrder: { [key in DocumentStatus]: number } = { 'Pendiente': 1, 'En Trámite': 2, 'Rechazado': 3, 'Sometido de Nuevo': 4, 'Entregado': 5, 'Aprobado': 6 };
     filtered.sort((a, b) => {
         const aDueDate = a.estimatedDeliveryDate?.toDate() || new Date(8640000000000000);
         const bDueDate = b.estimatedDeliveryDate?.toDate() || new Date(8640000000000000);
@@ -209,6 +214,7 @@ export default function PermisosPage() {
   const getStatusBadgeVariant = (status: RequiredPermit['status']) => {
     switch (status) {
         case 'Entregado': return 'default';
+        case 'Aprobado': return 'default';
         case 'Rechazado': return 'destructive';
         case 'En Trámite': return 'secondary';
         case 'Sometido de Nuevo': return 'secondary';
@@ -219,7 +225,7 @@ export default function PermisosPage() {
   }
 
   const handleDownloadTemplate = () => {
-    const headers = ["NE", "Permiso", "Factura", "Estado", "FechaTramite", "FechaEntregaEstimada", "AsignadoA"];
+    const headers = ["NE", "Permiso", "Tipo", "Factura", "Estado", "FechaTramite", "FechaEntregaEstimada", "Recibo", "AsignadoA"];
     const ws = XLSX.utils.aoa_to_sheet([headers]);
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "Plantilla Permisos");
@@ -274,6 +280,7 @@ export default function PermisosPage() {
                         tramiteDate: parseDate(row['FechaTramite']),
                         estimatedDeliveryDate: parseDate(row['FechaEntregaEstimada']),
                         assignedExecutive: row['AsignadoA'] || wsData.executive,
+                        tipoTramite: row['Tipo'] || undefined,
                     };
                     
                     if (existingPermitIndex !== -1) {
@@ -518,6 +525,7 @@ export default function PermisosPage() {
                      />
                   </TableHead>
                   <TableHead>Fecha de Reporte</TableHead>
+                  <TableHead>ETA</TableHead>
                   <TableHead>NE</TableHead>
                   <TableHead>Consignatario</TableHead>
                   <TableHead>Factura Asociada</TableHead>
@@ -553,6 +561,7 @@ export default function PermisosPage() {
                             />
                         </TableCell>
                         <TableCell className="font-medium">{formatDate(permit.worksheetCreatedAt, true)}</TableCell>
+                        <TableCell className="font-medium">{formatDate(permit.eta, false)}</TableCell>
                         <TableCell className="font-medium">{permit.ne}</TableCell>
                         <TableCell>{permit.consignee}</TableCell>
                         <TableCell>{permit.facturaNumber || 'N/A'}</TableCell>
@@ -653,10 +662,10 @@ export default function PermisosPage() {
         <PermitCommentModal
             isOpen={!!selectedPermitForComment}
             onClose={() => setSelectedPermitForComment(null)}
-            permit={selectedPermitForComment}
+            permit={selectedPermitForComment.permit}
             worksheetId={selectedPermitForComment.worksheetId}
             onCommentsUpdate={(newComments) => {
-              setAllPermits(prev => prev.map(p => p.id === selectedPermitForComment.id ? {...p, comments: newComments} : p));
+              setAllPermits(prev => prev.map(p => p.id === selectedPermitForComment.permit.id ? {...p, comments: newComments} : p));
             }}
         />
     )}
@@ -741,6 +750,7 @@ export default function PermisosPage() {
                     <SelectItem value="Entregado">Entregado</SelectItem>
                     <SelectItem value="Rechazado">Rechazado</SelectItem>
                     <SelectItem value="Sometido de Nuevo">Sometido de Nuevo</SelectItem>
+                    <SelectItem value="Aprobado">Aprobado</SelectItem>
                 </SelectContent>
             </Select>
           </div>
@@ -752,3 +762,5 @@ export default function PermisosPage() {
     </>
   );
 }
+
+    
