@@ -11,11 +11,9 @@ import { Loader2, FilePlus, Search, Edit, Eye, History, PlusSquare, UserCheck, I
 import { db } from '@/lib/firebase';
 import { collection, query, where, onSnapshot, orderBy, Timestamp, doc, getDoc, updateDoc, writeBatch, addDoc, getDocs, collectionGroup, serverTimestamp } from 'firebase/firestore';
 import type { Worksheet, AforoCase, AforadorStatus, AforoCaseStatus, DigitacionStatus, WorksheetWithCase, AforoCaseUpdate, PreliquidationStatus, IncidentType, LastUpdateInfo, ExecutiveComment, InitialDataContext, AppUser, SolicitudRecord, ExamDocument, FacturacionStatus } from '@/types';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { format, toDate, isSameDay, startOfDay, endOfDay, startOfMonth, endOfMonth, differenceInDays } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { Input } from '@/components/ui/input';
-import { Textarea } from '@/components/ui/textarea';
 import { AforoCaseHistoryModal } from '@/components/reporter/AforoCaseHistoryModal';
 import { IncidentReportModal } from '@/components/reporter/IncidentReportModal';
 import { Badge } from '@/components/ui/badge';
@@ -42,8 +40,6 @@ import { AnnouncementsCarousel } from '@/components/executive/AnnouncementsCarou
 import { AssignUserModal } from '@/components/reporter/AssignUserModal';
 import { ResaNotificationModal } from '@/components/executive/ResaNotificationModal';
 import { useIsMobile } from '@/hooks/use-mobile';
-import { MobileCaseCard } from '@/components/executive/MobileCaseCard';
-import { StatusBadges } from '@/components/executive/StatusBadges';
 import { useAppContext } from '@/context/AppContext';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { ViewIncidentsModal } from '@/components/executive/ViewIncidentsModal';
@@ -53,10 +49,11 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { StatusProcessModal } from '@/components/executive/StatusProcessModal';
 import { Dialog, DialogHeader, DialogTitle, DialogDescription, DialogContent, DialogFooter } from '@/components/ui/dialog';
 import { v4 as uuidv4 } from 'uuid';
+import { ExecutiveCasesTable } from '@/components/executive/ExecutiveCasesTable';
+import { MobileCasesList } from '@/components/executive/MobileCasesList';
 
 
 type DateFilterType = 'range' | 'month' | 'today';
-type TabValue = 'worksheets' | 'anexos' | 'corporate';
 
 const months = [
     { value: 0, label: 'Enero' }, { value: 1, label: 'Febrero' }, { value: 2, label: 'Marzo' },
@@ -67,54 +64,6 @@ const months = [
 
 const currentYear = new Date().getFullYear();
 const years = Array.from({ length: 5 }, (_, i) => currentYear - i);
-
-const formatDate = (date: Date | Timestamp | null | undefined, includeTime: boolean = true): string => {
-    if (!date) return 'N/A';
-    const d = (date as Timestamp)?.toDate ? (date as Timestamp).toDate() : toDate(date);
-    const formatString = includeTime ? "dd/MM/yy HH:mm" : "dd/MM/yy";
-    return format(d, formatString, { locale: es });
-};
-
-const LastUpdateTooltip = ({ lastUpdate, caseCreation }: { lastUpdate?: LastUpdateInfo | null, caseCreation: Timestamp }) => {
-    if (!lastUpdate || !lastUpdate.at) return null;
-
-    const isInitialEntry = lastUpdate.at.isEqual(caseCreation);
-    const label = isInitialEntry ? "Registro realizado por" : "Modificado por";
-
-    return (
-        <Tooltip>
-            <TooltipTrigger asChild>
-                <Info className="h-4 w-4 text-muted-foreground ml-2 cursor-pointer"/>
-            </TooltipTrigger>
-            <TooltipContent>
-                <p>{label}: {lastUpdate.by}</p>
-                <p>Fecha: {formatDate(lastUpdate.at)}</p>
-            </TooltipContent>
-        </Tooltip>
-    );
-};
-
-// Helper to sanitize undefined values to null for Firestore
-const sanitizeForFirestore = (obj: any): any => {
-    if (obj === undefined) return null;
-    if (obj === null || typeof obj !== 'object' || obj instanceof Timestamp || obj instanceof Date) {
-        return obj;
-    }
-
-    if (Array.isArray(obj)) {
-        return obj.map(item => sanitizeForFirestore(item));
-    }
-    
-    const newObj: { [key: string]: any } = {};
-    for (const key in obj) {
-        if (Object.prototype.hasOwnProperty.call(obj, key)) {
-            const value = obj[key];
-            newObj[key] = value === undefined ? null : sanitizeForFirestore(value);
-        }
-    }
-    return newObj;
-};
-
 
 function ExecutivePageContent() {
   const { user, loading: authLoading } = useAuth();
@@ -384,8 +333,8 @@ function ExecutivePageContent() {
             updatedAt: Timestamp.now(),
             updatedBy: user.displayName,
             field: field as keyof AforoCase,
-            oldValue: sanitizeForFirestore(oldValue),
-            newValue: sanitizeForFirestore(value),
+            oldValue: oldValue ?? null,
+            newValue: value,
         };
         batch.set(doc(updatesSubcollectionRef), updateLog);
 
@@ -598,24 +547,8 @@ function ExecutivePageContent() {
   const totalPages = Math.ceil(filteredCases.length / itemsPerPage);
   const paginatedCases = appliedFilters.isSearchActive ? filteredCases.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage) : filteredCases;
   
-  const getDigitacionBadge = (status?: DigitacionStatus, declaracion?: string | null) => {
-    const isCompleted = status === 'Trámite Completo';
-    const badgeContent = isCompleted ? (declaracion || 'Finalizado') : (status || 'Pendiente');
-    const badgeVariant = isCompleted ? 'default' : (status === 'En Proceso' ? 'secondary' : 'outline');
-    const badgeClass = isCompleted ? 'bg-green-600' : '';
-    
-    return <Badge variant={badgeVariant} className={badgeClass}>{badgeContent}</Badge>;
-  }
-
   const approvePreliquidation = (caseId: string) => {
     handleAutoSave(caseId, 'preliquidationStatus', 'Aprobada');
-  };
-  
-  const getPreliquidationStatusBadge = (status?: PreliquidationStatus) => {
-    switch(status) {
-      case 'Aprobada': return <Badge variant="default" className="bg-green-600">Aprobada</Badge>;
-      default: return <Badge variant="outline">Pendiente</Badge>;
-    }
   };
   
   const handleOpenPaymentRequest = () => {
@@ -738,7 +671,7 @@ function ExecutivePageContent() {
         batch.set(newWorksheetRef, newWorksheetData);
         
         // 2. Create new case
-        const newCaseData = { ...caseToDuplicate, id: newNe, ne: newNe, createdAt: Timestamp.now(), createdBy: user.uid, digitacionStatus: 'Pendiente', executiveComments: [{id: uuidv4(), author: user.displayName, text: `Duplicado del NE: ${caseToDuplicate.ne}. Motivo: ${duplicateReason}`, createdAt: Timestamp.now()}] };
+        const newCaseData = { ...caseToDuplicate, id: newNe, ne: newNe, createdAt: Timestamp.now(), createdBy: user.uid, digitacionStatus: 'Pendiente', isArchived: false, executiveComments: [{id: uuidv4(), author: user.displayName, text: `Duplicado del NE: ${caseToDuplicate.ne}. Motivo: ${duplicateReason}`, createdAt: Timestamp.now()}] };
         batch.set(newCaseRef, newCaseData);
 
         // 3. Update old case
@@ -793,287 +726,43 @@ function ExecutivePageContent() {
     setSelectedIncidentForDetails,
     setSelectedCaseForComment,
     handleSearchPrevio,
+    setCaseToArchive,
+    setCaseToDuplicate,
+    setDuplicateAndRetireModalOpen,
   };
 
   const renderTable = () => {
-      if (isLoading) {
-        return <div className="flex justify-center items-center py-10"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>;
-      }
-      if (paginatedCases.length === 0 && appliedFilters.isSearchActive) {
-        return <p className="text-muted-foreground text-center py-10">No se encontraron casos con los filtros actuales.</p>;
-      }
-      if (paginatedCases.length === 0 && !appliedFilters.isSearchActive) {
-        return <p className="text-muted-foreground text-center py-10">No hay casos recientes para mostrar. Use la búsqueda para encontrar casos más antiguos.</p>;
-      }
-      if (isMobile) {
-        return (
-          <div className="space-y-4">
-              {paginatedCases.map(c => (
-                  <MobileCaseCard
-                      key={c.id}
-                      caseData={c}
-                      savingState={savingState}
-                      caseActions={caseActions}
-                      onAutoSave={handleAutoSave}
-                      approvePreliquidation={approvePreliquidation}
-                  />
-              ))}
-          </div>
-        );
-      }
-      return (
-        <div className="overflow-x-auto table-container rounded-lg border">
-            <TooltipProvider>
-            <Table><TableHeader><TableRow>
-                 <TableHead className="w-12">
-                    <Checkbox
-                      checked={selectedRows.length > 0 && selectedRows.length === filteredCases.filter(c => c.revisorStatus === 'Aprobado' && c.preliquidationStatus !== 'Aprobada').length}
-                      onCheckedChange={handleSelectAllForPreliquidation}
-                      aria-label="Seleccionar todo para preliquidación"
-                    />
-                 </TableHead>
-                <TableHead>Acciones</TableHead>
-                <TableHead><Input placeholder="NE..." className="h-8 text-xs" value={neFilter} onChange={e => setNeFilter(e.target.value)}/></TableHead>
-                <TableHead>Insignias</TableHead>
-                <TableHead><Input placeholder="Ejecutivo..." className="h-8 text-xs" value={ejecutivoFilter} onChange={e => setEjecutivoFilter(e.target.value)}/></TableHead>
-                <TableHead><Input placeholder="Consignatario..." className="h-8 text-xs" value={consignatarioFilter} onChange={e => setConsignatarioFilter(e.target.value)}/></TableHead>
-                <TableHead><Input placeholder="Factura..." className="h-8 text-xs" value={facturaFilter} onChange={e => setFacturaFilter(e.target.value)}/></TableHead>
-                <TableHead>Preliquidación</TableHead>
-                <TableHead>Estado General</TableHead>
-                <TableHead><Input placeholder="Selectividad..." className="h-8 text-xs" value={selectividadFilter} onChange={e => setSelectividadFilter(e.target.value)}/></TableHead>
-                <TableHead>Fecha Despacho</TableHead>
-                <TableHead><Input placeholder="Incidencia..." className="h-8 text-xs" value={incidentTypeFilter} onChange={e => setIncidentTypeFilter(e.target.value)}/></TableHead>
-                <TableHead>Facturado</TableHead>
-            </TableRow></TableHeader>
-            <TableBody>
-                {paginatedCases.map(c => {
-                    const facturas = c.worksheet?.worksheetType === 'corporate_report' 
-                        ? (c.worksheet.documents?.filter(d => d.type === 'FACTURA').map(d => d.number) || [])
-                        : (c.facturaNumber ? c.facturaNumber.split(';').map(f => f.trim()) : []);
+    if (isLoading) {
+      return <div className="flex justify-center items-center py-10"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>;
+    }
+    if (paginatedCases.length === 0 && appliedFilters.isSearchActive) {
+      return <p className="text-muted-foreground text-center py-10">No se encontraron casos con los filtros actuales.</p>;
+    }
+    if (paginatedCases.length === 0 && !appliedFilters.isSearchActive) {
+      return <p className="text-muted-foreground text-center py-10">No hay casos recientes para mostrar. Use la búsqueda para encontrar casos más antiguos.</p>;
+    }
 
-                    const firstFactura = facturas[0] || '';
-                    const remainingFacturasCount = facturas.length > 1 ? facturas.length - 1 : 0;
-                    const isPsmt = c.consignee.toUpperCase().trim() === "PSMT NICARAGUA, SOCIEDAD ANONIMA";
-                    const daysUntilDue = c.resaDueDate ? differenceInDays(c.resaDueDate.toDate(), new Date()) : null;
-                    const isResaCritical = daysUntilDue !== null && daysUntilDue < -15;
+    if (isMobile) {
+      return <MobileCasesList cases={paginatedCases} savingState={savingState} onAutoSave={handleAutoSave} approvePreliquidation={approvePreliquidation} caseActions={caseActions} />;
+    }
 
-                    return (
-                    <TableRow key={c.id} className={savingState[c.id] ? "bg-amber-100" : (isResaCritical ? "bg-red-200 hover:bg-red-200/80" : "")} data-state={selectedRows.includes(c.id) ? 'selected' : undefined}>
-                         <TableCell>
-                            <Checkbox
-                              checked={selectedRows.includes(c.id)}
-                              onCheckedChange={() => setSelectedRows(prev => prev.includes(c.id) ? prev.filter(id => id !== c.id) : [...prev, c.id])}
-                              aria-label={`Seleccionar caso ${c.ne}`}
-                            />
-                         </TableCell>
-                        <TableCell>
-                          <div className="flex items-center gap-0.5">
-                            <DropdownMenu>
-                              <DropdownMenuTrigger asChild><Button variant="ghost" size="sm">Ver</Button></DropdownMenuTrigger>
-                              <DropdownMenuContent>
-                                <DropdownMenuItem onSelect={() => handleViewWorksheet(c)} disabled={!c.worksheetId}>
-                                    <BookOpen className="mr-2 h-4 w-4" /> Ver Hoja de Trabajo
-                                </DropdownMenuItem>
-                                 <DropdownMenuItem onSelect={() => handleSearchPrevio(c.ne)}>
-                                    <Search className="mr-2 h-4 w-4" /> Buscar Previo
-                                </DropdownMenuItem>
-                                 <DropdownMenuItem asChild>
-                                   <Link href={`/managerpermisos?id=${c.id}`}>
-                                      <FilePlus className="mr-2 h-4 w-4" /> Docs y Permisos
-                                  </Link>
-                                 </DropdownMenuItem>
-                                <DropdownMenuItem onSelect={() => setSelectedCaseForQuickRequest(c)} disabled={!c.worksheet}>
-                                    <FilePlus className="mr-2 h-4 w-4" /> Solicitar Previo
-                                </DropdownMenuItem>
-                                 <DropdownMenuItem onSelect={() => setSelectedCaseForPayment(c)} disabled={!c}>
-                                    <Banknote className="mr-2 h-4 w-4" /> Solicitud de Pago
-                                </DropdownMenuItem>
-                                <DropdownMenuItem onSelect={() => setSelectedCaseForPaymentList(c)} disabled={!c}>
-                                    <Banknote className="mr-2 h-4 w-4 text-blue-500" /> Ver Pagos
-                                </DropdownMenuItem>
-                                <DropdownMenuItem onSelect={() => setSelectedCaseForResa(c)} disabled={!c}>
-                                    <BellIcon className="mr-2 h-4 w-4 text-orange-500" /> Notificar RESA
-                                </DropdownMenuItem>
-                                <DropdownMenuSeparator />
-                                <DropdownMenuItem onSelect={() => setSelectedCaseForIncident(c)} disabled={!c}>
-                                    <AlertTriangle className="mr-2 h-4 w-4 text-amber-600" /> Reportar Incidencia
-                                </DropdownMenuItem>
-                                <DropdownMenuItem onSelect={() => setSelectedCaseForValueDoubt(c)} disabled={!c}>
-                                    <ShieldAlert className="mr-2 h-4 w-4 text-rose-600" /> Reportar Duda de Valor
-                                </DropdownMenuItem>
-                                <DropdownMenuSeparator />
-                                <DropdownMenuItem onSelect={() => setSelectedCaseForHistory(c)} disabled={!c}><History className="mr-2 h-4 w-4" /> Ver Bitácora</DropdownMenuItem>
-                                {c.incidentReported && (<DropdownMenuItem onSelect={() => handleViewIncidents(c)}><Eye className="mr-2 h-4 w-4" /> Ver Incidencia</DropdownMenuItem>)}
-                                {user?.role === 'admin' && <DropdownMenuItem onClick={() => setCaseToArchive(c)} className="text-destructive"><Archive className="mr-2 h-4 w-4" /> Archivar</DropdownMenuItem>}
-                                {(user?.role === 'admin' || user?.role === 'coordinadora') && c.worksheet?.worksheetType === 'hoja_de_trabajo' && (
-                                    <DropdownMenuItem onClick={() => { setCaseToDuplicate(c); setDuplicateAndRetireModalOpen(true); }} className="text-destructive">
-                                        <Copy className="mr-2 h-4 w-4" /> Duplicar y Retirar
-                                    </DropdownMenuItem>
-                                )}
-                              </DropdownMenuContent>
-                            </DropdownMenu>
-                             <Tooltip>
-                                <TooltipTrigger asChild>
-                                    <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setSelectedCaseForComment(c)}>
-                                        <MessageSquare className="h-4 w-4" />
-                                    </Button>
-                                </TooltipTrigger>
-                                <TooltipContent><p>Añadir/Ver Comentarios</p></TooltipContent>
-                            </Tooltip>
-                          </div>
-                        </TableCell>
-                        <TableCell className="font-medium">{c.ne}</TableCell>
-                        <TableCell>
-                            <StatusBadges caseData={c} />
-                        </TableCell>
-                        <TableCell>
-                            <div className="flex items-center gap-1">
-                                <span>{c.executive}</span>
-                                <LastUpdateTooltip lastUpdate={{ by: c.executive, at: c.createdAt }} caseCreation={c.createdAt} />
-                            </div>
-                        </TableCell>
-                        <TableCell>
-                            {c.consignee.length > 13 ? (
-                                <Tooltip>
-                                    <TooltipTrigger asChild>
-                                        <span className="flex items-center gap-1 cursor-help">
-                                            {`${c.consignee.substring(0, 13)}...`}
-                                            <Info className="h-4 w-4 text-muted-foreground" />
-                                        </span>
-                                    </TooltipTrigger>
-                                    <TooltipContent><p>{c.consignee}</p></TooltipContent>
-                                </Tooltip>
-                            ) : ( c.consignee )}
-                        </TableCell>
-                        <TableCell>
-                            <div className="flex items-center gap-2">
-                                <span>{firstFactura}</span>
-                                {remainingFacturasCount > 0 && (
-                                    <Tooltip>
-                                        <TooltipTrigger asChild>
-                                            <Badge variant="secondary" className="cursor-pointer">
-                                                +{remainingFacturasCount}
-                                            </Badge>
-                                        </TooltipTrigger>
-                                        <TooltipContent>
-                                            <ul className="list-disc list-inside">
-                                                {facturas.slice(1).map((f, i) => <li key={i}>{f}</li>)}
-                                            </ul>
-                                        </TooltipContent>
-                                    </Tooltip>
-                                )}
-                            </div>
-                        </TableCell>
-                        <TableCell>
-                           <div className="flex items-center">
-                              {c.revisorStatus === 'Aprobado' && c.preliquidationStatus !== 'Aprobada' ? (
-                                  <Button size="sm" onClick={() => approvePreliquidation(c.id)} disabled={savingState[c.id]}>
-                                      <CheckCircle className="mr-2 h-4 w-4" /> Aprobar
-                                  </Button>
-                              ) : (
-                                  getPreliquidationStatusBadge(c.preliquidationStatus)
-                              )}
-                              <LastUpdateTooltip lastUpdate={c.preliquidationStatusLastUpdate} caseCreation={c.createdAt} />
-                           </div>
-                        </TableCell>
-                        <TableCell>
-                            <div className="flex items-center group relative">
-                                {getDigitacionBadge(c.digitacionStatus, c.declaracionAduanera)}
-                                <Button variant="ghost" size="icon" className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity" onClick={() => setSelectedCaseForProcess(c)}>
-                                    <Eye className="h-4 w-4" />
-                                </Button>
-                            </div>
-                        </TableCell>
-                         <TableCell>
-                            <div className="flex items-center gap-2">
-                                <Select
-                                    value={c.selectividad || ''}
-                                    onValueChange={(value) => handleAutoSave(c.id, 'selectividad', value)}
-                                    disabled={savingState[c.id] || !c.declaracionAduanera}
-                                >
-                                    <SelectTrigger className="w-[120px]">
-                                        <SelectValue placeholder="Seleccionar..." />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem value="VERDE">VERDE</SelectItem>
-                                        <SelectItem value="AMARILLO">AMARILLO</SelectItem>
-                                        <SelectItem value="ROJO">ROJO</SelectItem>
-                                    </SelectContent>
-                                </Select>
-                                {c.selectividad === 'AMARILLO' && (
-                                    <Tooltip>
-                                        <TooltipTrigger>
-                                            <Badge variant="secondary" className="cursor-help"><Info className="h-4 w-4" /></Badge>
-                                        </TooltipTrigger>
-                                        <TooltipContent>
-                                            <p>CONSULTA DE VALORES</p>
-                                        </TooltipContent>
-                                    </Tooltip>
-                                )}
-                            </div>
-                        </TableCell>
-                        <TableCell>
-                            <TooltipProvider>
-                                <Tooltip>
-                                    <TooltipTrigger asChild>
-                                        <div>
-                                            <DatePickerWithTime
-                                                date={(c.fechaDespacho as Timestamp)?.toDate()}
-                                                onDateChange={(d) => handleAutoSave(c.id, 'fechaDespacho', d ? Timestamp.fromDate(d) : null)}
-                                                disabled={savingState[c.id] || (c.selectividad !== 'VERDE' && c.selectividad !== 'ROJO')}
-                                            />
-                                        </div>
-                                    </TooltipTrigger>
-                                    {(c.selectividad !== 'VERDE' && c.selectividad !== 'ROJO') && (
-                                        <TooltipContent>
-                                            <p>Debe seleccionar un estado de selectividad (Verde o Rojo) antes de registrar el despacho.</p>
-                                        </TooltipContent>
-                                    )}
-                                </Tooltip>
-                            </TooltipProvider>
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex items-center">
-                            {getIncidentTypeDisplay(c)}
-                            <LastUpdateTooltip lastUpdate={c.incidentStatusLastUpdate} caseCreation={c.createdAt}/>
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                            <div className="flex items-center justify-center">
-                                {isPsmt ? (
-                                    <Tooltip>
-                                        <TooltipTrigger asChild>
-                                            <div className="inline-block">
-                                                <Button
-                                                    size="sm"
-                                                    variant="outline"
-                                                    onClick={() => handleSendToFacturacion(c.id)}
-                                                    disabled={savingState[c.id] || !c.fechaDespacho || c.facturacionStatus === 'Facturado'}
-                                                >
-                                                    <Send className="mr-2 h-4 w-4" />
-                                                    {c.facturacionStatus === 'Enviado a Facturacion' ? 'Re-enviar' : 'Enviar'}
-                                                </Button>
-                                            </div>
-                                        </TooltipTrigger>
-                                         {!c.fechaDespacho && (
-                                            <TooltipContent><p>Debe ingresar la fecha de despacho primero.</p></TooltipContent>
-                                        )}
-                                    </Tooltip>
-                                ) : (
-                                    <Switch
-                                        checked={!!c.facturado}
-                                        onCheckedChange={(checked) => handleAutoSave(c.id, 'facturado', checked)}
-                                        disabled={savingState[c.id]}
-                                    />
-                                )}
-                            </div>
-                        </TableCell>
-                    </TableRow>
-                )})}
-            </TableBody></Table>
-            </TooltipProvider>
-        </div>
-      );
+    return <ExecutiveCasesTable 
+              cases={paginatedCases} 
+              savingState={savingState}
+              onAutoSave={handleAutoSave}
+              approvePreliquidation={approvePreliquidation}
+              caseActions={caseActions}
+              selectedRows={selectedRows}
+              onSelectRow={setSelectedRows}
+              onSelectAllRows={handleSelectAllForPreliquidation}
+              neFilter={neFilter} setNeFilter={setNeFilter}
+              ejecutivoFilter={ejecutivoFilter} setEjecutivoFilter={setEjecutivoFilter}
+              consignatarioFilter={consignatarioFilter} setConsignatarioFilter={setConsignatarioFilter}
+              facturaFilter={facturaFilter} setFacturaFilter={setFacturaFilter}
+              selectividadFilter={selectividadFilter} setSelectividadFilter={setSelectividadFilter}
+              incidentTypeFilter={incidentTypeFilter} setIncidentTypeFilter={setIncidentTypeFilter}
+              handleSendToFacturacion={handleSendToFacturacion}
+            />;
   }
 
   return (
@@ -1081,7 +770,7 @@ function ExecutivePageContent() {
     <AppShell>
       <div className="py-2 md:py-5 space-y-6">
         <AnnouncementsCarousel />
-        <Tabs defaultValue="worksheets" className="w-full" onValueChange={handleTabChange}>
+        <Tabs defaultValue="worksheets" className="w-full" value={activeTab} onValueChange={handleTabChange}>
             <Card>
                  <CardHeader>
                     <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-4">
@@ -1356,6 +1045,3 @@ export default function ExecutivePage() {
         </Suspense>
     )
 }
-
-    
-
