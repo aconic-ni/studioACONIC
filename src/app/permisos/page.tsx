@@ -18,7 +18,7 @@ import { format, differenceInDays } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { MobilePermitCard } from '@/components/permisos/MobilePermitCard';
-import { PermitCommentModal } from '../executive/PermitCommentModal';
+import { PermitCommentModal } from '@/components/executive/PermitCommentModal';
 import { useToast } from '@/hooks/use-toast';
 import * as XLSX from 'xlsx';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -560,7 +560,7 @@ export default function PermisosPage() {
                                 }}
                             />
                         </TableCell>
-                        <TableCell className="font-medium">{formatDate(permit.worksheetCreatedAt, true)}</TableCell>
+                        <TableCell className="font-medium">{formatDate(permit.worksheetCreatedAt, false)}</TableCell>
                         <TableCell className="font-medium">{formatDate(permit.eta, false)}</TableCell>
                         <TableCell className="font-medium">{permit.ne}</TableCell>
                         <TableCell>{permit.consignee}</TableCell>
@@ -664,9 +664,7 @@ export default function PermisosPage() {
             onClose={() => setSelectedPermitForComment(null)}
             permit={selectedPermitForComment.permit}
             worksheetId={selectedPermitForComment.worksheetId}
-            onCommentsUpdate={(newComments) => {
-              setAllPermits(prev => prev.map(p => p.id === selectedPermitForComment.permit.id ? {...p, comments: newComments} : p));
-            }}
+            onCommentsUpdate={() => {}}
         />
     )}
      <Dialog open={isDeliveryModalOpen} onOpenChange={setIsDeliveryModalOpen}>
@@ -762,5 +760,3 @@ export default function PermisosPage() {
     </>
   );
 }
-
-    
