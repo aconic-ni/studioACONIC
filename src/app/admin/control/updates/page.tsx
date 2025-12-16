@@ -118,41 +118,23 @@ function AforoDataMigrator() {
     const fetchStats = useCallback(async () => {
         setIsLoading(true);
         try {
-            const aforoQuery = query(collection(db, 'AforoCases'));
-            const aforoSnapshot = await getDocs(aforoQuery);
+            const aforoSnapshot = await getDocs(query(collection(db, 'AforoCases')));
             const allCases = aforoSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as AforoCase));
             
-            const worksheetIds = allCases.map(c => c.worksheetId).filter((id): id is string => !!id);
-            if(worksheetIds.length === 0) {
-                 setStats({ totalCases: allCases.length, casesToMigrate: 0 });
-                 setIsLoading(false);
-                 return;
-            }
+            const relevantCases = allCases.filter(c => c.worksheetId);
+            let casesToMigrateCount = 0;
 
-            // Fetch all worksheets in chunks to avoid query limitations
-            const worksheetPromises = [];
-            for (let i = 0; i < worksheetIds.length; i += 30) {
-                const chunk = worksheetIds.slice(i, i + 30);
-                worksheetPromises.push(getDocs(query(collection(db, 'worksheets'), where('__name__', 'in', chunk))));
-            }
-            const worksheetSnapshots = await Promise.all(worksheetPromises);
-            const existingWorksheetIds = new Set<string>();
-            worksheetSnapshots.forEach(snap => snap.forEach(doc => existingWorksheetIds.add(doc.id)));
-
-            const relevantCases = allCases.filter(c => c.worksheetId && existingWorksheetIds.has(c.worksheetId));
-            
-            let casesWithDataToMigrate = 0;
-            for(const caseItem of relevantCases) {
+            for (const caseItem of relevantCases) {
                 if (caseItem.worksheetId) {
-                    const metadataRef = doc(db, `worksheets/${caseItem.worksheetId}/aforo/metadata`);
+                    const metadataRef = doc(db, 'worksheets', caseItem.worksheetId, 'aforo', 'metadata');
                     const metadataSnap = await getDoc(metadataRef);
-                    if(!metadataSnap.exists()) {
-                       casesWithDataToMigrate++;
+                    if (!metadataSnap.exists()) {
+                        casesToMigrateCount++;
                     }
                 }
             }
 
-            setStats({ totalCases: relevantCases.length, casesToMigrate: casesWithDataToMigrate });
+            setStats({ totalCases: relevantCases.length, casesToMigrate: casesToMigrateCount });
 
         } catch (error) {
             console.error("Error fetching migration stats:", error);
@@ -191,6 +173,7 @@ function AforoDataMigrator() {
                             aforadorAssignedBy: "Migrado del Sistema",
                             aforadorStatus: caseData.aforadorStatus || null,
                             aforadorStatusLastUpdate: caseData.aforadorStatusLastUpdate || null,
+                            aforadorComment: caseData.aforadorComment || null,
 
                             revisor: caseData.revisorAsignado || null,
                             revisorAssignedAt: caseData.revisorAsignadoLastUpdate?.at || null,
