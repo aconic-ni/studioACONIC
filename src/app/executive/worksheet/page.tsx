@@ -477,7 +477,6 @@ function WorksheetForm() {
             facturaNumber: data.facturaNumber,
             merchandise: data.description,
             aforador: data.aforador || '',
-            worksheetType: data.worksheetType,
         });
 
         const logRef = doc(collection(aforoCaseDocRef, 'actualizaciones'));
@@ -563,7 +562,6 @@ function WorksheetForm() {
             digitadorAsignado: '',
             digitadorAsignadoLastUpdate: createdByInfo,
             worksheetId: neTrimmed,
-            worksheetType: data.worksheetType,
             entregadoAforoAt: creationTimestamp,
         };
         batch.set(aforoCaseDocRef, aforoCaseData);
