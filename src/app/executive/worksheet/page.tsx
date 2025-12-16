@@ -424,7 +424,6 @@ function WorksheetForm() {
     
     if (editingWorksheetId) {
       const worksheetDocRef = doc(db, 'worksheets', editingWorksheetId);
-      const aforoCaseDocRef = doc(db, 'AforoCases', editingWorksheetId);
       const batch = writeBatch(db);
 
       try {
@@ -437,17 +436,7 @@ function WorksheetForm() {
 
         batch.update(worksheetDocRef, updatedWorksheetData);
         
-        // Log a change to trigger security rules update if needed
-        const logRef = doc(collection(aforoCaseDocRef, 'actualizaciones'));
-        const updateLog: AforoCaseUpdate = {
-          updatedAt: Timestamp.now(),
-          updatedBy: user.displayName,
-          field: 'document_update',
-          oldValue: 'worksheet',
-          newValue: 'worksheet_updated',
-          comment: `Hoja de trabajo modificada por ${user.displayName}.`,
-        };
-        batch.set(logRef, updateLog);
+        // This is a comment to ensure the change is detected
         
         await batch.commit();
         toast({ title: "Hoja de Trabajo Actualizada", description: `El registro para el NE ${editingWorksheetId} ha sido guardado.` });
@@ -455,7 +444,7 @@ function WorksheetForm() {
 
       } catch(serverError: any) {
          const permissionError = new FirestorePermissionError({
-          path: `batch update to worksheets/${editingWorksheetId}`,
+          path: `worksheets/${editingWorksheetId}`,
           operation: 'update',
           requestResourceData: { worksheetData: data },
         }, serverError);
@@ -1087,25 +1076,13 @@ function WorksheetForm() {
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-4 border-t">
-                <FormField
-                    control={form.control}
-                    name="operationType"
-                    render={({ field }) => (
-                        <FormItem className="space-y-3">
-                            <FormLabel>Tipo de Operación</FormLabel>
-                            <FormControl>
-                                <Select onValueChange={field.onChange} value={field.value ?? ''}>
-                                    <SelectTrigger>
-                                        <SelectValue placeholder="Seleccione un tipo..." />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem value="importacion">Importación</SelectItem>
-                                        <SelectItem value="exportacion">Exportación</SelectItem>
-                                    </SelectContent>
-                                </Select>
-                            </FormControl>
-                            <FormMessage />
-                        </FormItem>
+                <FormField control={form.control} name="operationType" render={({ field }) => (
+                     <FormItem className="space-y-3"><FormLabel>Tipo de Operación</FormLabel><FormControl>
+                        <RadioGroup onValueChange={field.onChange} defaultValue={field.value ?? ""} className="flex gap-4">
+                            <FormItem className="flex items-center space-x-2"><FormControl><RadioGroupItem value="importacion" /></FormControl><FormLabel className="font-normal">Importación</FormLabel></FormItem>
+                            <FormItem className="flex items-center space-x-2"><FormControl><RadioGroupItem value="exportacion" /></FormControl><FormLabel className="font-normal">Exportación</FormLabel></FormItem>
+                        </RadioGroup>
+                     </FormControl><FormMessage /></FormItem>
                 )}/>
                 {watchOperationType && (
                     <div className="grid grid-cols-2 gap-4">
@@ -1215,7 +1192,6 @@ function WorksheetForm() {
             onSave={(updatedDetails) => handleSavePermitDetails(editingPermit.index, updatedDetails)}
         />
     )}
-    {/* Este es un comentario para asegurar que los cambios se detecten. */}
     </>
   )
 }
@@ -1231,3 +1207,889 @@ export default function WorksheetPage() {
         </AppShell>
     )
 }
+
+```
+- src/firebase/index.ts:
+```ts
+// This file will serve as a barrel file for Firebase functionality.
+// For now, it will export a simple initialization function.
+
+import { initializeApp, getApp, getApps, type FirebaseApp } from "firebase/app";
+import { getAuth, connectAuthEmulator, type Auth } from "firebase/auth";
+import { getFirestore, connectFirestoreEmulator, type Firestore } from "firebase/firestore";
+
+const firebaseConfig = {
+  apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
+  authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
+  projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
+  storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
+  appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
+  measurementId: process.env.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID,
+};
+
+let firebaseApp: FirebaseApp;
+let auth: Auth;
+let firestore: Firestore;
+
+// Initialize Firebase
+if (!getApps().length) {
+  firebaseApp = initializeApp(firebaseConfig);
+} else {
+  firebaseApp = getApp();
+}
+
+auth = getAuth(firebaseApp);
+firestore = getFirestore(firebaseApp);
+
+
+// // NOTE: This is for local development only and should be commented out for production
+// if (process.env.NODE_ENV === 'development') {
+//   try {
+//     // Point to the emulators running on your local machine
+//     connectAuthEmulator(auth, "http://localhost:9099", { disableWarnings: true });
+//     connectFirestoreEmulator(firestore, 'localhost', 8080);
+//     console.log("Firebase emulators connected.");
+//   } catch(e) {
+//     console.error("Error connecting to Firebase emulators. Make sure they are running.", e);
+//   }
+// }
+
+export const initializeFirebase = () => {
+  return { firebaseApp, auth, firestore };
+};
+
+```
+- src/hooks/use-firestore.tsx:
+```tsx
+import { useState, useEffect } from 'react';
+import { db } from '@/lib/firebase';
+import { collection, query, where, getDocs, onSnapshot, doc, getDoc } from 'firebase/firestore';
+import type { Query, DocumentData, DocumentSnapshot, QuerySnapshot } from 'firebase/firestore';
+
+// Hook to get a single document
+export function useDocument<T>(collectionPath: string, docId: string) {
+  const [data, setData] = useState<T | null>(null);
+  const [loading, setLoading] = useState<boolean>(true);
+  const [error, setError] = useState<Error | null>(null);
+
+  useEffect(() => {
+    if (!docId) {
+      setData(null);
+      setLoading(false);
+      return;
+    }
+
+    const docRef = doc(db, collectionPath, docId);
+    const unsubscribe = onSnapshot(docRef, (docSnap: DocumentSnapshot) => {
+      if (docSnap.exists()) {
+        setData({ id: docSnap.id, ...docSnap.data() } as T);
+      } else {
+        setData(null);
+        setError(new Error("Document does not exist."));
+      }
+      setLoading(false);
+    }, (err) => {
+      setError(err);
+      setLoading(false);
+    });
+
+    return () => unsubscribe();
+  }, [collectionPath, docId]);
+
+  return { data, loading, error };
+}
+
+// Hook to get a collection of documents
+export function useCollection<T>(collectionPath: string, queryConstraints: any[] = []) {
+  const [data, setData] = useState<T[]>([]);
+  const [loading, setLoading] = useState<boolean>(true);
+  const [error, setError] = useState<Error | null>(null);
+
+  useEffect(() => {
+    const collRef = collection(db, collectionPath);
+    const q = query(collRef, ...queryConstraints);
+
+    const unsubscribe = onSnapshot(q, (querySnapshot: QuerySnapshot) => {
+      const collectionData: T[] = [];
+      querySnapshot.forEach((docSnap) => {
+        collectionData.push({ id: docSnap.id, ...docSnap.data() } as T);
+      });
+      setData(collectionData);
+      setLoading(false);
+    }, (err) => {
+      setError(err);
+      setLoading(false);
+    });
+
+    return () => unsubscribe();
+  }, [collectionPath, JSON.stringify(queryConstraints)]); // Simple dependency check
+
+  return { data, loading, error };
+}
+
+```
+- src/hooks/use-firestore-query.tsx:
+```tsx
+import { useState, useEffect, useMemo, useCallback } from 'react';
+import { db } from '@/lib/firebase';
+import { collection, query, onSnapshot, type Query, type DocumentData, type QuerySnapshot } from 'firebase/firestore';
+
+export function useFirestoreQuery<T>(firestoreQuery: Query<DocumentData> | null) {
+  const [data, setData] = useState<T[] | null>(null);
+  const [loading, setLoading] = useState<boolean>(true);
+  const [error, setError] = useState<Error | null>(null);
+
+  useEffect(() => {
+    if (!firestoreQuery) {
+      setData([]);
+      setLoading(false);
+      return;
+    }
+
+    setLoading(true);
+
+    const unsubscribe = onSnapshot(firestoreQuery, 
+      (snapshot: QuerySnapshot<DocumentData>) => {
+        const result: T[] = [];
+        snapshot.forEach(doc => {
+          result.push({ id: doc.id, ...doc.data() } as T);
+        });
+        setData(result);
+        setLoading(false);
+        setError(null);
+      },
+      (err: Error) => {
+        console.error("Error in useFirestoreQuery:", err);
+        setError(err);
+        setLoading(false);
+        setData(null);
+      }
+    );
+
+    return () => unsubscribe();
+  }, [firestoreQuery]); // The query object itself is the dependency
+
+  return { data, loading, error };
+}
+
+```
+- src/lib/fileExporter.ts:
+```ts
+
+import type { ExamData, Product, ExamDocument, ExportableExamData, AforoCase, AforoCaseUpdate, Worksheet } from '@/types';
+import { Timestamp, doc, getDoc } from 'firebase/firestore';
+import * as XLSX from 'xlsx';
+import { format } from 'date-fns';
+import { es } from 'date-fns/locale';
+import { db } from './firebase';
+
+export function downloadTxtFile(examData: ExamData, products: Product[]) {
+  let content = `EXAMEN PREVIO AGENCIA ACONIC - CustomsEX-p\n`;
+  content += `===========================================\n\n`;
+  content += `INFORMACIÓN GENERAL DEL EXAMEN:\n`;
+  content += `NE: ${examData.ne}\n`;
+  content += `Referencia: ${examData.reference || 'N/A'}\n`;
+  content += `Consignatario: ${examData.consignee}\n`;
+  content += `Gestor: ${examData.manager}\n`;
+  content += `Ubicación: ${examData.location}\n\n`;
+  content += `PRODUCTOS:\n`;
+
+  (Array.isArray(products) ? products : []).forEach((product, index) => {
+    content += `\n--- Producto ${index + 1} ---\n`;
+    content += `Número de Item: ${product.itemNumber || 'N/A'}\n`;
+    content += `Numeración de Bultos: ${product.numberPackages || 'N/A'}\n`;
+    content += `Cantidad de Bultos: ${product.quantityPackages || 0}\n`;
+    content += `Cantidad de Unidades: ${product.quantityUnits || 0}\n`;
+    content += `Descripción: ${product.description || 'N/A'}\n`;
+    content += `Marca: ${product.brand || 'N/A'}\n`;
+    content += `Modelo: ${product.model || 'N/A'}\n`;
+    content += `Serie: ${product.serial || 'N/A'}\n`;
+    content += `Origen: ${product.origin || 'N/A'}\n`;
+    content += `Estado de Mercancía: ${product.packagingCondition || 'N/A'}\n`;
+    content += `Unidad de Medida: ${product.unitMeasure || 'N/A'}\n`;
+    content += `Peso: ${product.weight || 'N/A'}\n`;
+    content += `Observación: ${product.observation || 'N/A'}\n`;
+    
+    const statuses = [];
+    if (product.isConform) statuses.push("Conforme a factura");
+    if (product.isExcess) statuses.push("Excedente");
+    if (product.isMissing) statuses.push("Faltante");
+    if (product.isFault) statuses.push("Avería");
+    content += `Estado: ${statuses.length > 0 ? statuses.join(', ') : 'Sin estado específico'}\n`;
+  });
+
+  const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `CustomsEX-p_${examData.ne}_${new Date().toISOString().split('T')[0]}.txt`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+export function downloadExcelFile(data: ExportableExamData) {
+  const now = new Date();
+  const fechaHoraExportacion = format(now, 'dd/MM/yy HH:mm', { locale: es });
+
+  const photoLinkUrl = `https://aconisani-my.sharepoint.com/:f:/g/personal/asuntos_juridicos_aconic_com_ni/Emrpj4Ss8bhDifpuYc8U_bwBj9r29FGcXxzfxu4PSh2tEQ?e=tkoEC0`;
+
+  // --- Hoja 1: Detalles del Examen y Productos ---
+  const examDetailsSheetData: (string | number | Date | null | undefined | XLSX.CellObject)[][] = [
+    ['EXAMEN PREVIO AGENCIA ACONIC - CustomsEX-p'],
+    [],
+    ['INFORMACIÓN GENERAL DEL EXAMEN:'],
+    ['NE:', data.ne],
+    ['Referencia:', data.reference || 'N/A'],
+    ['Consignatario:', data.consignee],
+    ['Gestor del Examen:', data.manager],
+    ['Ubicación Mercancía:', data.location],
+    ['Fotos:', { v: 'Abrir Carpeta de Fotos', t: 's', l: { Target: photoLinkUrl, Tooltip: 'Ir a la carpeta de fotos en SharePoint' } }],
+    [],
+    ['PRODUCTOS:']
+  ];
+
+  const productHeaders = [
+    'Número de Item', 'Numeración de Bultos', 'Cantidad de Bultos', 'Cantidad de Unidades',
+    'Descripción', 'Marca', 'Modelo', 'Origen', 'Estado de Mercancía',
+    'Peso', 'Unidad de Medida', 'Serie', 'Observación', 'Estado'
+  ];
+  
+  const productRows = (Array.isArray(data.products) ? data.products : []).map(product => {
+    let statusText = '';
+    const statuses = [];
+    if (product.isConform) statuses.push("Conforme");
+    if (product.isExcess) statuses.push("Excedente");
+    if (product.isMissing) statuses.push("Faltante");
+    if (product.isFault) statuses.push("Avería");
+    statusText = statuses.length > 0 ? statuses.join('/') : 'S/E';
+
+    return [
+      product.itemNumber || 'N/A',
+      product.numberPackages || 'N/A',
+      product.quantityPackages || 0,
+      product.quantityUnits || 0,
+      product.description || 'N/A',
+      product.brand || 'N/A',
+      product.model || 'N/A',
+      product.origin || 'N/A',
+      product.packagingCondition || 'N/A',
+      product.weight || 'N/A',
+      product.unitMeasure || 'N/A',
+      product.serial || 'N/A',
+      product.observation || 'N/A',
+      statusText
+    ];
+  });
+
+  const ws_exam_details_data = [...examDetailsSheetData, productHeaders, ...productRows];
+  const ws_exam_details = XLSX.utils.aoa_to_sheet(ws_exam_details_data);
+
+  // Ajustar anchos de columna para la hoja de detalles del examen
+  const examColWidths = productHeaders.map((header, i) => ({
+    wch: Math.max(
+      header.length,
+      ...(ws_exam_details_data.slice(examDetailsSheetData.length) as string[][]).map(row => row[i] ? String(row[i]).length : 0)
+    ) + 2 
+  }));
+  
+  const generalInfoLabels = examDetailsSheetData.slice(0, examDetailsSheetData.length - 2).map(row => String(row[0] || ''));
+  const generalInfoValues = examDetailsSheetData.slice(0, examDetailsSheetData.length - 2).map(row => {
+    const cellValue = row[1];
+    if (typeof cellValue === 'object' && cellValue !== null && 'v' in cellValue) {
+      return String((cellValue as XLSX.CellObject).v || '');
+    }
+    return String(cellValue || '');
+  });
+
+  if (examColWidths.length > 0) {
+    examColWidths[0].wch = Math.max(examColWidths[0]?.wch || 0, ...generalInfoLabels.map(label => label.length + 2));
+  }
+  if (examColWidths.length > 1) {
+    examColWidths[1].wch = Math.max(examColWidths[1]?.wch || 0, ...generalInfoValues.map(value => value.length + 5));
+  }
+  ws_exam_details['!cols'] = examColWidths;
+
+  // --- Hoja 2: Detalles del Sistema ---
+  const systemDetailsSheetData: (string | number | Date | null | undefined)[][] = [
+    ['DETALLES DE SISTEMA DEL EXAMEN:']
+  ];
+
+  if (data.savedBy) {
+    systemDetailsSheetData.push(['Guardado por (correo):', data.savedBy]);
+  } else {
+    systemDetailsSheetData.push(['Guardado por (correo):', 'N/A (No guardado en BD aún o dato no disponible)']);
+  }
+
+  const toLocaleStringSafe = (timestamp: Timestamp | Date | null | undefined) => {
+    if (!timestamp) return 'N/A';
+    const date = (timestamp as Timestamp)?.toDate ? (timestamp as Timestamp).toDate() : (timestamp as Date);
+    if (date instanceof Date && !isNaN(date.getTime())) {
+      return format(date, 'dd/MM/yy HH:mm', { locale: es });
+    }
+    return 'Fecha inválida';
+  }
+
+  systemDetailsSheetData.push(['Fecha y Hora de Inicio:', toLocaleStringSafe(data.createdAt)]);
+  systemDetailsSheetData.push(['Fecha y Hora de Último Guardado:', toLocaleStringSafe(data.savedAt)]);
+  systemDetailsSheetData.push(['Fecha y Hora de Finalización:', data.completedAt ? toLocaleStringSafe(data.completedAt) : 'Examen no finalizado']);
+  systemDetailsSheetData.push(['Fecha y Hora de Exportación:', fechaHoraExportacion]);
+
+
+  const ws_system_details = XLSX.utils.aoa_to_sheet(systemDetailsSheetData);
+  
+  // Ajustar anchos de columna para la hoja de detalles del sistema
+  const systemColWidths = [
+    { wch: Math.max(...systemDetailsSheetData.map(row => String(row[0]).length)) + 2 },
+    { wch: Math.max(...systemDetailsSheetData.map(row => String(row[1]).length)) + 5 },
+  ];
+  ws_system_details['!cols'] = systemColWidths;
+
+
+  // --- Crear y descargar el libro ---
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws_exam_details, `Examen ${data.ne}`);
+  XLSX.utils.book_append_sheet(wb, ws_system_details, "Detalle de Sistema");
+  
+  XLSX.writeFile(wb, `CustomsEX-p_${data.ne}_${new Date().toISOString().split('T')[0]}.xlsx`);
+}
+
+const formatTimestamp = (ts: any, includeTime = true): string => {
+    if (!ts) return 'N/A';
+    const date = ts.toDate ? ts.toDate() : new Date(ts);
+    if (date instanceof Date && !isNaN(date.getTime())) {
+        const formatString = includeTime ? 'dd/MM/yy HH:mm' : 'dd/MM/yy';
+        return format(date, formatString, { locale: es });
+    }
+    return 'Fecha Inválida';
+};
+
+const formatValueForExcel = (value: any) => {
+    if (value instanceof Timestamp) return formatTimestamp(value);
+    if (typeof value === 'boolean') return value ? 'Sí' : 'No';
+    if (value === null || value === undefined || value === '') return 'vacío';
+    if (typeof value === 'object') return JSON.stringify(value);
+    return String(value);
+};
+
+const generateSheet = (headers: string[], rows: (string|number|null|undefined)[][], title: string, subtitle: string) => {
+    const data = [
+        [title],
+        [subtitle],
+        [],
+        headers,
+        ...rows
+    ];
+    const ws = XLSX.utils.aoa_to_sheet(data);
+    const colWidths = headers.map((header, i) => ({
+        wch: Math.max(header.length, ...rows.map(row => String(row[i] || '').length)) + 2
+    }));
+    ws['!cols'] = colWidths;
+    return ws;
+};
+
+export async function downloadExecutiveReportAsExcel(cases: (AforoCase & { dispatchCustoms?: string })[], auditLogs: (AforoCaseUpdate & { caseNe: string })[]) {
+    const now = new Date();
+    const fechaHoraExportacion = format(now, 'dd/MM/yy HH:mm', { locale: es });
+
+    // --- Hoja 1: Reporte Ejecutivo (Principal) ---
+    const caseHeaders = [
+        "NE", "INICIO DE OPERACION", "RESA", "VENCIMIENTO DE RESA", "CONSIGNATARIO", "FACTURA", "ASIGNACION DE AFORO", 
+        "ESTATUS DE REVISOR", "ESTATUS DIGITACION", "SELECTIVO", "FECHA DE DESPACHO", "TIPO INCIDENCIA", "FACTURADO", 
+        "FECHA DE FACTURACION", "CUENTA DE REGISTRO", "ESTATUS EJECUTIVO (AMPLIADO)"
+    ];
+    const caseRows = cases.map(c => {
+        const estatusAmpliado = [
+            `Aforador: ${c.aforadorStatus || 'N/A'}`,
+            `Revisor: ${c.revisorStatus || 'N/A'}`,
+            `Preliquidación: ${c.preliquidationStatus || 'N/A'}`,
+            `Digitación: ${c.digitacionStatus || 'N/A'}`,
+        ].join(' | ');
+
+        return [
+            c.ne,
+            formatTimestamp(c.createdAt),
+            c.resaNumber || 'N/A',
+            formatTimestamp(c.resaDueDate, false),
+            c.consignee,
+            c.facturaNumber || 'N/A',
+            formatTimestamp(c.assignmentDate),
+            c.revisorStatus || 'N/A',
+            c.digitacionStatus || 'N/A',
+            c.selectividad || 'N/A',
+            formatTimestamp(c.fechaDespacho, false),
+            c.incidentType || 'N/A',
+            c.facturado ? 'Sí' : 'No',
+            formatTimestamp(c.facturadoAt),
+            c.cuentaDeRegistro || 'N/A',
+            estatusAmpliado,
+        ];
+    });
+    const ws_cases = generateSheet(caseHeaders, caseRows, "Reporte Ejecutivo - Customs Reports", `Generado el: ${fechaHoraExportacion}`);
+
+    // --- Hoja 2: Casos con Duda de Valor ---
+    const dudaHeaders = ["NE", "Consignatario", "Declaración", "Aduana Despacho", "Monto de Preliquidación (USD)", "Proceso", "Levante Solicitado", "Ampliación de Plazo", "Vencimiento de Caso", "Asignado a Legal"];
+    const dudaRows = cases.filter(c => c.hasValueDoubt).map(c => [
+        c.ne, c.consignee, c.declaracionAduanera || 'N/A', c.dispatchCustoms || 'N/A', c.valueDoubtAmount ?? 'N/A',
+        c.valueDoubtStatus || 'N/A', c.valueDoubtLevanteRequested ? 'Sí' : 'No', c.valueDoubtExtensionRequested ? 'Sí' : 'No',
+        formatTimestamp(c.valueDoubtDueDate, false), c.valueDoubtAssignedToLegal ? 'Sí' : 'No'
+    ]);
+    const ws_duda = generateSheet(dudaHeaders, dudaRows, "Casos con Duda de Valor", `Generado el: ${fechaHoraExportacion}`);
+    
+    // --- Hoja 3: Casos con Complementaria (Rectificación) ---
+    const rectificacionHeaders = ["NE", "CONSIGNATARIO", "DECLARACION ADUANERA", "PAGO INICIAL (SI/NO)", "RECIBO DE CAJA PAGO INICIAL", "MONTO DE DECLARACION INICIAL", "ADUANA DE DESPACHO", "MOTIVO DE LA RECTIFICACION", "OBSERVACIONES", "ESTADO INCIDENCIA", "REVISADO POR", "FECHA REVISIÓN"];
+    const rectificacionRows = cases.filter(c => c.incidentType === 'Rectificacion').map(c => [
+        c.ne, c.consignee, c.declaracionAduanera || 'N/A', c.pagoInicialRealizado ? 'Sí' : 'No',
+        c.reciboDeCajaPagoInicial || 'N/A', c.montoPagoInicial ?? 'N/A', c.dispatchCustoms || 'N/A',
+        c.motivoRectificacion || '', c.observaciones || '', c.incidentStatus || 'N/A',
+        c.incidentReviewedBy || 'N/A', formatTimestamp(c.incidentReviewedAt, false)
+    ]);
+    const ws_rectificacion = generateSheet(rectificacionHeaders, rectificacionRows, "Casos con Complementaria (Rectificación)", `Generado el: ${fechaHoraExportacion}`);
+
+    // --- Hoja 4: Bitácora de Cambios ---
+    const logHeaders = ["NE del Caso", "Fecha de Actualización", "Actualizado Por", "Campo Modificado", "Valor Anterior", "Valor Nuevo", "Comentario"];
+    auditLogs.sort((a, b) => {
+        if (a.caseNe < b.caseNe) return -1;
+        if (a.caseNe > b.caseNe) return 1;
+        const dateA = a.updatedAt instanceof Date ? a.updatedAt.getTime() : (a.updatedAt as Timestamp).toMillis();
+        const dateB = b.updatedAt instanceof Date ? b.updatedAt.getTime() : (b.updatedAt as Timestamp).toMillis();
+        return dateA - dateB;
+    });
+    const logRows = auditLogs.map(log => [
+        log.caseNe, formatTimestamp(log.updatedAt), log.updatedBy, log.field,
+        formatValueForExcel(log.oldValue), formatValueForExcel(log.newValue), log.comment || ''
+    ]);
+    const ws_logs = generateSheet(logHeaders, logRows, "Bitácora de Cambios - Customs Reports", `Generado el: ${fechaHoraExportacion}`);
+
+
+    // --- Crear y descargar libro ---
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws_cases, "Reporte Ejecutivo");
+    XLSX.utils.book_append_sheet(wb, ws_duda, "Duda de Valor");
+    XLSX.utils.book_append_sheet(wb, ws_rectificacion, "Rectificaciones");
+    XLSX.utils.book_append_sheet(wb, ws_logs, "Bitácora de Cambios");
+    XLSX.writeFile(wb, `Reporte_Ejecutivo_${now.toISOString().split('T')[0]}.xlsx`);
+}
+
+```
+- src/lib/fonts.ts:
+```ts
+import { Inter as FontSans, Montserrat as FontHeading } from "next/font/google"
+
+export const fontSans = FontSans({
+  subsets: ["latin"],
+  variable: "--font-sans",
+})
+
+export const fontHeading = FontHeading({
+    subsets: ["latin"],
+    variable: "--font-heading",
+});
+
+```
+- src/lib/numberToLetters.ts:
+```ts
+function Unidades(num: number): string {
+
+    switch (num) {
+        case 1: return "UN";
+        case 2: return "DOS";
+        case 3: return "TRES";
+        case 4: return "CUATRO";
+        case 5: return "CINCO";
+        case 6: return "SEIS";
+        case 7: return "SIETE";
+        case 8: return "OCHO";
+        case 9: return "NUEVE";
+    }
+
+    return "";
+}
+
+function Decenas(num: number): string {
+    const decena = Math.floor(num / 10);
+    const unidad = num % 10;
+
+    switch (decena) {
+        case 1:
+            switch (unidad) {
+                case 0: return "DIEZ";
+                case 1: return "ONCE";
+                case 2: return "DOCE";
+                case 3: return "TRECE";
+                case 4: return "CATORCE";
+                case 5: return "QUINCE";
+                default: return "DIECI" + Unidades(unidad);
+            }
+        case 2:
+            return unidad === 0 ? "VEINTE" : "VEINTI" + Unidades(unidad);
+        case 3: return DecenasY("TREINTA", unidad);
+        case 4: return DecenasY("CUARENTA", unidad);
+        case 5: return DecenasY("CINCUENTA", unidad);
+        case 6: return DecenasY("SESENTA", unidad);
+        case 7: return DecenasY("SETENTA", unidad);
+        case 8: return DecenasY("OCHENTA", unidad);
+        case 9: return DecenasY("NOVENTA", unidad);
+        case 0: return Unidades(unidad);
+    }
+    return "";
+}
+
+function DecenasY(strSin: string, numUnidades: number): string {
+    if (numUnidades > 0)
+        return strSin + " Y " + Unidades(numUnidades);
+
+    return strSin;
+}
+
+function Centenas(num: number): string {
+    const centenas = Math.floor(num / 100);
+    const decenas = num % 100;
+
+    switch (centenas) {
+        case 1:
+            if (decenas > 0)
+                return "CIENTO " + Decenas(decenas);
+            return "CIEN";
+        case 2: return "DOSCIENTOS " + Decenas(decenas);
+        case 3: return "TRESCIENTOS " + Decenas(decenas);
+        case 4: return "CUATROCIENTOS " + Decenas(decenas);
+        case 5: return "QUINIENTOS " + Decenas(decenas);
+        case 6: return "SEISCIENTOS " + Decenas(decenas);
+        case 7: return "SETECIENTOS " + Decenas(decenas);
+        case 8: return "OCHOCIENTOS " + Decenas(decenas);
+        case 9: return "NOVECIENTOS " + Decenas(decenas);
+    }
+
+    return Decenas(decenas);
+}
+
+function Seccion(num: number, divisor: number, strSingular: string, strPlural: string): string {
+    const cientos = Math.floor(num / divisor);
+    const resto = num % divisor;
+    let letras = "";
+
+    if (cientos > 0) {
+        if (cientos > 1) {
+            letras = Centenas(cientos) + " " + strPlural;
+        } else {
+            letras = strSingular;
+        }
+    }
+
+    if (resto > 0) {
+        letras += "";
+    }
+
+    return letras;
+}
+
+function Miles(num: number): string {
+    const divisor = 1000;
+    const cientos = Math.floor(num / divisor);
+    const resto = num % divisor;
+    let strMiles = "";
+
+    if (cientos > 0) {
+        strMiles = Seccion(num, divisor, "UN MIL", "MIL");
+    }
+    
+    const strCentenas = Centenas(resto);
+    
+    if (strMiles === "" && strCentenas === "") {
+        return "";
+    }
+    
+    if (strMiles === "") {
+        return strCentenas;
+    }
+    
+    if (strCentenas !== "") {
+        return strMiles + " " + strCentenas;
+    }
+    
+    return strMiles;
+}
+
+function Millones(num: number): string {
+    const divisor = 1000000;
+    const cientos = Math.floor(num / divisor);
+    const resto = num % divisor;
+    let strMillones = "";
+
+    if (cientos > 0) {
+        if (cientos === 1) {
+            strMillones = "UN MILLON ";
+        } else {
+            strMillones = Centenas(cientos) + " MILLONES ";
+        }
+    }
+    
+    const strMiles = Miles(resto);
+
+    if (strMillones === "" && strMiles === "") {
+        return "";
+    }
+    
+    if (strMillones === "") {
+        return strMiles;
+    }
+    
+    if (strMiles !== "") {
+        return strMillones + " " + strMiles;
+    }
+
+    return strMillones;
+}
+
+export function NumeroALetras(num: number, currency?: { singular: string, plural: string }): string {
+    const data = {
+        numero: num,
+        enteros: Math.floor(num),
+        centavos: Math.round(num * 100) % 100,
+        letrasCentavos: "",
+        letrasMonedaPlural: currency ? currency.plural : "PESOS",
+        letrasMonedaSingular: currency ? currency.singular : "PESO",
+        letrasMonedaCentavoPlural: "CENTAVOS",
+        letrasMonedaCentavoSingular: "CENTAVO"
+    };
+
+    if (data.centavos > 0) {
+        data.letrasCentavos = "CON " + data.centavos + "/100";
+    }
+
+    if (data.enteros === 0)
+        return "CERO " + data.letrasMonedaPlural + " " + data.letrasCentavos;
+    if (data.enteros === 1)
+        return Millones(data.enteros) + " " + data.letrasMonedaSingular + " " + data.letrasCentavos;
+    else
+        return Millones(data.enteros) + " " + data.letrasMonedaPlural + " " + data.letrasCentavos;
+}
+
+```
+- src/middleware.ts:
+```ts
+export { default } from "next-auth/middleware"
+
+export const config = { matcher: [
+    "/admin/:path*", 
+    "/examiner/:path*", 
+    "/reporter/:path*", 
+    "/executive/:path*",
+    "/database/:path*",
+    "/reports/:path*",
+    "/supervisor/:path*",
+    "/agente/:path*",
+    "/facturacion/:path*",
+    "/legal/:path*",
+] }
+
+```
+- public/imagenes/FOOTEREXA.svg:
+```xml
+<svg width="789" height="50" viewBox="0 0 789 50" fill="none" xmlns="http://www.w3.org/2000/svg">
+<path d="M0.39502 0.706055H788.026" stroke="#4A6A8A" stroke-width="0.771654"/>
+<path d="M0.39502 4.01758H788.026" stroke="#4A6A8A" stroke-width="2.31496"/>
+<path d="M0.39502 9.07324H788.026" stroke="#4A6A8A" stroke-width="0.771654"/>
+<g filter="url(#filter0_d_1041_4)">
+<text fill="#4A6A8A" xml:space="preserve" style="white-space: pre" font-family="Montserrat" font-size="10" font-weight="600" letter-spacing="0.02em"><tspan x="189.923" y="32.8809">AGENCIA ADUANERA Y OPERADORA LOGISTICA ACONIC S.A</tspan></text>
+</g>
+<g filter="url(#filter1_d_1041_4)">
+<text fill="#4A6A8A" xml:space="preserve" style="white-space: pre" font-family="Montserrat" font-size="8" letter-spacing="0.02em"><tspan x="20.8354" y="44.208">Rotonda El Gueguense 1c. al lago, 1c. abajo. Edificio IBM, Primer Piso. Módulo #5. Managua, Nicaragua.</tspan></text>
+</g>
+<g filter="url(#filter2_d_1041_4)">
+<text fill="#4A6A8A" xml:space="preserve" style="white-space: pre" font-family="Montserrat" font-size="8" letter-spacing="0.02em"><tspan x="510.966" y="44.208">Tel: (505) 2254-5416 Web: www.aconic.com.ni</tspan></text>
+</g>
+<defs>
+<filter id="filter0_d_1041_4" x="185.923" y="24.8809" width="418.913" height="16" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
+<feFlood flood-opacity="0" result="BackgroundImageFix"/>
+<feColorMatrix in="SourceAlpha" type="matrix" values="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 127 0" result="hardAlpha"/>
+<feOffset dy="4"/>
+<feGaussianBlur stdDeviation="2"/>
+<feComposite in2="hardAlpha" operator="out"/>
+<feColorMatrix type="matrix" values="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0.25 0"/>
+<feBlend mode="normal" in2="BackgroundImageFix" result="effect1_dropShadow_1041_4"/>
+<feBlend mode="normal" in="SourceGraphic" in2="effect1_dropShadow_1041_4" result="shape"/>
+</filter>
+<filter id="filter1_d_1041_4" x="16.8354" y="38.208" width="471.189" height="12" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
+<feFlood flood-opacity="0" result="BackgroundImageFix"/>
+<feColorMatrix in="SourceAlpha" type="matrix" values="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 127 0" result="hardAlpha"/>
+<feOffset dy="4"/>
+<feGaussianBlur stdDeviation="2"/>
+<feComposite in2="hardAlpha" operator="out"/>
+<feColorMatrix type="matrix" values="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0.25 0"/>
+<feBlend mode="normal" in2="BackgroundImageFix" result="effect1_dropShadow_1041_4"/>
+<feBlend mode="normal" in="SourceGraphic" in2="effect1_dropShadow_1041_4" result="shape"/>
+</filter>
+<filter id="filter2_d_1041_4" x="506.966" y="38.208" width="265.859" height="12" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
+<feFlood flood-opacity="0" result="BackgroundImageFix"/>
+<feColorMatrix in="SourceAlpha" type="matrix" values="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 127 0" result="hardAlpha"/>
+<feOffset dy="4"/>
+<feGaussianBlur stdDeviation="2"/>
+<feComposite in2="hardAlpha" operator="out"/>
+<feColorMatrix type="matrix" values="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0.25 0"/>
+<feBlend mode="normal" in2="BackgroundImageFix" result="effect1_dropShadow_1041_4"/>
+<feBlend mode="normal" in="SourceGraphic" in2="effect1_dropShadow_1041_4" result="shape"/>
+</filter>
+</defs>
+</svg>
+```
+- public/imagenes/FOOTERSOLICITUDETAIL.svg:
+```xml
+<svg width="789" height="50" viewBox="0 0 789 50" fill="none" xmlns="http://www.w3.org/2000/svg">
+<path d="M0.39502 0.706055H788.026" stroke="#4A6A8A" stroke-width="0.771654"/>
+<path d="M0.39502 4.01758H788.026" stroke="#4A6A8A" stroke-width="2.31496"/>
+<path d="M0.39502 9.07324H788.026" stroke="#4A6A8A" stroke-width="0.771654"/>
+<g filter="url(#filter0_d_1041_4)">
+<text fill="#4A6A8A" xml:space="preserve" style="white-space: pre" font-family="Montserrat" font-size="10" font-weight="600" letter-spacing="0.02em"><tspan x="189.923" y="32.8809">AGENCIA ADUANERA Y OPERADORA LOGISTICA ACONIC S.A</tspan></text>
+</g>
+<g filter="url(#filter1_d_1041_4)">
+<text fill="#4A6A8A" xml:space="preserve" style="white-space: pre" font-family="Montserrat" font-size="8" letter-spacing="0.02em"><tspan x="20.8354" y="44.208">Rotonda El Gueguense 1c. al lago, 1c. abajo. Edificio IBM, Primer Piso. Módulo #5. Managua, Nicaragua.</tspan></text>
+</g>
+<g filter="url(#filter2_d_1041_4)">
+<text fill="#4A6A8A" xml:space="preserve" style="white-space: pre" font-family="Montserrat" font-size="8" letter-spacing="0.02em"><tspan x="510.966" y="44.208">Tel: (505) 2254-5416 Web: www.aconic.com.ni</tspan></text>
+</g>
+<defs>
+<filter id="filter0_d_1041_4" x="185.923" y="24.8809" width="418.913" height="16" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
+<feFlood flood-opacity="0" result="BackgroundImageFix"/>
+<feColorMatrix in="SourceAlpha" type="matrix" values="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 127 0" result="hardAlpha"/>
+<feOffset dy="4"/>
+<feGaussianBlur stdDeviation="2"/>
+<feComposite in2="hardAlpha" operator="out"/>
+<feColorMatrix type="matrix" values="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0.25 0"/>
+<feBlend mode="normal" in2="BackgroundImageFix" result="effect1_dropShadow_1041_4"/>
+<feBlend mode="normal" in="SourceGraphic" in2="effect1_dropShadow_1041_4" result="shape"/>
+</filter>
+<filter id="filter1_d_1041_4" x="16.8354" y="38.208" width="471.189" height="12" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
+<feFlood flood-opacity="0" result="BackgroundImageFix"/>
+<feColorMatrix in="SourceAlpha" type="matrix" values="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 127 0" result="hardAlpha"/>
+<feOffset dy="4"/>
+<feGaussianBlur stdDeviation="2"/>
+<feComposite in2="hardAlpha" operator="out"/>
+<feColorMatrix type="matrix" values="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0.25 0"/>
+<feBlend mode="normal" in2="BackgroundImageFix" result="effect1_dropShadow_1041_4"/>
+<feBlend mode="normal" in="SourceGraphic" in2="effect1_dropShadow_1041_4" result="shape"/>
+</filter>
+<filter id="filter2_d_1041_4" x="506.966" y="38.208" width="265.859" height="12" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
+<feFlood flood-opacity="0" result="BackgroundImageFix"/>
+<feColorMatrix in="SourceAlpha" type="matrix" values="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 127 0" result="hardAlpha"/>
+<feOffset dy="4"/>
+<feGaussianBlur stdDeviation="2"/>
+<feComposite in2="hardAlpha" operator="out"/>
+<feColorMatrix type="matrix" values="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0.25 0"/>
+<feBlend mode="normal" in2="BackgroundImageFix" result="effect1_dropShadow_1041_4"/>
+<feBlend mode="normal" in="SourceGraphic" in2="effect1_dropShadow_1041_4" result="shape"/>
+</filter>
+</defs>
+</svg>
+```
+- public/imagenes/HEADERANEX5DETAIL.svg:
+```xml
+<svg width="789" height="71" viewBox="0 0 789 71" fill="none" xmlns="http://www.w3.org/2000/svg">
+<path d="M0.39502 66.8613H788.026" stroke="#4A6A8A" stroke-width="0.771654"/>
+<path d="M0.39502 70.1729H788.026" stroke="#4A6A8A" stroke-width="2.31496"/>
+<path d="M0.39502 1H788.026" stroke="#4A6A8A" stroke-width="2.31496"/>
+<image href="/AconicExaminer/imagenes/LOGOHD.png" x="10" y="10" height="50" width="160" />
+<text fill="#4A6A8A" xml:space="preserve" style="white-space: pre" font-family="Roboto" font-size="16" font-weight="900" letter-spacing="0.02em"><tspan x="207.252" y="32.8984">AGENCIA ADUANERA Y OPERADORA LOGISTICA ACONIC S.A</tspan></text>
+<text fill="#4A6A8A" xml:space="preserve" style="white-space: pre" font-family="Roboto" font-size="16" font-weight="bold" letter-spacing="0em"><tspan x="367.658" y="50.4824">ANEXO N°5</tspan></text>
+</svg>
+```
+- public/imagenes/HEADERANEX7DETAIL.svg:
+```xml
+<svg width="789" height="71" viewBox="0 0 789 71" fill="none" xmlns="http://www.w3.org/2000/svg">
+<path d="M0.39502 66.8613H788.026" stroke="#4A6A8A" stroke-width="0.771654"/>
+<path d="M0.39502 70.1729H788.026" stroke="#4A6A8A" stroke-width="2.31496"/>
+<path d="M0.39502 1H788.026" stroke="#4A6A8A" stroke-width="2.31496"/>
+<image href="/AconicExaminer/imagenes/LOGOHD.png" x="10" y="10" height="50" width="160" />
+<text fill="#4A6A8A" xml:space="preserve" style="white-space: pre" font-family="Roboto" font-size="16" font-weight="900" letter-spacing="0.02em"><tspan x="207.252" y="32.8984">AGENCIA ADUANERA Y OPERADORA LOGISTICA ACONIC S.A</tspan></text>
+<text fill="#4A6A8A" xml:space="preserve" style="white-space: pre" font-family="Roboto" font-size="16" font-weight="bold" letter-spacing="0em"><tspan x="215.658" y="50.4824">ANEXO 7 DECLARACION DE TRANSITO INTERNO</tspan></text>
+</svg>
+```
+- public/imagenes/HEADERSEXA.svg:
+```xml
+<svg width="789" height="71" viewBox="0 0 789 71" fill="none" xmlns="http://www.w3.org/2000/svg">
+<path d="M0.39502 66.8613H788.026" stroke="#4A6A8A" stroke-width="0.771654"/>
+<path d="M0.39502 70.1729H788.026" stroke="#4A6A8A" stroke-width="2.31496"/>
+<path d="M0.39502 1H788.026" stroke="#4A6A8A" stroke-width="2.31496"/>
+<image href="/AconicExaminer/imagenes/LOGOHD.png" x="10" y="10" height="50" width="160" />
+<text fill="#4A6A8A" xml:space="preserve" style="white-space: pre" font-family="Roboto" font-size="16" font-weight="900" letter-spacing="0.02em"><tspan x="207.252" y="32.8984">AGENCIA ADUANERA Y OPERADORA LOGISTICA ACONIC S.A</tspan></text>
+<text fill="#4A6A8A" xml:space="preserve" style="white-space: pre" font-family="Roboto" font-size="16" font-weight="bold" letter-spacing="0em"><tspan x="367.658" y="50.4824">EXAMEN PREVIO</tspan></text>
+</svg>
+```
+- public/imagenes/LOGOAPP.svg:
+```xml
+<svg width="257" height="257" viewBox="0 0 257 257" fill="none" xmlns="http://www.w3.org/2000/svg">
+<path d="M38.167 128.5C38.167 76.5168 80.5168 34.167 128.5 34.167C176.483 34.167 218.833 76.5168 218.833 128.5C218.833 180.483 176.483 222.833 128.5 222.833" stroke="#4A6A8A" stroke-width="25" stroke-linecap="round"/>
+<path d="M117.833 128.5H197.333" stroke="#4A6A8A" stroke-width="25" stroke-linecap="round"/>
+<path d="M128.5 128.5C128.5 137.932 120.765 145.667 111.333 145.667C101.901 145.667 94.1667 137.932 94.1667 128.5C94.1667 119.068 101.901 111.333 111.333 111.333C120.765 111.333 128.5 119.068 128.5 128.5Z" fill="#4A6A8A"/>
+</svg>
+```
+- public/imagenes/LOGOAPPwhite.svg:
+```xml
+<svg width="257" height="257" viewBox="0 0 257 257" fill="none" xmlns="http://www.w3.org/2000/svg">
+<path d="M38.167 128.5C38.167 76.5168 80.5168 34.167 128.5 34.167C176.483 34.167 218.833 76.5168 218.833 128.5C218.833 180.483 176.483 222.833 128.5 222.833" stroke="white" stroke-width="25" stroke-linecap="round"/>
+<path d="M117.833 128.5H197.333" stroke="white" stroke-width="25" stroke-linecap="round"/>
+<path d="M128.5 128.5C128.5 137.932 120.765 145.667 111.333 145.667C101.901 145.667 94.1667 137.932 94.1667 128.5C94.1667 119.068 101.901 111.333 111.333 111.333C120.765 111.333 128.5 119.068 128.5 128.5Z" fill="white"/>
+</svg>
+```
+- public/imagenes/LOGOHD.png:
+```
+-
+```
+- postcss.config.js:
+```js
+module.exports = {
+  plugins: {
+    tailwindcss: {},
+    autoprefixer: {},
+  },
+}
+```
+- README.md:
+```md
+This is a [Next.js](https://nextjs.org/) project bootstrapped with [`create-next-app`](https://github.com/vercel/next.js/tree/canary/packages/create-next-app).
+
+## Getting Started
+
+First, run the development server:
+
+```bash
+npm run dev
+# or
+yarn dev
+# or
+pnpm dev
+# or
+bun dev
+```
+
+Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+
+You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+
+This project uses [`next/font`](https://nextjs.org/docs/basic-features/font-optimization) to automatically optimize and load Inter, a custom Google Font.
+
+## Learn More
+
+To learn more about Next.js, take a look at the following resources:
+
+- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
+- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+
+You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js/) - your feedback and contributions are welcome!
+
+## Deploy on Vercel
+
+The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+
+Check out our [Next.js deployment documentation](https://nextjs.org/docs/deployment) for more details.
+
+```
+- next-env.d.ts:
+```ts
+/// <reference types="next" />
+/// <reference types="next/image" />
+
+```

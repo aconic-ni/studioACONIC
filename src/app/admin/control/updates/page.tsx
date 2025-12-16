@@ -6,7 +6,7 @@ import { AppShell } from '@/components/layout/AppShell';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Loader2, ArrowLeft, RefreshCw, Database } from 'lucide-react';
 import { db } from '@/lib/firebase';
-import { collection, getDocs, query, where, writeBatch, doc, getDoc, setDoc, documentId } from 'firebase/firestore';
+import { collection, getDocs, query, where, writeBatch, doc, getDoc, setDoc, documentId, collectionGroup } from 'firebase/firestore';
 import type { AforoCase, Worksheet } from '@/types';
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
@@ -216,7 +216,6 @@ function TotalPosicionesMigrator() {
     );
 }
 
-
 function WorksheetTypeSynchronizer() {
     const { toast } = useToast();
     const [stats, setStats] = useState({ total: 0, missingType: 0 });
@@ -331,7 +330,6 @@ function AforoDataMigrator() {
 
             if(worksheetIds.length > 0){
                 const metadataDocsPromises = [];
-                // Firestore 'in' query supports up to 30 items
                 for(let i = 0; i < worksheetIds.length; i += 30) {
                     const chunk = worksheetIds.slice(i, i + 30);
                     const metadataQuery = query(collection(db, 'worksheets'), where(documentId(), 'in', chunk));
@@ -407,7 +405,7 @@ function AforoDataMigrator() {
                             digitadorStatus: caseData.digitacionStatus || null,
                             digitadorStatusLastUpdate: caseData.digitacionStatusLastUpdate || null,
                             declaracionAduanera: caseData.declaracionAduanera || null,
-                            entregadoAforoAt: caseData.entregadoAforoAt || null, // Added field
+                            entregadoAforoAt: caseData.entregadoAforoAt || null,
                         };
                         batch.set(metadataRef, dataToMigrate, { merge: true });
                         migratedCount++;
@@ -457,6 +455,121 @@ function AforoDataMigrator() {
     );
 }
 
+function BitacoraMigrator() {
+    const { toast } = useToast();
+    const [stats, setStats] = useState({ casesWithLogs: 0, logsToMigrate: 0 });
+    const [isLoading, setIsLoading] = useState(true);
+    const [isMigrating, setIsMigrating] = useState(false);
+
+    const fetchStats = useCallback(async () => {
+        setIsLoading(true);
+        try {
+            const aforoCasesSnapshot = await getDocs(query(collection(db, 'AforoCases')));
+            let casesWithLogsCount = 0;
+            let totalLogsToMigrate = 0;
+
+            for (const caseDoc of aforoCasesSnapshot.docs) {
+                const caseData = caseDoc.data() as AforoCase;
+                if (caseData.worksheetId) {
+                    const sourceUpdatesRef = collection(db, 'AforoCases', caseDoc.id, 'actualizaciones');
+                    const sourceUpdatesSnapshot = await getDocs(sourceUpdatesRef);
+
+                    if (!sourceUpdatesSnapshot.empty) {
+                        casesWithLogsCount++;
+                        
+                        const targetAforoRef = collection(db, 'worksheets', caseData.worksheetId, 'aforo');
+                        const targetUpdatesSnapshot = await getDocs(collection(targetAforoRef, 'actualizaciones'));
+                        
+                        if (targetUpdatesSnapshot.empty) { // Only count if target is empty
+                            totalLogsToMigrate += sourceUpdatesSnapshot.size;
+                        }
+                    }
+                }
+            }
+            setStats({ casesWithLogs: casesWithLogsCount, logsToMigrate: totalLogsToMigrate });
+        } catch (error) {
+            console.error("Error fetching bitácora stats:", error);
+            toast({ title: 'Error', description: 'No se pudieron cargar las estadísticas de migración de bitácora.', variant: 'destructive' });
+        } finally {
+            setIsLoading(false);
+        }
+    }, [toast]);
+
+    useEffect(() => {
+        fetchStats();
+    }, [fetchStats]);
+
+    const handleMigration = async () => {
+        setIsMigrating(true);
+        toast({ title: 'Migración iniciada', description: 'Transfiriendo registros de bitácora. Esto puede tardar...' });
+        
+        let migratedCount = 0;
+        try {
+            const aforoCasesSnapshot = await getDocs(collection(db, 'AforoCases'));
+            
+            for (const caseDoc of aforoCasesSnapshot.docs) {
+                const caseData = caseDoc.data() as AforoCase;
+                if (caseData.worksheetId) {
+                    const sourceUpdatesRef = collection(db, 'AforoCases', caseDoc.id, 'actualizaciones');
+                    const targetUpdatesRef = collection(db, 'worksheets', caseData.worksheetId, 'aforo', 'actualizaciones');
+
+                    const [sourceSnapshot, targetSnapshot] = await Promise.all([
+                        getDocs(sourceUpdatesRef),
+                        getDocs(targetSnapshot)
+                    ]);
+                    
+                    // Only migrate if source has logs and target is empty
+                    if (!sourceSnapshot.empty && targetSnapshot.empty) {
+                        const batch = writeBatch(db);
+                        sourceSnapshot.forEach(logDoc => {
+                            const newLogRef = doc(targetUpdatesRef, logDoc.id);
+                            batch.set(newLogRef, logDoc.data());
+                        });
+                        await batch.commit();
+                        migratedCount += sourceSnapshot.size;
+                    }
+                }
+            }
+
+            if (migratedCount > 0) {
+                toast({ title: 'Migración Completa', description: `${migratedCount} registros de bitácora han sido migrados.` });
+            } else {
+                toast({ title: 'Sin cambios necesarios', description: 'Todas las bitácoras ya estaban migradas.' });
+            }
+        } catch (error) {
+            console.error("Error during bitácora migration:", error);
+            toast({ title: 'Error en Migración', description: 'Ocurrió un error al migrar las bitácoras.', variant: 'destructive' });
+        } finally {
+            setIsMigrating(false);
+            fetchStats();
+        }
+    };
+
+    return (
+        <Card>
+            <CardHeader>
+                <CardTitle>Migrador de Bitácora de Aforo</CardTitle>
+                <CardDescription>
+                    Esta herramienta transfiere la subcolección `actualizaciones` desde `AforoCases` a `worksheets/{id}/aforo/actualizaciones`.
+                </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+                {isLoading ? (
+                    <div className="flex items-center gap-2 text-muted-foreground"><Loader2 className="h-4 w-4 animate-spin"/>Cargando estadísticas...</div>
+                ) : (
+                    <div className="p-4 bg-muted/50 rounded-lg border">
+                        <p>Casos con Bitácora: <span className="font-bold">{stats.casesWithLogs}</span></p>
+                        <p>Registros de Bitácora a Migrar: <span className="font-bold text-amber-600">{stats.logsToMigrate}</span></p>
+                    </div>
+                )}
+                 <Button onClick={handleMigration} disabled={isLoading || isMigrating || stats.logsToMigrate === 0}>
+                    {isMigrating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Database className="mr-2 h-4 w-4" />}
+                    {isMigrating ? 'Migrando Bitácora...' : 'Ejecutar Migración de Bitácora'}
+                 </Button>
+            </CardContent>
+        </Card>
+    );
+}
 
 export default function UpdatesAdminPage() {
   const { user, loading: authLoading } = useAuth();
@@ -481,6 +594,7 @@ export default function UpdatesAdminPage() {
                 <TabsTrigger value="stats" disabled>Estadísticas de Actividad (Próximamente)</TabsTrigger>
             </TabsList>
             <TabsContent value="sync" className="mt-4 grid gap-6">
+                <BitacoraMigrator />
                 <WorksheetTypeSynchronizer />
                 <AforoDataMigrator />
                 <EntregadoAforoMigrator />
@@ -488,9 +602,4 @@ export default function UpdatesAdminPage() {
             </TabsContent>
             <TabsContent value="stats" className="mt-4">
                 <p>Módulo de estadísticas en desarrollo.</p>
-            </TabsContent>
-        </Tabs>
-      </div>
-    </AppShell>
-  );
-}
+            </TabsContent
