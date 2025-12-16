@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useEffect } from 'react';
@@ -33,27 +32,49 @@ export function AssignUserModal({ isOpen, onClose, worksheet, type, selectedWork
     if (!isOpen) return;
     
     const fetchUsers = async () => {
-      let roles: string[];
-      if (type.includes('aforador') || type.includes('digitador')) {
-          roles = ['aforador', 'supervisor', 'coordinadora'];
-      } else if (type.includes('revisor')) {
-          roles = ['agente aduanero'];
-      } else {
-          roles = [];
-      }
+      let users: AppUser[] = [];
+      try {
+        if (type.includes('revisor')) {
+          const qAgentes = query(collection(db, 'users'), where('roleTitle', '==', 'agente aduanero'));
+          const qSupervisores = query(collection(db, 'users'), where('role', '==', 'supervisor'), where('roleTitle', '==', 'PSMT'));
+          
+          const [agentesSnapshot, supervisoresSnapshot] = await Promise.all([
+            getDocs(qAgentes),
+            getDocs(qSupervisores),
+          ]);
+          
+          const combinedUsers = new Map<string, AppUser>();
+          agentesSnapshot.forEach(doc => {
+            combinedUsers.set(doc.id, { uid: doc.id, ...doc.data() } as AppUser);
+          });
+          supervisoresSnapshot.forEach(doc => {
+            combinedUsers.set(doc.id, { uid: doc.id, ...doc.data() } as AppUser);
+          });
+          users = Array.from(combinedUsers.values());
 
-      if(roles.length === 0) {
-        setAssignableUsers([]);
-        return;
+        } else {
+          let roles: string[];
+          if (type.includes('aforador') || type.includes('digitador')) {
+              roles = ['aforador', 'supervisor', 'coordinadora'];
+          } else {
+              roles = [];
+          }
+
+          if(roles.length > 0) {
+            const usersQuery = query(collection(db, 'users'), where('role', 'in', roles));
+            const snapshot = await getDocs(usersQuery);
+            users = snapshot.docs.map(d => ({ uid: d.id, ...d.data() } as AppUser));
+          }
+        }
+        setAssignableUsers(users);
+      } catch (error) {
+        console.error("Error fetching users for assignment:", error);
+        toast({ title: "Error", description: "No se pudieron cargar los usuarios para asignar.", variant: "destructive"});
       }
-      
-      const usersQuery = query(collection(db, 'users'), where('role', 'in', roles));
-      const snapshot = await getDocs(usersQuery);
-      const users = snapshot.docs.map(d => ({ uid: d.id, ...d.data() } as AppUser));
-      setAssignableUsers(users);
     };
+
     fetchUsers();
-  }, [isOpen, type]);
+  }, [isOpen, type, toast]);
 
   const handleAssign = async () => {
     if (!selectedUser || !currentUser?.displayName) return;
