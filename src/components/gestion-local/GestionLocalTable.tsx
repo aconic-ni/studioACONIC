@@ -47,9 +47,10 @@ interface GestionLocalTableProps {
   onAssign: (worksheet: Worksheet, type: 'aforador' | 'revisor' | 'digitador') => void;
   onComment: (worksheet: Worksheet) => void;
   onView: (worksheet: Worksheet) => void;
+  isLoading: boolean;
 }
 
-export function GestionLocalTable({ worksheets, setWorksheets, selectedRows, setSelectedRows, onAssign, onComment, onView }: GestionLocalTableProps) {
+export function GestionLocalTable({ worksheets, setWorksheets, selectedRows, setSelectedRows, onAssign, onComment, onView, isLoading }: GestionLocalTableProps) {
   const { toast } = useToast();
   const { user } = useAuth();
   const [currentPage, setCurrentPage] = useState(1);

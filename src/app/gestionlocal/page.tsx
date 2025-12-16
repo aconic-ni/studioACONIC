@@ -83,14 +83,13 @@ export default function GestionLocalPage() {
     }
     setIsExporting(true);
     
-    // Adapt worksheet data to what downloadAforoReportAsExcel expects
     const casesToExport = filteredWorksheets.map(ws => ({
         id: ws.id,
         ne: ws.ne,
         consignee: ws.consignee,
         merchandise: ws.description,
         declarationPattern: ws.patternRegime,
-        ...((ws as any).aforo || {}) // Spread aforo data
+        ...((ws as any).aforo || {}) 
     }));
 
     const auditLogs: (AforoCaseUpdate & { caseNe: string })[] = [];
@@ -159,6 +158,7 @@ export default function GestionLocalPage() {
                 onAssign={(worksheet, type) => setAssignmentModal({ isOpen: true, type, worksheet })}
                 onComment={(worksheet) => setCommentModal({ isOpen: true, worksheet })}
                 onView={(worksheet) => setViewModal({ isOpen: true, worksheet })}
+                isLoading={isLoading}
               />
             )}
           </CardContent>
