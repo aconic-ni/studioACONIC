@@ -1,11 +1,11 @@
 
 "use client";
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import Image from 'next/image';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
 import { X, Printer, FileText, User, Building, Weight, Truck, MapPin, Anchor, Plane, Globe, Package, ListChecks, FileSymlink, Link as LinkIcon, Eye, Shield, FileBadge, FileKey, Edit, Calendar } from 'lucide-react';
-import type { Worksheet, AppUser, AforoCase } from '@/types';
+import type { Worksheet, AppUser, AforoCase, WorksheetDocument } from '@/types';
 import { Timestamp, collection, query, where, getDocs } from 'firebase/firestore';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '../ui/badge';
@@ -71,7 +71,7 @@ export const WorksheetDetails: React.FC<{ worksheet: Worksheet; aforoCase?: Afor
   if (worksheet.worksheetType === 'anexo_5') {
     return <Anexo5Details worksheet={worksheet} onClose={onClose} />;
   }
-  
+
   const handlePrint = () => {
     window.print();
   };
@@ -81,10 +81,26 @@ export const WorksheetDetails: React.FC<{ worksheet: Worksheet; aforoCase?: Afor
   const wasModified = worksheet.lastUpdatedAt && worksheet.createdAt && worksheet.lastUpdatedAt.toMillis() !== worksheet.createdAt.toMillis();
   const isPsmtCase = worksheet.consignee?.toUpperCase().trim() === "PSMT NICARAGUA, SOCIEDAD ANONIMA";
   
-  // Prioritize RESA info from AforoCase if available, otherwise use worksheet
   const resaNumber = aforoCase?.resaNumber || worksheet.resa;
   const resaNotificationDate = aforoCase?.resaNotificationDate || worksheet.resaNotificationDate;
   const resaDueDate = aforoCase?.resaDueDate || worksheet.resaDueDate;
+
+  const sortedDocuments = useMemo(() => {
+    const docs = worksheet.documents || [];
+    const facturas = docs.filter(d => d.type === 'FACTURA');
+    const otros = docs.filter(d => d.type !== 'FACTURA');
+
+    facturas.sort((a, b) => {
+        const numA = parseInt(a.number.replace(/\D/g, ''), 10);
+        const numB = parseInt(b.number.replace(/\D/g, ''), 10);
+        if (!isNaN(numA) && !isNaN(numB)) {
+            return numA - numB;
+        }
+        return a.number.localeCompare(b.number);
+    });
+
+    return [...facturas, ...otros];
+  }, [worksheet.documents]);
 
   return (
     <>
@@ -191,8 +207,8 @@ export const WorksheetDetails: React.FC<{ worksheet: Worksheet; aforoCase?: Afor
                     <Table className="print:text-[8pt]">
                         <TableHeader><TableRow><TableHead className="print:p-1">Tipo</TableHead><TableHead className="print:p-1">Número</TableHead><TableHead className="print:p-1">Formato</TableHead></TableRow></TableHeader>
                         <TableBody>
-                            {worksheet.documents?.length > 0 ? (
-                            worksheet.documents.map(doc => (
+                            {sortedDocuments.length > 0 ? (
+                            sortedDocuments.map(doc => (
                                 <TableRow key={doc.id}><TableCell className="print:p-1">{doc.type}</TableCell><TableCell className="print:p-1">{doc.number}</TableCell>
                                 <TableCell className="print:p-1"><Badge variant={doc.isCopy ? 'secondary' : 'default'} className="print:text-xs print:px-1 print:py-0">{doc.isCopy ? 'Copia' : 'Original'}</Badge></TableCell>
                                 </TableRow>
