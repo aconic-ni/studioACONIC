@@ -11,7 +11,6 @@ import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
-import { StatusBadges } from '../executive/StatusBadges';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/context/AuthContext';
 import { db } from '@/lib/firebase';
@@ -325,11 +324,10 @@ export function GestionLocalTable({ worksheets, setWorksheets, selectedRows, set
     if (!user || !user.displayName || selectedRows.length === 0) return;
     setIsLoading(true);
     const batch = writeBatch(db);
-    const comment = "Se reciben hojas fisicas de casos";
-
+    
     selectedRows.forEach(wsId => {
-        const worksheetRef = doc(db, 'worksheets', wsId);
-        batch.update(worksheetRef, { entregadoAforoAt: Timestamp.now() });
+        const worksheetRef = doc(db, 'worksheets', wsId, 'aforo', 'metadata');
+        batch.set(worksheetRef, { entregadoAforoAt: Timestamp.now() }, { merge: true });
     });
     
     try {
@@ -459,7 +457,10 @@ export function GestionLocalTable({ worksheets, setWorksheets, selectedRows, set
               <TableCell>{ws.ne}</TableCell>
               <TableCell>{ws.consignee}</TableCell>
               <TableCell>
-                <Badge variant="secondary">{aforoData?.aforador || 'N/A'}</Badge>
+                <div className="flex items-center gap-1">
+                  <Badge variant="secondary">{aforoData?.aforador || 'N/A'}</Badge>
+                  <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => onAssign(ws, 'aforador')}><Edit className="h-3 w-3"/></Button>
+                </div>
               </TableCell>
               <TableCell>
                 <div className="flex items-center gap-1">
@@ -487,7 +488,10 @@ export function GestionLocalTable({ worksheets, setWorksheets, selectedRows, set
                 </Badge>
               </TableCell>
               <TableCell>
-                  <Badge variant="secondary">{aforoData?.digitador || 'N/A'}</Badge>
+                  <div className="flex items-center gap-1">
+                    <Badge variant="secondary">{aforoData?.digitador || 'N/A'}</Badge>
+                    <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => onAssign(ws, 'digitador')}><Edit className="h-3 w-3"/></Button>
+                  </div>
               </TableCell>
               <TableCell>
                  <div className="flex items-center gap-1">
@@ -551,7 +555,7 @@ export function GestionLocalTable({ worksheets, setWorksheets, selectedRows, set
             </Button>
         </div>
     </div>
-    <Dialog open={statusModal.isOpen} onOpenChange={() => setStatusModal({isOpen: false, worksheet: undefined})}>
+    <Dialog open={statusModal.isOpen} onOpenChange={() => setStatusModal({isOpen: false, worksheet: undefined, type: 'aforador'})}>
         <DialogContent>
             <DialogHeader>
                 <DialogTitle>Cambiar Estado de {statusModal.type?.includes('aforador') ? 'Aforador' : 'Digitador'} {statusModal.type?.includes('bulk') ? 'Masivo' : ''}</DialogTitle>
@@ -586,7 +590,7 @@ export function GestionLocalTable({ worksheets, setWorksheets, selectedRows, set
                 </SelectContent>
             </Select>
             <DialogFooter>
-                <Button variant="outline" onClick={() => setStatusModal({isOpen: false})}>Cancelar</Button>
+                <Button variant="outline" onClick={() => setStatusModal({isOpen: false, type: 'aforador'})}>Cancelar</Button>
             </DialogFooter>
         </DialogContent>
     </Dialog>
@@ -678,182 +682,3 @@ export function GestionLocalTable({ worksheets, setWorksheets, selectedRows, set
     </>
   );
 }
-
-```
-- src/firebase/client-provider.tsx:
-```tsx
-'use client';
-
-import {
-  type ReactNode,
-  useState,
-  useEffect,
-  useRef,
-  type MutableRefObject,
-} from 'react';
-import type { FirebaseApp } from 'firebase/app';
-import type { Firestore } from 'firebase/firestore';
-import type { Auth } from 'firebase/auth';
-import { initializeApp, getApps } from 'firebase/app';
-import { getAuth as getFirebaseAuth } from 'firebase/auth';
-import { getFirestore as getFirebaseFirestore } from 'firebase/firestore';
-import { FirebaseProvider } from './provider';
-
-interface FirebaseClientProviderProps {
-  children: ReactNode;
-  firebaseConfig: { [key: string]: any };
-}
-
-export function FirebaseClientProvider({
-  children,
-  firebaseConfig,
-}: FirebaseClientProviderProps) {
-  const [firebaseApp, setFirebaseApp] = useState<FirebaseApp | null>(null);
-  const [firestore, setFirestore] = useState<Firestore | null>(null);
-  const [auth, setAuth] = useState<Auth | null>(null);
-  const firebaseInitialized: MutableRefObject<boolean> = useRef(false);
-
-  useEffect(() => {
-    if (!firebaseInitialized.current) {
-      const apps = getApps();
-      if (apps.length === 0) {
-        const app = initializeApp(firebaseConfig);
-        setFirebaseApp(app);
-        setFirestore(getFirebaseFirestore(app));
-        setAuth(getFirebaseAuth(app));
-      } else {
-        const app = apps[0];
-        setFirebaseApp(app);
-        setFirestore(getFirebaseFirestore(app));
-        setAuth(getFirebaseAuth(app));
-      }
-      firebaseInitialized.current = true;
-    }
-  }, [firebaseConfig]);
-
-  if (!firebaseApp) {
-    return null;
-  }
-
-  return (
-    <FirebaseProvider
-      firebaseApp={firebaseApp}
-      firestore={firestore!}
-      auth={auth!}
-    >
-      {children}
-    </FirebaseProvider>
-  );
-}
-
-```
-- src/firebase/config.ts:
-```ts
-// See https://firebase.google.com/docs/web/learn-more#config-object
-export const firebaseConfig = {
-  apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
-  authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
-  // The value of `databaseURL` depends on the location of the database
-  databaseURL: process.env.NEXT_PUBLIC_FIREBASE_DATABASE_URL,
-  projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
-  storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
-  messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
-  appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
-  // For Firebase JavaScript SDK v7.20.0 and later, `measurementId` is an optional field
-  measurementId: process.env.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID,
-};
-
-```
-- src/firebase/index.ts:
-```ts
-import { FirebaseClientProvider } from './client-provider';
-import {
-  FirebaseProvider,
-  useFirebase,
-  useFirebaseApp,
-  useFirestore,
-  useAuth,
-} from './provider';
-
-// Important: do not call `initializeApp` in this file.
-// It is the responsibility of the app to initialize Firebase.
-
-// The `FirebaseClientProvider` should be used to wrap the app.
-// It will only initialize Firebase on the client.
-export {
-  FirebaseClientProvider,
-  FirebaseProvider,
-  useFirebase,
-  useFirebaseApp,
-  useFirestore,
-  useAuth,
-};
-
-```
-- src/firebase/provider.tsx:
-```tsx
-'use client';
-
-import {
-  createContext,
-  useContext,
-  type ReactNode,
-} from 'react';
-import type { FirebaseApp } from 'firebase/app';
-import type { Firestore } from 'firebase/firestore';
-import type { Auth } from 'firebase/auth';
-
-interface FirebaseContextValue {
-  firebaseApp: FirebaseApp;
-  firestore: Firestore;
-  auth: Auth;
-}
-
-const FirebaseContext = createContext<FirebaseContextValue | undefined>(
-  undefined
-);
-
-interface FirebaseProviderProps {
-  children: ReactNode;
-  firebaseApp: FirebaseApp;
-  firestore: Firestore;
-  auth: Auth;
-}
-
-export function FirebaseProvider(props: FirebaseProviderProps) {
-  const { children, ...value } = props;
-  return (
-    <FirebaseContext.Provider value={value}>
-      {children}
-    </FirebaseContext.Provider>
-  );
-}
-
-export function useFirebase() {
-  const context = useContext(FirebaseContext);
-
-  if (context === undefined) {
-    throw new Error('useFirebase must be used within a FirebaseProvider');
-  }
-
-  return context;
-}
-
-export function useFirebaseApp() {
-  return useFirebase().firebaseApp;
-}
-
-export function useFirestore() {
-  return useFirebase().firestore;
-}
-
-export function useAuth() {
-  return useFirebase().auth;
-}
-
-```
-- src/text.txt:
-```txt
-hello
-
-```
