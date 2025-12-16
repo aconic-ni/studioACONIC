@@ -1,4 +1,3 @@
-
 "use client";
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
@@ -74,7 +73,7 @@ export default function AdminPage() {
                         </Link>
                     </Button>
                      <Button asChild size="lg" variant="outline" className="h-20 text-lg">
-                        <Link href="/thereporter">
+                        <Link href="/gestionlocal">
                            <Briefcase className="mr-3 h-6 w-6" />
                            Módulo Aforo
                         </Link>

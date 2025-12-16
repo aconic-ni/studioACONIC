@@ -1,4 +1,3 @@
-
 "use client";
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
@@ -56,7 +55,7 @@ export default function SupervisorPage() {
                         </Link>
                     </Button>
                     <Button asChild size="lg" className="h-24 text-lg">
-                        <Link href="/thereporter">
+                        <Link href="/gestionlocal">
                             <Users className="mr-3 h-6 w-6" />
                             Módulo Aforador
                         </Link>

@@ -100,7 +100,7 @@ export const navLinkDetails: Record<NavLink, { href: string; label: string; icon
   dbValidaciones: { href: '/validaciones', label: 'Validaciones', icon: ShieldCheck },
   photos: { href: 'https://aconisani-my.sharepoint.com/:f:/g/personal/asuntos_juridicos_aconic_com_ni/Emrpj4Ss8bhDifpuYc8U_bwBj9r29FGcXxzfxu4PSh2tEQ?e=tkoEC0', label: 'Fotos', icon: Camera, isExternal: true },
   reportsPrevios: { href: '/reports', label: 'Reportes de Previos', icon: PieChart },
-  reportsAforo: { href: '/thereporter', label: 'Reportes de Aforo', icon: Search },
+  reportsAforo: { href: '/gestionlocal', label: 'Gestión Local Aforo', icon: Search },
   agenteCasos: { href: '/agente/casos', label: 'Gestión de Casos', icon: Briefcase },
   supervisor: { href: '/supervisor', label: 'Panel Supervisor', icon: Users },
   executive: { href: '/executive', label: 'Módulo Ejecutivo', icon: Briefcase },
