@@ -16,47 +16,44 @@ export default function HomePage() {
   const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
 
   useEffect(() => {
-    if (!loading && user) {
-      const userRole = user.role || 'gestor';
-      let roleToUse: UserRole;
+    if (!loading) {
+      if (user) {
+        // User is logged in, redirect based on role
+        const userRole = user.role || 'gestor';
+        let roleToUse: UserRole;
 
-      if (user.roleTitle === 'agente aduanero') {
-        roleToUse = 'agente';
-      } else if (userRole === 'invitado') {
-        roleToUse = 'invitado';
+        if (user.roleTitle === 'agente aduanero') {
+            roleToUse = 'agente';
+        } else {
+            roleToUse = userRole;
+        }
+        
+        const config = roleConfig[roleToUse];
+        if (config) {
+            router.push(config.home);
+        } else {
+            router.push('/examiner'); // Fallback
+        }
       } else {
-        roleToUse = userRole;
+        // No user, open the login modal
+        setIsLoginModalOpen(true);
       }
-      
-      const config = roleConfig[roleToUse];
-      if (config) {
-        router.push(config.home);
-      } else {
-        // Fallback to a default page if role config is missing
-        router.push('/examiner');
-      }
-    } else if (!loading && !user) {
-      // If not loading and no user, ensure login modal is open
-      setIsLoginModalOpen(true);
     }
   }, [user, loading, router]);
   
   const handleLoginSuccess = () => {
-    // The redirection is now handled by the useEffect above
     setIsLoginModalOpen(false);
+    // Redirection is handled by the useEffect
   };
 
   const handleModalClose = () => {
-    // Keep the modal open if there's no user
-    if (!user) {
-        setIsLoginModalOpen(true);
-    } else {
-        setIsLoginModalOpen(false);
-    }
-  }
+    // If the modal is closed without logging in, we keep it closed.
+    // The useEffect will reopen it if the user is still not logged in.
+    setIsLoginModalOpen(false);
+  };
 
-  // Show a loading spinner while checking auth state or if user is logged in and redirecting
-  if (loading || user) {
+  // While loading, show a full-screen spinner
+  if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center grid-bg">
         <Loader2 className="h-16 w-16 animate-spin text-white" />
@@ -64,8 +61,7 @@ export default function HomePage() {
     );
   }
 
-  // If not loading and no user, the modal will be shown.
-  // We can render a fallback UI here, but the modal will overlay it.
+  // Always render the main page content. The modal will appear on top.
   return (
     <div className="min-h-screen flex flex-col items-center justify-center grid-bg text-white p-4 gap-y-8">
        <main className="flex flex-col md:flex-row items-center gap-x-4 gap-y-8">
@@ -84,12 +80,15 @@ export default function HomePage() {
             </CardContent>
         </Card>
       </main>
+      
+      {/* The LoginModal is now controlled by the state and will overlay the main content */}
       <LoginModal
         isOpen={isLoginModalOpen}
         onClose={handleModalClose}
         onLoginSuccess={handleLoginSuccess}
         targetSystem="examiner"
       />
+
        <footer className="text-center text-sm text-blue-300 mt-auto md:mt-0">
         Stvaer © 2025 for ACONIC
       </footer>
