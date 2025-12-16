@@ -8,7 +8,7 @@ import { X, Printer, FileText, User, Building, Weight, Truck, MapPin, Anchor, Pl
 import type { Worksheet, AppUser, AforoCase, WorksheetDocument } from '@/types';
 import { Timestamp, collection, query, where, getDocs } from 'firebase/firestore';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Badge } from '../ui/badge';
+import { Badge } from '@/components/ui/badge';
 import { format as formatDateFns } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { aduanas, aduanaToShortCode } from '@/lib/formData';

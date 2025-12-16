@@ -63,8 +63,6 @@ interface SolicitudDetailViewProps {
   initialData?: InitialDataContext | null; // Can accept initial data directly
 }
 
-const basePath = process.env.NEXT_PUBLIC_BASE_PATH || "";
-
 export default function SolicitudDetailView({ id, isInlineView, onBackToList, children, solicitud: initialSolicitud, initialData: initialPassedData }: SolicitudDetailViewProps) {
   const { initialContextData: contextInitialData, solicitudes: contextSolicitudes } = useAppContext();
   const [solicitud, setSolicitud] = useState<SolicitudRecord | SolicitudData | null>(initialSolicitud || null);
@@ -165,7 +163,7 @@ export default function SolicitudDetailView({ id, isInlineView, onBackToList, ch
     return (
         <CardContent className="pt-4 print:p-0">
              <div className="hidden print:block">
-                <Image src={`/imagenes/HEADERSEXA.svg`} alt="Header Solicitud Detail" width={800} height={100} className="w-full h-auto object-contain" data-ai-hint="company logo banner" priority />
+                <Image src="/imagenes/HEADERSEXA.svg" alt="Header Solicitud Detail" width={800} height={100} className="w-full h-auto object-contain" data-ai-hint="company logo banner" priority />
             </div>
              <div className="no-print">
                 <CardHeader className="p-0 mb-4">
@@ -236,7 +234,7 @@ export default function SolicitudDetailView({ id, isInlineView, onBackToList, ch
                 </div>
               </div>
               <div className="hidden print:block">
-                <Image src={`/imagenes/FOOTERSOLICITUDETAIL.svg`} alt="Footer Solicitud Detail" width={800} height={100} className="w-full h-auto object-contain mt-6" data-ai-hint="company seal official" priority />
+                <Image src="/imagenes/FOOTERSOLICITUDETAIL.svg" alt="Footer Solicitud Detail" width={800} height={100} className="w-full h-auto object-contain mt-6" data-ai-hint="company seal official" priority />
               </div>
               <div className="no-print mt-4 flex justify-end">
                    <Button onClick={handlePrint}>
