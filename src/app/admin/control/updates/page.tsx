@@ -6,7 +6,7 @@ import { AppShell } from '@/components/layout/AppShell';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Loader2, ArrowLeft, RefreshCw, Database } from 'lucide-react';
 import { db } from '@/lib/firebase';
-import { collection, getDocs, query, where, writeBatch, doc, getDoc, setDoc, documentId, collectionGroup } from 'firebase/firestore';
+import { collection, getDocs, query, where, writeBatch, doc, getDoc, setDoc, documentId, collectionGroup, getCountFromServer } from 'firebase/firestore';
 import type { AforoCase, Worksheet } from '@/types';
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
@@ -465,20 +465,23 @@ function BitacoraMigrator() {
     const fetchStats = useCallback(async () => {
         setIsLoading(true);
         try {
-            const sourceUpdatesQuery = query(collectionGroup(db, 'actualizaciones'));
-            const sourceUpdatesSnapshot = await getDocs(sourceUpdatesQuery);
-            
+            const aforoCasesSnapshot = await getDocs(collection(db, 'AforoCases'));
+            let totalLogs = 0;
             const caseIdsWithLogs = new Set<string>();
-            sourceUpdatesSnapshot.forEach(doc => {
-                const pathParts = doc.ref.path.split('/');
-                if (pathParts.length >= 3 && pathParts[0] === 'AforoCases') {
-                    caseIdsWithLogs.add(pathParts[1]);
+
+            for (const caseDoc of aforoCasesSnapshot.docs) {
+                const updatesRef = collection(db, 'AforoCases', caseDoc.id, 'actualizaciones');
+                const updatesCountSnapshot = await getCountFromServer(updatesRef);
+                const count = updatesCountSnapshot.data().count;
+                if (count > 0) {
+                    totalLogs += count;
+                    caseIdsWithLogs.add(caseDoc.id);
                 }
-            });
+            }
 
             setStats({
                 casesWithLogs: caseIdsWithLogs.size,
-                logsToMigrate: sourceUpdatesSnapshot.size, 
+                logsToMigrate: totalLogs,
             });
 
         } catch (error) {
