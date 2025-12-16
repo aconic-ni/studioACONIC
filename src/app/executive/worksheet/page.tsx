@@ -1,3 +1,4 @@
+
 "use client";
 import React, { useEffect, useState, useMemo, useCallback, Suspense } from 'react';
 import { useForm, Controller, useFieldArray } from 'react-hook-form';
@@ -418,9 +419,7 @@ function WorksheetForm() {
       const batch = writeBatch(db);
 
       try {
-        // Exclude 'createdBy' from the update payload
         const { createdBy, ...restOfData } = data;
-
         const updatedWorksheetData = { 
             ...restOfData, 
             eta: data.eta ? Timestamp.fromDate(data.eta) : null,
@@ -480,9 +479,7 @@ function WorksheetForm() {
             return;
         }
 
-        const batch = writeBatch(db);
         const creationTimestamp = Timestamp.now();
-        const createdByInfo = { by: user.displayName, at: creationTimestamp };
   
         const worksheetData: Worksheet = { 
             ...data, 
@@ -494,54 +491,8 @@ function WorksheetForm() {
             requiredPermits: data.requiredPermits || [], 
             lastUpdatedAt: creationTimestamp 
         };
-        batch.set(worksheetDocRef, worksheetData);
+        await setDoc(worksheetDocRef, worksheetData);
   
-        const aforoCaseData: Partial<AforoCase> = {
-            ne: neTrimmed,
-            executive: data.executive,
-            consignee: data.consignee,
-            facturaNumber: data.facturaNumber,
-            declarationPattern: data.patternRegime,
-            merchandise: data.description,
-            createdBy: user.uid,
-            createdAt: creationTimestamp,
-            aforador: data.aforador || '',
-            assignmentDate: (data.aforador && data.aforador !== '-') ? creationTimestamp : null,
-            aforadorStatus: 'Pendiente ',
-            aforadorStatusLastUpdate: createdByInfo,
-            revisorStatus: 'Pendiente',
-            revisorStatusLastUpdate: createdByInfo,
-            preliquidationStatus: 'Pendiente',
-            preliquidationStatusLastUpdate: createdByInfo,
-            digitacionStatus: 'Pendiente',
-            digitacionStatusLastUpdate: createdByInfo,
-            incidentStatus: 'Pendiente',
-            incidentStatusLastUpdate: createdByInfo,
-            revisorAsignado: '',
-            revisorAsignadoLastUpdate: createdByInfo,
-            digitadorAsignado: '',
-            digitadorAsignadoLastUpdate: createdByInfo,
-            worksheetId: neTrimmed,
-            entregadoAforoAt: creationTimestamp,
-        };
-        batch.set(aforoCaseDocRef, aforoCaseData);
-  
-        const initialLogRef = doc(collection(aforoCaseDocRef, 'actualizaciones'));
-        const initialLog: AforoCaseUpdate = {
-            updatedAt: Timestamp.now(),
-            updatedBy: user.displayName,
-            field: 'creation',
-            oldValue: null,
-            newValue: 'case_created_from_worksheet',
-            comment: `Hoja de Trabajo ingresada por ${user.displayName}.`,
-        };
-        batch.set(initialLogRef, initialLog);
-  
-        if (data.consignee.toUpperCase().trim() === "PSMT NICARAGUA, SOCIEDAD ANONIMA" && (!data.aforador || data.aforador === '-')) {
-            setCaseToAssignAforador(aforoCaseData as AforoCase);
-        }
-  
-        await batch.commit();
         toast({ title: "Registro Creado", description: `El registro para el NE ${neTrimmed} ha sido guardado.` });
         router.push('/executive');
         form.reset();
@@ -549,9 +500,9 @@ function WorksheetForm() {
     } catch (serverError: any) {
         console.error("Error creating record:", serverError);
         const permissionError = new FirestorePermissionError({
-            path: `batch write to worksheets/${neTrimmed} and AforoCases/${neTrimmed}`,
+            path: `write to worksheets/${neTrimmed}`,
             operation: 'create',
-            requestResourceData: { worksheetData: data, aforoCaseData: { ne: neTrimmed } },
+            requestResourceData: { worksheetData: data },
         }, serverError);
         errorEmitter.emit('permission-error', permissionError);
     } finally {
@@ -1197,7 +1148,7 @@ function WorksheetForm() {
                 </Button>
                 <Button type="submit" disabled={isSubmitting}>
                   {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                  {isSubmitting ? 'Guardando...' : 'Guardar Hoja de Trabajo'}
+                  {editingWorksheetId ? 'Guardar Cambios' : 'Guardar Hoja de Trabajo'}
                 </Button>
             </div>
           </form>
@@ -1227,5 +1178,3 @@ export default function WorksheetPage() {
         </AppShell>
     )
 }
-
-    
