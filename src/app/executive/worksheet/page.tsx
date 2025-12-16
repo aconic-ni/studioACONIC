@@ -419,11 +419,11 @@ function WorksheetForm() {
       const batch = writeBatch(db);
 
       try {
-        const { createdBy, ...restOfData } = data;
         const updatedWorksheetData = { 
-            ...restOfData, 
+            ...data, 
             eta: data.eta ? Timestamp.fromDate(data.eta) : null,
             lastUpdatedAt: Timestamp.now(),
+            createdBy: originalWorksheet?.createdBy || user.email, // Preserve original creator
         };
         batch.update(worksheetDocRef, updatedWorksheetData);
         batch.update(aforoCaseDocRef, {
@@ -454,7 +454,7 @@ function WorksheetForm() {
           path: `batch update to worksheets/${editingWorksheetId} and AforoCases/${editingWorksheetId}`,
           operation: 'update',
           requestResourceData: { worksheetData: data },
-        });
+        }, serverError);
         errorEmitter.emit('permission-error', permissionError);
       } finally {
         setIsSubmitting(false);
@@ -479,6 +479,7 @@ function WorksheetForm() {
             return;
         }
 
+        const batch = writeBatch(db);
         const creationTimestamp = Timestamp.now();
   
         const worksheetData: Worksheet = { 
@@ -491,8 +492,47 @@ function WorksheetForm() {
             requiredPermits: data.requiredPermits || [], 
             lastUpdatedAt: creationTimestamp 
         };
-        await setDoc(worksheetDocRef, worksheetData);
+        batch.set(worksheetDocRef, worksheetData);
   
+        const aforoCaseData: Partial<AforoCase> = {
+            ne: neTrimmed,
+            executive: data.executive,
+            consignee: data.consignee,
+            facturaNumber: data.facturaNumber,
+            declarationPattern: data.patternRegime,
+            merchandise: data.description,
+            createdBy: user.uid,
+            createdAt: creationTimestamp,
+            aforador: data.aforador || '',
+            assignmentDate: (data.aforador && data.aforador !== '-') ? creationTimestamp : null,
+            aforadorStatus: 'Pendiente ',
+            revisorStatus: 'Pendiente',
+            preliquidationStatus: 'Pendiente',
+            digitacionStatus: 'Pendiente',
+            incidentStatus: 'Pendiente',
+            revisorAsignado: '',
+            digitadorAsignado: '',
+            worksheetId: neTrimmed,
+            entregadoAforoAt: creationTimestamp,
+        };
+        batch.set(aforoCaseDocRef, aforoCaseData);
+  
+        const initialLogRef = doc(collection(aforoCaseDocRef, 'actualizaciones'));
+        const initialLog: AforoCaseUpdate = {
+            updatedAt: Timestamp.now(),
+            updatedBy: user.displayName,
+            field: 'creation',
+            oldValue: null,
+            newValue: 'case_created_from_worksheet',
+            comment: `Hoja de Trabajo ingresada por ${user.displayName}.`,
+        };
+        batch.set(initialLogRef, initialLog);
+  
+        if (data.consignee.toUpperCase().trim() === "PSMT NICARAGUA, SOCIEDAD ANONIMA" && (!data.aforador || data.aforador === '-')) {
+            setCaseToAssignAforador(aforoCaseData as AforoCase);
+        }
+  
+        await batch.commit();
         toast({ title: "Registro Creado", description: `El registro para el NE ${neTrimmed} ha sido guardado.` });
         router.push('/executive');
         form.reset();
@@ -500,9 +540,9 @@ function WorksheetForm() {
     } catch (serverError: any) {
         console.error("Error creating record:", serverError);
         const permissionError = new FirestorePermissionError({
-            path: `write to worksheets/${neTrimmed}`,
+            path: `batch write to worksheets/${neTrimmed} and AforoCases/${neTrimmed}`,
             operation: 'create',
-            requestResourceData: { worksheetData: data },
+            requestResourceData: { worksheetData: data, aforoCaseData: { ne: neTrimmed } },
         }, serverError);
         errorEmitter.emit('permission-error', permissionError);
     } finally {
@@ -1163,6 +1203,7 @@ function WorksheetForm() {
             onSave={(updatedDetails) => handleSavePermitDetails(editingPermit.index, updatedDetails)}
         />
     )}
+    {/* This is a comment to ensure file changes are detected */}
     </>
   )
 }
