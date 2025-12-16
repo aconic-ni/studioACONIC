@@ -291,6 +291,7 @@ function AnexoForm() {
             merchandise: data.observations,
             aforador: data.aforador || '',
             revisorAsignado: data.revisorAsignado || '',
+            worksheetType: data.worksheetType
         });
 
         const logRef = doc(collection(aforoCaseDocRef, 'actualizaciones'));
@@ -366,6 +367,7 @@ function AnexoForm() {
           digitadorAsignado: '',
           digitadorAsignadoLastUpdate: createdByInfo,
           worksheetId: neTrimmed,
+          worksheetType: data.worksheetType,
           entregadoAforoAt: creationTimestamp,
         };
         batch.set(aforoCaseDocRef, aforoCaseData);
@@ -650,3 +652,4 @@ export default function AnexoPage() {
         </AppShell>
     )
 }
+

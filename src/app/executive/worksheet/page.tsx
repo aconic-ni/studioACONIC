@@ -1,3 +1,4 @@
+
 "use client";
 import React, { useEffect, useState, useMemo, useCallback, Suspense } from 'react';
 import { useForm, Controller, useFieldArray } from 'react-hook-form';
@@ -560,6 +561,7 @@ function WorksheetForm() {
             digitadorAsignado: '',
             digitadorAsignadoLastUpdate: createdByInfo,
             worksheetId: neTrimmed,
+            worksheetType: data.worksheetType,
             entregadoAforoAt: creationTimestamp,
         };
         batch.set(aforoCaseDocRef, aforoCaseData);
@@ -1084,30 +1086,21 @@ function WorksheetForm() {
                                     />
                                 </TableCell>
                                 <TableCell>
-                                    {field.status === 'Rechazado' ? (
-                                        <div className="flex items-center gap-2">
-                                             <Badge variant="destructive">Rechazado</Badge>
-                                             <Button size="sm" variant="outline" onClick={() => handleResubmitPermit(index)}>
-                                                 <RotateCcw className="mr-2 h-4 w-4" /> Someter
-                                             </Button>
-                                        </div>
-                                    ) : (
-                                        <Controller
-                                            control={form.control}
-                                            name={`requiredPermits.${index}.status`}
-                                            render={({ field: controllerField }) => (
-                                                <Select onValueChange={controllerField.onChange} value={controllerField.value}>
-                                                    <SelectTrigger className="w-[150px]"><SelectValue /></SelectTrigger>
-                                                    <SelectContent>
-                                                        <SelectItem value="Pendiente">Pendiente</SelectItem>
-                                                        <SelectItem value="En Trámite">En Trámite</SelectItem>
-                                                        <SelectItem value="Entregado">Entregado</SelectItem>
-                                                        <SelectItem value="Rechazado">Rechazado</SelectItem>
-                                                    </SelectContent>
-                                                </Select>
-                                            )}
-                                        />
-                                    )}
+                                    <Controller
+                                        control={form.control}
+                                        name={`requiredPermits.${index}.status`}
+                                        render={({ field: controllerField }) => (
+                                            <Select onValueChange={controllerField.onChange} value={controllerField.value}>
+                                                <SelectTrigger className="w-[150px]"><SelectValue /></SelectTrigger>
+                                                <SelectContent>
+                                                    <SelectItem value="Pendiente">Pendiente</SelectItem>
+                                                    <SelectItem value="En Trámite">En Trámite</SelectItem>
+                                                    <SelectItem value="Entregado">Entregado</SelectItem>
+                                                    <SelectItem value="Rechazado">Rechazado</SelectItem>
+                                                </SelectContent>
+                                            </Select>
+                                        )}
+                                    />
                                 </TableCell>
                                 <TableCell className="text-right">
                                     <div className="flex items-center justify-end gap-1">
@@ -1259,3 +1252,4 @@ export default function WorksheetPage() {
         </AppShell>
     )
 }
+
