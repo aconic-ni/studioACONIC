@@ -1,3 +1,4 @@
+
 "use client";
 import React, { useState, useEffect, useCallback } from 'react';
 import { db } from '@/lib/firebase';
@@ -461,6 +462,16 @@ export function DailyAforoCasesTable({ filters, setAllFetchedCases, showPendingO
         const userInfo = { by: user.displayName, at: now };
 
         if (field === 'aforador') updateData.assignmentDate = now;
+        const statusFieldMap: {[key: string]: keyof AforoCase} = {
+            'aforadorStatus': 'aforadorStatusLastUpdate',
+            'revisorStatus': 'revisorStatusLastUpdate',
+            'digitacionStatus': 'digitacionStatusLastUpdate',
+            'preliquidationStatus': 'preliquidationStatusLastUpdate',
+            'incidentStatus': 'incidentStatusLastUpdate',
+            'revisorAsignado': 'revisorAsignadoLastUpdate',
+            'digitadorAsignado': 'digitadorAsignadoLastUpdate',
+            'aforador': 'aforadorStatusLastUpdate',
+        };
         if (statusFieldMap[field]) updateData[statusFieldMap[field]] = userInfo;
 
         batch.update(caseDocRef, updateData);
@@ -1124,7 +1135,7 @@ export function DailyAforoCasesTable({ filters, setAllFetchedCases, showPendingO
      <AlertDialog open={bulkActionResult.isOpen} onOpenChange={(isOpen) => setBulkActionResult(prev => ({...prev, isOpen}))}>
         <AlertDialogContent>
             <AlertDialogHeader>
-                <AlertDialogTitle>Resultado del Envío Masivo</AlertDialogTitle>
+                <DialogTitle>Resultado del Envío Masivo</DialogTitle>
                 <AlertDialogDescription>
                     <div className="space-y-4 max-h-60 overflow-y-auto">
                         {bulkActionResult.success.length > 0 && (
@@ -1182,4 +1193,3 @@ export function DailyAforoCasesTable({ filters, setAllFetchedCases, showPendingO
     </>
   );
 }
-```
