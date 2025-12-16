@@ -1,3 +1,4 @@
+
 "use client";
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { db } from '@/lib/firebase';
@@ -87,7 +88,6 @@ export function DailyAforoCasesTable({ cases, isLoading, error, onRefresh }: Dai
   const [savingState, setSavingState] = useState<{ [key: string]: boolean }>({});
   const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
   const [selectedRows, setSelectedRows] = useState<string[]>([]);
-  const [displayCases, setDisplayCases] = useState<WorksheetWithCase[]>([]);
   
   const [selectedCaseForHistory, setSelectedCaseForHistory] = useState<AforoCase | null>(null);
   const [selectedCaseForAforadorComment, setSelectedCaseForAforadorComment] = useState<AforoCase | null>(null);
@@ -102,8 +102,28 @@ export function DailyAforoCasesTable({ cases, isLoading, error, onRefresh }: Dai
   const isMobile = useIsMobile();
   
   useEffect(() => {
-    setDisplayCases(cases);
-  }, [cases]);
+    const fetchAssignableUsers = async () => {
+        const usersMap = new Map<string, AppUser>();
+        const rolesToFetch = ['aforador', 'coordinadora', 'supervisor', 'digitador', 'agente'];
+        const userQueries = rolesToFetch.map(role => query(collection(db, 'users'), where('role', '==', role)));
+        
+        try {
+            const querySnapshots = await Promise.all(userQueries.map(q => getDocs(q)));
+            querySnapshots.forEach(snapshot => {
+                snapshot.forEach(doc => {
+                    const userData = { uid: doc.id, ...doc.data() } as AppUser;
+                    if (!usersMap.has(userData.uid) && userData.displayName) {
+                        usersMap.set(userData.uid, userData);
+                    }
+                });
+            });
+            setAssignableUsers(Array.from(usersMap.values()));
+        } catch(e) {
+            console.error("Error fetching users", e);
+        }
+    };
+    fetchAssignableUsers();
+  }, []);
 
 
   const handleAutoSave = useCallback(async (caseId: string, field: keyof AforoCase, value: any, isTriggerFromFieldUpdate: boolean = false) => {
@@ -112,7 +132,7 @@ export function DailyAforoCasesTable({ cases, isLoading, error, onRefresh }: Dai
         return;
     }
 
-    const originalCase = displayCases.find(c => c.id === caseId);
+    const originalCase = cases.find(c => c.id === caseId);
     if (!originalCase) return;
 
     const oldValue = originalCase[field as keyof AforoCase];
@@ -169,7 +189,7 @@ export function DailyAforoCasesTable({ cases, isLoading, error, onRefresh }: Dai
     } finally {
         setSavingState(prev => ({ ...prev, [caseId]: false }));
     }
-  }, [user, displayCases, toast, onRefresh]);
+  }, [user, cases, toast, onRefresh]);
   
   const handleValidatePattern = useCallback(async (caseId: string) => {
     if (!user || !user.displayName) return;
@@ -337,7 +357,7 @@ export function DailyAforoCasesTable({ cases, isLoading, error, onRefresh }: Dai
      }
   };
 
-  const handleBulkAction = async (type: 'aforador' | 'revisor' | 'aforadorStatus', value: string) => {
+  const handleBulkAction = async (type: 'aforador' | 'revisor', value: string) => {
     if (!user || !user.displayName || selectedRows.length === 0) return;
     
     setIsLoading(true);
@@ -346,23 +366,17 @@ export function DailyAforoCasesTable({ cases, isLoading, error, onRefresh }: Dai
     selectedRows.forEach(caseId => {
       const caseDocRef = doc(db, 'AforoCases', caseId);
       const updatesSubcollectionRef = collection(caseDocRef, 'actualizaciones');
-      const originalCase = displayCases.find(c => c.id === caseId);
+      const originalCase = cases.find(c => c.id === caseId);
 
       if (originalCase) {
-        const field = type === 'aforadorStatus' ? 'aforadorStatus' : (type === 'aforador' ? 'aforador' : 'revisorAsignado');
+        const field = type === 'aforador' ? 'aforador' : 'revisorAsignado';
         const updateData: {[key: string]: any} = { [field]: value };
         const now = Timestamp.now();
         const userInfo = { by: user.displayName, at: now };
 
         if (field === 'aforador') updateData.assignmentDate = now;
         const statusFieldMap: {[key: string]: keyof AforoCase} = {
-            'aforadorStatus': 'aforadorStatusLastUpdate',
-            'revisorStatus': 'revisorStatusLastUpdate',
-            'digitacionStatus': 'digitacionStatusLastUpdate',
-            'preliquidationStatus': 'preliquidationStatusLastUpdate',
-            'incidentStatus': 'incidentStatusLastUpdate',
             'revisorAsignado': 'revisorAsignadoLastUpdate',
-            'digitadorAsignado': 'digitadorAsignadoLastUpdate',
             'aforador': 'aforadorStatusLastUpdate',
         };
         if (statusFieldMap[field]) updateData[statusFieldMap[field]] = userInfo;
@@ -396,51 +410,6 @@ export function DailyAforoCasesTable({ cases, isLoading, error, onRefresh }: Dai
     }
   };
 
-  const handleSendSelectedToDigitization = async () => {
-    if (!user || !user.displayName || selectedRows.length === 0) return;
-
-    setIsLoading(true);
-    let successCases: string[] = [];
-    let skippedCases: string[] = [];
-    const batch = writeBatch(db);
-    const newStatus = 'Pendiente de Digitación';
-
-    selectedRows.forEach(caseId => {
-      const caseItem = displayCases.find(c => c.id === caseId);
-      if (caseItem && caseItem.revisorStatus === 'Aprobado' && caseItem.preliquidationStatus === 'Aprobada' && caseItem.digitacionStatus !== 'Trámite Completo') {
-        const caseDocRef = doc(db, 'AforoCases', caseId);
-        batch.update(caseDocRef, { digitacionStatus: newStatus });
-        const logRef = doc(collection(caseDocRef, 'actualizaciones'));
-        const logEntry: AforoCaseUpdate = {
-          updatedAt: Timestamp.now(),
-          updatedBy: user.displayName,
-          field: 'digitacionStatus',
-          oldValue: caseItem.digitacionStatus || 'N/A',
-          newValue: newStatus,
-          comment: 'Envío masivo a digitación.'
-        };
-        batch.set(logRef, logEntry);
-        successCases.push(caseItem.ne);
-      } else {
-        if(caseItem) skippedCases.push(caseItem.ne);
-      }
-    });
-
-    if (successCases.length > 0) {
-        try {
-          await batch.commit();
-          toast({ title: "Envío Exitoso", description: `${successCases.length} caso(s) enviados a digitación.` });
-          onRefresh();
-        } catch(e) {
-          toast({ title: "Error", description: "Error al enviar casos a digitación.", variant: "destructive" });
-        }
-    }
-    
-    setBulkActionResult({ isOpen: true, success: successCases, skipped: skippedCases });
-    setSelectedRows([]);
-    setIsLoading(false);
-  };
-
 
   const handleSearchPrevio = (ne: string) => {
     const url = `/database?ne=${encodeURIComponent(ne)}`;
@@ -464,10 +433,10 @@ export function DailyAforoCasesTable({ cases, isLoading, error, onRefresh }: Dai
   };
 
   const toggleSelectAll = () => {
-    if (selectedRows.length === displayCases.length) {
+    if (selectedRows.length === cases.length) {
       setSelectedRows([]);
     } else {
-      setSelectedRows(displayCases.map(c => c.id));
+      setSelectedRows(cases.map(c => c.id));
     }
   };
 
@@ -492,7 +461,7 @@ export function DailyAforoCasesTable({ cases, isLoading, error, onRefresh }: Dai
         const batch = writeBatch(db);
 
         for (const caseId of selectedRows) {
-            const caseItem = displayCases.find(c => c.id === caseId);
+            const caseItem = cases.find(c => c.id === caseId);
             if (caseItem && caseItem.worksheetId) {
                 const worksheetRef = doc(db, 'worksheets', caseItem.worksheetId);
                 batch.update(worksheetRef, { worksheetType: 'corporate_report' });
@@ -576,7 +545,7 @@ export function DailyAforoCasesTable({ cases, isLoading, error, onRefresh }: Dai
     );
   }
   
-  if (displayCases.length === 0) {
+  if (cases.length === 0) {
     return (
       <div className="text-center py-10 px-6 bg-secondary/30 rounded-lg">
         <Inbox className="mx-auto h-12 w-12 text-muted-foreground" />
@@ -587,12 +556,12 @@ export function DailyAforoCasesTable({ cases, isLoading, error, onRefresh }: Dai
   }
   
   const canEdit = user?.role === 'admin' || user?.role === 'coordinadora' || user?.role === 'supervisor';
-  const isDigitador = user?.role === 'aforador';
+  const isAforador = user?.role === 'aforador';
   
   if (isMobile) {
       return (
         <div className="space-y-4">
-            {displayCases.map(c => (
+            {cases.map(c => (
                  <MobileAforoCard
                     key={c.id}
                     caseItem={c}
@@ -635,7 +604,7 @@ export function DailyAforoCasesTable({ cases, isLoading, error, onRefresh }: Dai
       <Table>
         <TableHeader>
           <TableRow>
-            <TableHead className="w-12"><Checkbox checked={selectedRows.length > 0 && selectedRows.length === displayCases.length} onCheckedChange={toggleSelectAll}/></TableHead>
+            <TableHead className="w-12"><Checkbox checked={selectedRows.length > 0 && selectedRows.length === cases.length} onCheckedChange={toggleSelectAll}/></TableHead>
             <TableHead className="w-12"></TableHead>
             <TableHead>Acciones</TableHead>
             <TableHead>NE</TableHead>
@@ -650,7 +619,7 @@ export function DailyAforoCasesTable({ cases, isLoading, error, onRefresh }: Dai
           </TableRow>
         </TableHeader>
         <TableBody>
-          {displayCases.map((caseItem) => {
+          {cases.map((caseItem) => {
             const isExpanded = expandedRows.has(caseItem.id);
             const daysUntilDue = caseItem.resaDueDate ? differenceInDays(caseItem.resaDueDate.toDate(), new Date()) : null;
             const isResaCritical = daysUntilDue !== null && daysUntilDue < -15;
@@ -1003,13 +972,13 @@ export function DailyAforoCasesTable({ cases, isLoading, error, onRefresh }: Dai
             description={assignmentModal.case ? `Seleccione un usuario para asignar al caso NE: ${assignmentModal.case.ne}` : `Seleccione un usuario para asignar a los ${selectedRows.length} casos seleccionados.`}
         />
     )}
-     <Dialog open={statusModal.isOpen} onOpenChange={() => setStatusModal({isOpen: false, caseData: undefined})}>
+     <Dialog open={statusModal.isOpen} onOpenChange={() => setStatusModal({isOpen: false})}>
           <DialogContent>
               <DialogHeader>
                   <DialogTitle>Asignar Estatus de Aforador Masivo</DialogTitle>
                   <DialogDescription>Seleccione el estatus a aplicar a los {selectedRows.length} casos seleccionados.</DialogDescription>
               </DialogHeader>
-              <Select onValueChange={(value) => { handleBulkAction('aforadorStatus', value); }}>
+              <Select onValueChange={(value) => { handleBulkAction('aforadorStatus' as any, value); }}>
                 <SelectTrigger><SelectValue placeholder="Seleccionar estatus..." /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="Pendiente ">Pendiente </SelectItem>
