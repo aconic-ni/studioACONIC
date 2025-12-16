@@ -725,6 +725,7 @@ function ExecutivePageContent() {
     setSelectedCaseForHistory,
     setSelectedIncidentForDetails,
     setSelectedCaseForComment,
+    setSelectedCaseForProcess,
     handleSearchPrevio,
     setCaseToArchive,
     setCaseToDuplicate,
