@@ -16,6 +16,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/context/AuthContext';
 import { db } from '@/lib/firebase';
 import { doc, writeBatch, Timestamp } from 'firebase/firestore';
+import { Input } from '../ui/input';
 import {
   Dialog,
   DialogContent,
@@ -29,7 +30,7 @@ interface GestionLocalTableProps {
   worksheets: Worksheet[];
   selectedRows: string[];
   setSelectedRows: React.Dispatch<React.SetStateAction<string[]>>;
-  onAssign: (worksheet: Worksheet, type: 'aforador' | 'revisor') => void;
+  onAssign: (worksheet: Worksheet, type: 'aforador' | 'revisor' | 'digitador') => void;
   onComment: (worksheet: Worksheet) => void;
   onView: (worksheet: Worksheet) => void;
   onRefresh: () => void;
@@ -40,7 +41,7 @@ export function GestionLocalTable({ worksheets, selectedRows, setSelectedRows, o
   const { user } = useAuth();
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(30);
-  const [statusModal, setStatusModal] = useState<{ isOpen: boolean; worksheet?: Worksheet | null }>({ isOpen: false });
+  const [statusModal, setStatusModal] = useState<{ isOpen: boolean; worksheet?: Worksheet | null; type: 'aforador' | 'digitador' }>({ isOpen: false });
 
   const totalPages = Math.ceil(worksheets.length / itemsPerPage);
   const paginatedWorksheets = useMemo(() => {
@@ -67,20 +68,21 @@ export function GestionLocalTable({ worksheets, selectedRows, setSelectedRows, o
       const date = timestamp.toDate ? timestamp.toDate() : new Date(timestamp);
       return format(date, 'dd/MM/yyyy');
   };
-
-  const handleStatusUpdate = async (worksheetId: string, newStatus: string) => {
+  
+  const handleStatusUpdate = async (worksheetId: string, newStatus: string, type: 'aforador' | 'digitador') => {
     if (!user || !user.displayName) {
         toast({ title: 'Error', description: 'Debe estar autenticado.', variant: 'destructive'});
         return;
     }
     const worksheetRef = doc(db, 'worksheets', worksheetId, 'aforo', 'metadata');
     try {
+        const fieldName = type === 'aforador' ? 'aforadorStatus' : 'digitadorStatus';
         const updateData = {
-            aforadorStatus: newStatus,
-            aforadorStatusLastUpdate: { by: user.displayName, at: Timestamp.now() }
+            [fieldName]: newStatus,
+            [`${fieldName}LastUpdate`]: { by: user.displayName, at: Timestamp.now() }
         };
         await writeBatch(db).set(worksheetRef, updateData, { merge: true }).commit();
-        toast({ title: 'Estado Actualizado', description: `El estado del aforador ha sido actualizado a "${newStatus}".` });
+        toast({ title: 'Estado Actualizado', description: `El estado del ${type} ha sido actualizado a "${newStatus}".` });
         onRefresh();
         setStatusModal({ isOpen: false });
     } catch (e) {
@@ -88,7 +90,7 @@ export function GestionLocalTable({ worksheets, selectedRows, setSelectedRows, o
         toast({ title: "Error", description: "No se pudo actualizar el estado.", variant: "destructive" });
     }
   }
-  
+
   const handleRevalidationRequest = async (worksheetId: string) => {
     if (!user || !user.displayName) return;
     const worksheetRef = doc(db, 'worksheets', worksheetId, 'aforo', 'metadata');
@@ -104,6 +106,19 @@ export function GestionLocalTable({ worksheets, selectedRows, setSelectedRows, o
         console.error(e);
         toast({ title: "Error", description: "No se pudo solicitar la revalidación.", variant: "destructive" });
     }
+  }
+  
+  const handleDeclaracionSave = async (worksheetId: string, declaracion: string) => {
+    if (!user || !user.displayName) return;
+     const worksheetRef = doc(db, 'worksheets', worksheetId, 'aforo', 'metadata');
+     try {
+        await writeBatch(db).set(worksheetRef, { declaracionAduanera: declaracion }, { merge: true }).commit();
+        toast({ title: "Declaración Guardada", description: "El número de declaración ha sido guardado." });
+        onRefresh();
+     } catch (e) {
+        console.error(e);
+        toast({ title: "Error", description: "No se pudo guardar el número de declaración.", variant: "destructive" });
+     }
   }
   
   return (
@@ -128,6 +143,9 @@ export function GestionLocalTable({ worksheets, selectedRows, setSelectedRows, o
             <TableHead>Estado Aforador</TableHead>
             <TableHead>Revisor Asignado</TableHead>
             <TableHead>Estado Revisor</TableHead>
+            <TableHead>Digitador Asignado</TableHead>
+            <TableHead>Estado Digitador</TableHead>
+            <TableHead>Declaración Aduanera</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -152,6 +170,7 @@ export function GestionLocalTable({ worksheets, selectedRows, setSelectedRows, o
                     <DropdownMenuItem onClick={() => onView(ws)}><Eye className="mr-2 h-4 w-4" /> Ver Hoja de Trabajo</DropdownMenuItem>
                     <DropdownMenuItem onClick={() => onAssign(ws, 'aforador')}><UserCheck className="mr-2 h-4 w-4" /> Asignar Aforador</DropdownMenuItem>
                     <DropdownMenuItem onClick={() => onAssign(ws, 'revisor')}><UserCheck className="mr-2 h-4 w-4" /> Asignar Revisor</DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => onAssign(ws, 'digitador')}><UserCheck className="mr-2 h-4 w-4" /> Asignar Digitador</DropdownMenuItem>
                     <DropdownMenuItem onClick={() => onComment(ws)}><MessageSquare className="mr-2 h-4 w-4" /> Ver/Añadir Comentarios</DropdownMenuItem>
                   </DropdownMenuContent>
                 </DropdownMenu>
@@ -163,16 +182,23 @@ export function GestionLocalTable({ worksheets, selectedRows, setSelectedRows, o
               <TableCell>{ws.consignee}</TableCell>
               <TableCell>{ws.patternRegime || 'N/A'}</TableCell>
               <TableCell>{formatDate(ws.createdAt)}</TableCell>
-              <TableCell>{aforoData?.aforador || 'N/A'}</TableCell>
+              <TableCell>
+                <div className="flex items-center gap-1">
+                  <Badge variant="secondary">{aforoData?.aforador || 'N/A'}</Badge>
+                  <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => onAssign(ws, 'aforador')}><Edit className="h-3 w-3"/></Button>
+                </div>
+              </TableCell>
               <TableCell>
                  <div className="flex items-center gap-1">
                     <Badge variant={aforoData?.aforadorStatus === 'En revisión' ? 'default' : 'outline'}>
                         {aforoData?.aforadorStatus || 'Pendiente'}
                     </Badge>
-                    <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => setStatusModal({isOpen: true, worksheet: ws})}><Edit className="h-3 w-3"/></Button>
+                    <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => setStatusModal({isOpen: true, worksheet: ws, type: 'aforador'})}><Edit className="h-3 w-3"/></Button>
                  </div>
               </TableCell>
-              <TableCell>{aforoData?.revisor || 'N/A'}</TableCell>
+              <TableCell>
+                  <Badge variant="secondary">{aforoData?.revisor || 'N/A'}</Badge>
+              </TableCell>
               <TableCell>
                  <div className="flex items-center gap-1">
                     <Badge variant={aforoData?.revisorStatus === 'Aprobado' ? 'default' : aforoData?.revisorStatus === 'Rechazado' ? 'destructive' : 'outline'}>
@@ -184,6 +210,28 @@ export function GestionLocalTable({ worksheets, selectedRows, setSelectedRows, o
                         </Button>
                     )}
                  </div>
+              </TableCell>
+               <TableCell>
+                  <div className="flex items-center gap-1">
+                      <Badge variant="secondary">{aforoData?.digitador || 'N/A'}</Badge>
+                      <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => onAssign(ws, 'digitador')}><Edit className="h-3 w-3"/></Button>
+                  </div>
+              </TableCell>
+               <TableCell>
+                <div className="flex items-center gap-1">
+                    <Badge variant={aforoData?.digitadorStatus === 'Trámite Completo' ? 'default' : 'outline'}>
+                        {aforoData?.digitadorStatus || 'Pendiente'}
+                    </Badge>
+                    <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => setStatusModal({isOpen: true, worksheet: ws, type: 'digitador'})}><Edit className="h-3 w-3"/></Button>
+                 </div>
+              </TableCell>
+              <TableCell>
+                  <Input 
+                    defaultValue={aforoData?.declaracionAduanera || ''} 
+                    onBlur={(e) => handleDeclaracionSave(ws.id, e.target.value)}
+                    className="h-8 text-xs"
+                    placeholder="No. Declaración"
+                  />
               </TableCell>
             </TableRow>
           )})}
@@ -218,7 +266,7 @@ export function GestionLocalTable({ worksheets, selectedRows, setSelectedRows, o
             <Button
                 variant="outline"
                 size="sm"
-                onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+                onClick={()={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
                 disabled={currentPage === totalPages}
             >
                 Siguiente
@@ -228,16 +276,27 @@ export function GestionLocalTable({ worksheets, selectedRows, setSelectedRows, o
     <Dialog open={statusModal.isOpen} onOpenChange={() => setStatusModal({ isOpen: false })}>
         <DialogContent>
             <DialogHeader>
-                <DialogTitle>Cambiar Estado de Aforador</DialogTitle>
+                <DialogTitle>Cambiar Estado de {statusModal.type === 'aforador' ? 'Aforador' : 'Digitador'}</DialogTitle>
                 <DialogDescription>Seleccione el nuevo estado para el NE: {statusModal.worksheet?.ne}</DialogDescription>
             </DialogHeader>
-            <Select onValueChange={(value) => handleStatusUpdate(statusModal.worksheet!.id, value)}>
+            <Select onValueChange={(value) => handleStatusUpdate(statusModal.worksheet!.id, value, statusModal.type!)}>
                 <SelectTrigger><SelectValue placeholder="Seleccionar estado..." /></SelectTrigger>
                 <SelectContent>
-                    <SelectItem value="Pendiente">Pendiente</SelectItem>
-                    <SelectItem value="En proceso">En proceso</SelectItem>
-                    <SelectItem value="Incompleto">Incompleto</SelectItem>
-                    <SelectItem value="En revisión">En revisión</SelectItem>
+                    {statusModal.type === 'aforador' ? (
+                        <>
+                            <SelectItem value="Pendiente">Pendiente</SelectItem>
+                            <SelectItem value="En proceso">En proceso</SelectItem>
+                            <SelectItem value="Incompleto">Incompleto</SelectItem>
+                            <SelectItem value="En revisión">En revisión</SelectItem>
+                        </>
+                    ) : (
+                         <>
+                            <SelectItem value="Pendiente">Pendiente</SelectItem>
+                            <SelectItem value="En Proceso">En Proceso</SelectItem>
+                            <SelectItem value="Almacenado">Almacenado</SelectItem>
+                            <SelectItem value="Trámite Completo">Trámite Completo</SelectItem>
+                        </>
+                    )}
                 </SelectContent>
             </Select>
             <DialogFooter>
@@ -248,3 +307,5 @@ export function GestionLocalTable({ worksheets, selectedRows, setSelectedRows, o
     </>
   );
 }
+
+    
