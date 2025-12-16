@@ -1,6 +1,6 @@
 
 "use client";
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
 import { AppShell } from '@/components/layout/AppShell';
@@ -26,7 +26,7 @@ import type { AforoCase, AppUser, AforoCaseUpdate, Worksheet, WorksheetWithCase 
 import { collection, getDocs, query, where, collectionGroup, orderBy, writeBatch, doc, getDoc, Timestamp, onSnapshot, documentId } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { downloadAforoReportAsExcel } from '@/lib/fileExporterAforo';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
 import { startOfMonth, endOfMonth } from 'date-fns';
 import { useToast } from '@/hooks/use-toast';
 
@@ -359,10 +359,10 @@ export default function TheReporterPage() {
                     </TabsContent>
                     <TabsContent value="digitacion">
                         <DigitizationCasesTable 
-                           cases={allCases}
-                           isLoading={isLoading}
-                           error={error}
-                           onRefresh={fetchData}
+                            cases={allCases}
+                            isLoading={isLoading}
+                            error={error}
+                            onRefresh={fetchData}
                         />
                     </TabsContent>
                 </CardContent>

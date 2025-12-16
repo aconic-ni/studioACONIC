@@ -46,11 +46,10 @@ import { AforadorCommentModal } from './AforadorCommentModal';
 
 
 interface DigitizationCasesTableProps {
-  filters: {
-    ne?: string;
-  };
-  setAllFetchedCases: (cases: AforoCase[]) => void;
-  showPendingOnly: boolean;
+  cases: WorksheetWithCase[];
+  isLoading: boolean;
+  error: string | null;
+  onRefresh: () => void;
 }
 
 const formatDate = (date: Date | Timestamp | null | undefined): string => {
@@ -83,13 +82,11 @@ const LastUpdateTooltip = ({ lastUpdate, caseCreation }: { lastUpdate?: LastUpda
 };
 
 
-export function DigitizationCasesTable({ filters, setAllFetchedCases, showPendingOnly }: DigitizationCasesTableProps) {
+export function DigitizationCasesTable({ cases, isLoading, error, onRefresh }: DigitizationCasesTableProps) {
   const { user } = useAuth();
   const { toast } = useToast();
   const [assignableUsers, setAssignableUsers] = useState<AppUser[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
   const [savingState, setSavingState] = useState<{ [key: string]: boolean }>({});
-  const [displayCases, setDisplayCases] = useState<AforoCase[]>([]);
   
   const [selectedCaseForHistory, setSelectedCaseForHistory] = useState<AforoCase | null>(null);
   const [selectedCaseForComment, setSelectedCaseForComment] = useState<AforoCase | null>(null);
@@ -97,7 +94,7 @@ export function DigitizationCasesTable({ filters, setAllFetchedCases, showPendin
   const [selectedCaseForAssignment, setSelectedCaseForAssignment] = useState<AforoCase | null>(null);
   const [selectedRows, setSelectedRows] = useState<string[]>([]);
   const [statusModal, setStatusModal] = useState<{isOpen: boolean; caseData?: AforoCase | null}>({isOpen: false, caseData: null});
-  const [assignmentModal, setAssignmentModal] = useState<{ isOpen: boolean; case: AforoCase | null; type: 'aforador' | 'revisor' | 'bulk-aforador' | 'bulk-revisor' | 'bulk-digitador' }>({ isOpen: false, case: null, type: 'aforador' });
+  const [assignmentModal, setAssignmentModal] = useState<{ isOpen: boolean; case: AforoCase | null; type: 'bulk-digitador' | 'digitador' }>({ isOpen: false, case: null, type: 'digitador' });
   const isMobile = useIsMobile();
 
 
@@ -107,7 +104,7 @@ export function DigitizationCasesTable({ filters, setAllFetchedCases, showPendin
         return;
     }
 
-    const originalCase = displayCases.find(c => c.id === caseId);
+    const originalCase = cases.find(c => c.id === caseId);
     if (!originalCase) return;
 
     const oldValue = originalCase[field as keyof AforoCase];
@@ -157,18 +154,17 @@ export function DigitizationCasesTable({ filters, setAllFetchedCases, showPendin
         if(!isTriggerFromFieldUpdate) {
             toast({ title: "Guardado Automático", description: `El campo se ha actualizado.` });
         }
+        onRefresh();
     } catch (error) {
         console.error("Error updating case:", error);
         toast({ title: "Error", description: `No se pudo guardar el cambio.`, variant: "destructive" });
     } finally {
         setSavingState(prev => ({ ...prev, [caseId]: false }));
     }
-  }, [user, displayCases, toast]);
+  }, [user, cases, toast, onRefresh]);
 
 
   useEffect(() => {
-    setIsLoading(true);
-
     const fetchAssignableUsers = async () => {
         const usersMap = new Map<string, AppUser>();
         const rolesToFetch = ['aforador', 'coordinadora', 'supervisor', 'digitador'];
@@ -183,52 +179,13 @@ export function DigitizationCasesTable({ filters, setAllFetchedCases, showPendin
                 }
             });
             setAssignableUsers(Array.from(usersMap.values()));
-        } catch (e) {
+        } catch(e) {
             console.error("Error fetching users for digitization table", e);
         }
     };
 
     fetchAssignableUsers();
-    
-    let qCases: Query;
-    const mainQuery = collection(db, 'AforoCases');
-    const statuses = ['Pendiente de Digitación', 'En Proceso', 'Almacenado', 'Trámite Completo'];
-
-    let queryConstraints: any[] = [
-      where('worksheetType', '==', 'hoja_de_trabajo'),
-      where('digitacionStatus', 'in', statuses),
-      orderBy('revisorStatus', 'desc'), 
-      orderBy('createdAt', 'desc')
-    ];
-    
-    if (filters.ne?.trim()) {
-      qCases = query(mainQuery, where('ne', '==', filters.ne.trim().toUpperCase()));
-    } else {
-      qCases = query(mainQuery, ...queryConstraints);
-    }
-
-    const unsubscribe = onSnapshot(qCases, (snapshot) => {
-        const fetchedCases: AforoCase[] = [];
-        snapshot.forEach((doc) => {
-            fetchedCases.push({ id: doc.id, ...doc.data() } as AforoCase);
-        });
-        
-        let filtered = fetchedCases;
-        if(showPendingOnly) {
-            filtered = filtered.filter(c => c.digitacionStatus !== 'Trámite Completo');
-        }
-        
-        setAllFetchedCases(fetchedCases); // Keep all cases for export if needed
-        setDisplayCases(filtered); // Cases to be displayed after filtering
-        setIsLoading(false);
-    }, (error) => {
-        console.error("Error fetching digitization cases: ", error);
-        toast({ title: "Error", description: "No se pudieron cargar los casos para digitación.", variant: "destructive" });
-        setIsLoading(false);
-    });
-
-    return () => unsubscribe();
-  }, [filters, toast, setAllFetchedCases, showPendingOnly]);
+  }, []);
 
   const handleAssignDigitador = (caseId: string, digitadorName: string) => {
      handleAutoSave(caseId, 'digitadorAsignado', digitadorName);
@@ -237,7 +194,7 @@ export function DigitizationCasesTable({ filters, setAllFetchedCases, showPendin
 
   const handleStatusChange = (caseId: string, value: DigitacionStatus) => {
     if (value === 'Completar Trámite') {
-        const caseToComplete = displayCases.find(c => c.id === caseId);
+        const caseToComplete = cases.find(c => c.id === caseId);
         if (caseToComplete) {
             setSelectedCaseForCompletion(caseToComplete);
         }
@@ -255,7 +212,7 @@ export function DigitizationCasesTable({ filters, setAllFetchedCases, showPendin
     selectedRows.forEach(caseId => {
       const caseDocRef = doc(db, 'AforoCases', caseId);
       const updatesSubcollectionRef = collection(caseDocRef, 'actualizaciones');
-      const originalCase = displayCases.find(c => c.id === caseId);
+      const originalCase = cases.find(c => c.id === caseId);
 
       if (originalCase) {
         const field = type === 'digitador' ? 'digitadorAsignado' : 'digitacionStatus';
@@ -284,22 +241,23 @@ export function DigitizationCasesTable({ filters, setAllFetchedCases, showPendin
       await batch.commit();
       toast({ title: "Acción Masiva Exitosa", description: `${selectedRows.length} casos han sido actualizados.` });
       setSelectedRows([]);
+      onRefresh();
     } catch (error) {
       console.error("Error with bulk action:", error);
       toast({ title: "Error", description: "No se pudo completar la acción masiva.", variant: "destructive" });
     } finally {
       setIsLoading(false);
-      setAssignmentModal({ isOpen: false, case: null, type: 'aforador' });
+      setAssignmentModal({ isOpen: false, case: null, type: 'digitador' });
       setStatusModal({ isOpen: false });
     }
   };
   
 
   const toggleSelectAll = () => {
-    if (selectedRows.length === displayCases.length) {
+    if (selectedRows.length === cases.length) {
       setSelectedRows([]);
     } else {
-      setSelectedRows(displayCases.map(c => c.id));
+      setSelectedRows(cases.map(c => c.id));
     }
   };
 
@@ -323,7 +281,17 @@ export function DigitizationCasesTable({ filters, setAllFetchedCases, showPendin
     );
   }
 
-  if (displayCases.length === 0) {
+  if (error) {
+    return (
+      <div className="text-center py-10 px-6 bg-destructive/10 rounded-lg">
+        <AlertTriangle className="mx-auto h-12 w-12 text-destructive" />
+        <h3 className="mt-4 text-lg font-medium text-destructive">Error al Cargar los Datos</h3>
+        <p className="mt-1 text-sm text-destructive/80 whitespace-pre-wrap">{error}</p>
+      </div>
+    );
+  }
+  
+  if (cases.length === 0) {
     return (
       <div className="text-center py-10 px-6 bg-secondary/30 rounded-lg">
         <Inbox className="mx-auto h-12 w-12 text-muted-foreground" />
@@ -339,7 +307,7 @@ export function DigitizationCasesTable({ filters, setAllFetchedCases, showPendin
   if (isMobile) {
       return (
         <div className="space-y-4">
-            {displayCases.map((caseItem) => (
+            {cases.map((caseItem) => (
                 <MobileDigitacionCard
                     key={caseItem.id}
                     caseItem={caseItem}
@@ -383,7 +351,7 @@ export function DigitizationCasesTable({ filters, setAllFetchedCases, showPendin
       <Table>
         <TableHeader>
           <TableRow>
-            <TableHead className="w-12"><Checkbox checked={selectedRows.length > 0 && selectedRows.length === displayCases.length} onCheckedChange={toggleSelectAll}/></TableHead>
+            <TableHead className="w-12"><Checkbox checked={selectedRows.length > 0 && selectedRows.length === cases.length} onCheckedChange={toggleSelectAll}/></TableHead>
             <TableHead>Acciones</TableHead>
             <TableHead>Ejecutivo</TableHead>
             <TableHead>NE</TableHead>
@@ -394,7 +362,7 @@ export function DigitizationCasesTable({ filters, setAllFetchedCases, showPendin
           </TableRow>
         </TableHeader>
         <TableBody>
-          {displayCases.map((caseItem) => {
+          {cases.map((caseItem) => {
             const isCompleted = caseItem.digitacionStatus === 'Trámite Completo';
             const currentStatus = caseItem.digitacionStatus === 'Pendiente' ? 'Pendiente de Digitación' : caseItem.digitacionStatus;
 
@@ -440,13 +408,8 @@ export function DigitizationCasesTable({ filters, setAllFetchedCases, showPendin
                 </TableCell>
                 <TableCell>
                     <div className="flex items-center">
-                    <Button
-                        variant="outline"
-                        className="w-[180px] justify-start"
-                        onClick={() => setStatusModal({ isOpen: true, caseData: caseItem })}
-                        disabled={(!isDigitador && !canEdit) || isCompleted}
-                    >
-                        <Badge variant={getDigitacionBadgeVariant(currentStatus)}>{currentStatus || 'N/A'}</Badge>
+                    <Button variant="outline" className="w-[180px] justify-start" onClick={() => setStatusModal({isOpen: true, caseData: caseItem})} disabled={(!isDigitador && !canEdit) || isCompleted}>
+                      <Badge variant={getDigitacionBadgeVariant(currentStatus)}>{currentStatus || 'N/A'}</Badge>
                     </Button>
                     <LastUpdateTooltip lastUpdate={caseItem.digitacionStatusLastUpdate} caseCreation={caseItem.createdAt} />
                     </div>
@@ -496,7 +459,7 @@ export function DigitizationCasesTable({ filters, setAllFetchedCases, showPendin
             isOpen={!!selectedCaseForAssignment}
             onClose={() => setSelectedCaseForAssignment(null)}
             caseData={selectedCaseForAssignment}
-            assignableUsers={assignableUsers.filter(u => u.role === 'digitador' || u.role === 'coordinadora' || u.role === 'supervisor')}
+            assignableUsers={assignableUsers.filter(u => u.role === 'digitador' || u.role === 'coordinadora' || u.role === 'supervisor' || u.role === 'aforador')}
             onAssign={handleAssignDigitador}
             title="Asignar Digitador"
             description={`Seleccione un usuario para asignar al caso NE: ${selectedCaseForAssignment.ne}`}
@@ -505,7 +468,7 @@ export function DigitizationCasesTable({ filters, setAllFetchedCases, showPendin
     {assignmentModal.isOpen && (
         <AssignUserModal
             isOpen={assignmentModal.isOpen}
-            onClose={() => setAssignmentModal({ isOpen: false, case: null, type: 'aforador' })}
+            onClose={() => setAssignmentModal({ isOpen: false, case: null, type: 'digitador' })}
             caseData={assignmentModal.case}
             assignableUsers={assignableUsers.filter(u => u.role === 'digitador' || u.role === 'coordinadora' || u.role === 'supervisor')}
             onAssign={(caseId, userName) => handleBulkAction('digitador', userName)}
@@ -544,3 +507,4 @@ export function DigitizationCasesTable({ filters, setAllFetchedCases, showPendin
     </>
   );
 }
+
