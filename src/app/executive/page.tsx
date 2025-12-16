@@ -689,7 +689,6 @@ function ExecutivePageContent() {
     setSavingState(prev => ({...prev, [caseToDuplicate.id]: true}));
     
     const originalCaseRef = doc(db, 'AforoCases', caseToDuplicate.id);
-    const originalWorksheetRef = doc(db, 'worksheets', caseToDuplicate.worksheetId!);
     const newCaseRef = doc(db, 'AforoCases', newNe);
     const newWorksheetRef = doc(db, 'worksheets', newNe);
     
@@ -702,13 +701,53 @@ function ExecutivePageContent() {
             setSavingState(prev => ({...prev, [caseToDuplicate.id]: false}));
             return;
         }
+        
+        const creationTimestamp = Timestamp.now();
+        const createdByInfo = { by: user.displayName, at: creationTimestamp };
 
-        // 1. Create new worksheet
-        const newWorksheetData = { ...caseToDuplicate.worksheet, id: newNe, ne: newNe, createdAt: Timestamp.now(), createdBy: user.email };
+        // 1. Create new worksheet - reset relevant fields
+        const { id: oldId, ne: oldNe, createdAt: oldCreatedAt, lastUpdatedAt: oldLastUpdatedAt, ...worksheetToCopy } = caseToDuplicate.worksheet;
+        const newWorksheetData: Worksheet = {
+            ...worksheetToCopy,
+            id: newNe,
+            ne: newNe,
+            createdAt: creationTimestamp,
+            createdBy: user.email!,
+            lastUpdatedAt: creationTimestamp,
+        };
         batch.set(newWorksheetRef, newWorksheetData);
         
-        // 2. Create new case
-        const newCaseData = { ...caseToDuplicate, id: newNe, ne: newNe, createdAt: Timestamp.now(), createdBy: user.uid, digitacionStatus: 'Pendiente', isArchived: false, executiveComments: [{id: uuidv4(), author: user.displayName, text: `Duplicado del NE: ${caseToDuplicate.ne}. Motivo: ${duplicateReason}`, createdAt: Timestamp.now()}] };
+        // 2. Create new case - reset all statuses and dates
+        const newCaseData: Omit<AforoCase, 'id'> = {
+            ne: newNe,
+            executive: caseToDuplicate.executive,
+            consignee: caseToDuplicate.consignee,
+            facturaNumber: caseToDuplicate.facturaNumber,
+            declarationPattern: caseToDuplicate.declarationPattern,
+            merchandise: caseToDuplicate.merchandise,
+            createdBy: user.uid,
+            createdAt: creationTimestamp,
+            aforador: '',
+            assignmentDate: null,
+            aforadorStatus: 'Pendiente ',
+            aforadorStatusLastUpdate: createdByInfo,
+            revisorStatus: 'Pendiente',
+            revisorStatusLastUpdate: createdByInfo,
+            preliquidationStatus: 'Pendiente',
+            preliquidationStatusLastUpdate: createdByInfo,
+            digitacionStatus: 'Pendiente',
+            digitacionStatusLastUpdate: createdByInfo,
+            incidentStatus: 'Pendiente',
+            incidentStatusLastUpdate: createdByInfo,
+            revisorAsignado: '',
+            revisorAsignadoLastUpdate: createdByInfo,
+            digitadorAsignado: '',
+            digitadorAsignadoLastUpdate: createdByInfo,
+            worksheetId: newNe,
+            entregadoAforoAt: null,
+            isArchived: false,
+            executiveComments: [{id: uuidv4(), author: user.displayName, text: `Duplicado del NE: ${caseToDuplicate.ne}. Motivo: ${duplicateReason}`, createdAt: creationTimestamp}],
+        };
         batch.set(newCaseRef, newCaseData);
 
         // 3. Update old case
@@ -726,6 +765,19 @@ function ExecutivePageContent() {
         };
         batch.set(logRef, updateLog);
 
+        // 5. Log creation on new case
+        const newLogRef = doc(collection(newCaseRef, 'actualizaciones'));
+        const newCaseLog: AforoCaseUpdate = {
+            updatedAt: creationTimestamp,
+            updatedBy: user.displayName,
+            field: 'creation',
+            oldValue: null,
+            newValue: `duplicated_from_${caseToDuplicate.ne}`,
+            comment: `Caso duplicado desde ${caseToDuplicate.ne}. Motivo: ${duplicateReason}`
+        };
+        batch.set(newLogRef, newCaseLog);
+
+
         await batch.commit();
         toast({title: 'Operación Exitosa', description: `El caso ${caseToDuplicate.ne} ha sido duplicado a ${newNe} y retirado.`});
         setDuplicateAndRetireModalOpen(false);
@@ -735,7 +787,7 @@ function ExecutivePageContent() {
     } finally {
         setSavingState(prev => ({...prev, [caseToDuplicate.id]: false}));
     }
-};
+  };
 
   const handleOpenPaymentRequest = () => {
     const initialData: InitialDataContext = {
@@ -1111,3 +1163,5 @@ export default function ExecutivePage() {
         </Suspense>
     )
 }
+
+    
