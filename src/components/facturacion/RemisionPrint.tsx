@@ -1,3 +1,4 @@
+
 "use client";
 import React, { useState } from 'react';
 import Image from 'next/image';
@@ -179,7 +180,7 @@ export const RemisionPrint: React.FC<RemisionPrintProps> = ({ cases, onClose }) 
                         </div>
                     </div>
                     <Image
-                        src="/AconicExaminer/imagenes/FOOTERSOLICITUDETAIL.svg"
+                        src="/imagenes/FOOTERSOLICITUDETAIL.svg"
                         alt="Footer"
                         width={800}
                         height={50}

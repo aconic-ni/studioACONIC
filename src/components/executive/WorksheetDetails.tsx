@@ -107,7 +107,7 @@ export const WorksheetDetails: React.FC<{ worksheet: Worksheet; aforoCase?: Afor
       <Card className="mt-6 w-full max-w-5xl mx-auto custom-shadow card-print-styles" id="printable-area">
         <div className="hidden print:block">
             <Image
-                src="/AconicExaminer/imagenes/HEADERSEXA.svg"
+                src="/imagenes/HEADERSEXA.svg"
                 alt="Examen Header"
                 width={800}
                 height={100}
@@ -292,7 +292,7 @@ export const WorksheetDetails: React.FC<{ worksheet: Worksheet; aforoCase?: Afor
           </div>
           <div className="hidden print:block">
               <Image
-                  src="/AconicExaminer/imagenes/FOOTERSOLICITUDETAIL.svg"
+                  src="/imagenes/FOOTERSOLICITUDETAIL.svg"
                   alt="Footer"
                   width={800}
                   height={50}

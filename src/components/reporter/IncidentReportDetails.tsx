@@ -1,3 +1,4 @@
+
 "use client";
 import React from 'react';
 import Image from 'next/image';
@@ -52,7 +53,7 @@ export const IncidentReportDetails: React.FC<{ caseData: AforoCase; onClose: () 
   return (
     <Card className="w-full max-w-4xl mx-auto custom-shadow" id="printable-area">
       <Image
-          src="/AconicExaminer/imagenes/HEADERSEXA.svg"
+          src="/imagenes/HEADERSEXA.svg"
           alt="Header"
           width={800}
           height={100}
@@ -159,7 +160,7 @@ export const IncidentReportDetails: React.FC<{ caseData: AforoCase; onClose: () 
           </Button>
       </CardFooter>
       <Image
-          src="/AconicExaminer/imagenes/FOOTEREXA.svg"
+          src="/imagenes/FOOTEREXA.svg"
           alt="Footer"
           width={800}
           height={50}

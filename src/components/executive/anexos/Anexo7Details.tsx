@@ -105,7 +105,7 @@ export const Anexo7Details: React.FC<{ worksheet: Worksheet; onClose: () => void
   const valorTotal = (worksheet.documents || []).reduce((sum, doc) => sum + (Number((doc as any).total) || 0), 0);
   const valorAduanero = (worksheet.valor || 0) + (worksheet.flete || 0) + (worksheet.seguro || 0) + (worksheet.otrosGastos || 0);
 
-  const headerImageSrc = "/AconicExaminer/imagenes/HEADERANEX7DETAIL.svg";
+  const headerImageSrc = "/imagenes/HEADERANEX7DETAIL.svg";
 
   if (worksheet.worksheetType === 'hoja_de_trabajo' || !worksheet.worksheetType) {
     return <WorksheetDetails worksheet={worksheet} onClose={onClose} />;

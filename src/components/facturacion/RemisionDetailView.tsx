@@ -1,3 +1,4 @@
+
 "use client";
 import React from 'react';
 import Image from 'next/image';
@@ -30,7 +31,7 @@ export const RemisionDetailView: React.FC<RemisionDetailViewProps> = ({ remision
         <Card className="shadow-lg print:shadow-none print:border-none print:bg-transparent">
           <CardHeader className="print:p-0">
             <Image
-              src="/AconicExaminer/imagenes/HEADERSEXA.svg"
+              src="/imagenes/HEADERSEXA.svg"
               alt="Header"
               width={800}
               height={100}
@@ -86,7 +87,7 @@ export const RemisionDetailView: React.FC<RemisionDetailViewProps> = ({ remision
               </div>
             </div>
             <Image
-              src="/AconicExaminer/imagenes/FOOTERSOLICITUDETAIL.svg"
+              src="/imagenes/FOOTERSOLICITUDETAIL.svg"
               alt="Footer"
               width={800}
               height={50}

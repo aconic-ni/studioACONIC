@@ -1,3 +1,4 @@
+
 "use client";
 import React, { useState, useEffect, type ReactNode } from 'react';
 import { db } from '@/lib/firebase';
@@ -6,7 +7,7 @@ import type { SolicitudRecord, InitialDataContext, SolicitudData } from '@/types
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { ArrowLeft, Printer, CheckSquare, Square, Banknote, Landmark, Hash, User, FileText, Mail, MessageSquare, Building, Code, CalendarDays, Info, Send, Users, Settings2, StickyNote, Loader2 } from 'lucide-react';
+import { ArrowLeft, Printer, CheckSquare, Square, Banknote, Landmark, Hash, User, FileText, Mail, MessageSquare, Building, Code, CalendarDays, Info, Send, Users, Settings2, StickyNote, Loader2, X } from 'lucide-react';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
@@ -164,7 +165,7 @@ export default function SolicitudDetailView({ id, isInlineView, onBackToList, ch
     return (
         <CardContent className="pt-4 print:p-0">
              <div className="hidden print:block">
-                <Image src={`/AconicExaminer/imagenes/HEADERSEXA.svg`} alt="Header Solicitud Detail" width={800} height={100} className="w-full h-auto object-contain" data-ai-hint="company logo banner" priority />
+                <Image src={`/imagenes/HEADERSEXA.svg`} alt="Header Solicitud Detail" width={800} height={100} className="w-full h-auto object-contain" data-ai-hint="company logo banner" priority />
             </div>
              <div className="no-print">
                 <CardHeader className="p-0 mb-4">
@@ -235,7 +236,7 @@ export default function SolicitudDetailView({ id, isInlineView, onBackToList, ch
                 </div>
               </div>
               <div className="hidden print:block">
-                <Image src={`/AconicExaminer/imagenes/FOOTERSOLICITUDETAIL.svg`} alt="Footer Solicitud Detail" width={800} height={100} className="w-full h-auto object-contain mt-6" data-ai-hint="company seal official" priority />
+                <Image src={`/imagenes/FOOTERSOLICITUDETAIL.svg`} alt="Footer Solicitud Detail" width={800} height={100} className="w-full h-auto object-contain mt-6" data-ai-hint="company seal official" priority />
               </div>
               <div className="no-print mt-4 flex justify-end">
                    <Button onClick={handlePrint}>

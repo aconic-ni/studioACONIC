@@ -115,7 +115,7 @@ export const AuditLogPreview: React.FC<{ logs: (AdminAuditLogEntry | AuditLogEnt
   return (
     <Card className="mt-6 w-full max-w-5xl mx-auto custom-shadow" id="printable-area">
        <Image
-            src="/AconicExaminer/imagenes/HEADERSEXA.svg"
+            src="/imagenes/HEADERSEXA.svg"
             alt="Examen Header"
             width={800}
             height={100}
@@ -155,7 +155,7 @@ export const AuditLogPreview: React.FC<{ logs: (AdminAuditLogEntry | AuditLogEnt
         </div>
       </CardContent>
        <Image
-          src="/AconicExaminer/imagenes/FOOTEREXA.svg"
+          src="/imagenes/FOOTEREXA.svg"
           alt="Examen Footer"
           width={800}
           height={50}
