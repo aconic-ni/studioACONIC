@@ -428,18 +428,28 @@ function WorksheetForm() {
         const batch = writeBatch(db);
 
         try {
-            // Exclude 'createdBy' from the update payload
+            // Exclude 'createdBy' from the update payload, but keep it for new records
             const { createdBy, ...restOfData } = data;
             
             const updatedWorksheetData = { 
                 ...restOfData, 
                 eta: data.eta ? Timestamp.fromDate(data.eta) : null,
                 lastUpdatedAt: Timestamp.now(),
+                createdBy: originalWorksheet?.createdBy || user.email // Preserve original creator
             };
     
             batch.update(worksheetDocRef, updatedWorksheetData);
             
-            // This is a comment to ensure the change is detected and deployed
+            const logRef = doc(collection(aforoCaseDocRef, 'actualizaciones'));
+            const updateLog: AforoCaseUpdate = {
+              updatedAt: Timestamp.now(),
+              updatedBy: user.displayName,
+              field: 'document_update',
+              oldValue: 'worksheet',
+              newValue: 'worksheet_updated',
+              comment: `Hoja de trabajo modificada por ${user.displayName}.`,
+            };
+            batch.set(logRef, updateLog);
             
             await batch.commit();
             toast({ title: "Hoja de Trabajo Actualizada", description: `El registro para el NE ${editingWorksheetId} ha sido guardado.` });
@@ -447,7 +457,7 @@ function WorksheetForm() {
     
         } catch(serverError: any) {
              const permissionError = new FirestorePermissionError({
-              path: `batch update to worksheets/${editingWorksheetId} and AforoCases/${editingWorksheetId}`,
+              path: `batch update to worksheets/${editingWorksheetId}`,
               operation: 'update',
               requestResourceData: { worksheetData: data },
             }, serverError);
@@ -1210,3 +1220,34 @@ export default function WorksheetPage() {
         </AppShell>
     )
 }
+
+```
+- src/data/index.ts:
+```ts
+export type NavItem = {
+    title: string;
+    href: string;
+    disabled?: boolean;
+    external?: boolean;
+    icon?: React.ReactNode;
+};
+
+export const mainNav: NavItem[] = [
+    {
+        title: "Inicio",
+        href: "/",
+    },
+];
+
+```
+- public/imagenes/HEADERANEX5DETAIL.svg:
+```svg
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" id="Capa_1" x="0" y="0" version="1.1" viewBox="0 0 1009 119.5" xml:space="preserve"><style type="text/css" id="style351">.st0{fill:#fff}.st1{fill:#1b355d}.st2{font-family:Arial,sans-serif}.st3{font-size:18px}.st4{font-size:10px}.st5{font-size:14px}.st6{font-size:8px}</style><g id="g365"><rect id="rect353" width="1009" height="119.5" x="0" y="0" class="st0"/><g id="g363"><path id="path355" d="M125.8,20.2v79.1H94.5V20.2H125.8z M235.1,99.3h-31.3V20.2h31.3v13.5h-15.6v15.6h15.6v13.5h-15.6v22.9 h15.6V99.3z M272.9,99.3l-20.2-27.4h-1.5v27.4h-15.6V20.2h17.1c8.4,0,13.7,2.2,16.5,6.6c2.8,4.4,4.2,10.6,4.2,18.5 c0,9.7-1.9,16.7-5.7,21.1c-3.8,4.4-9.6,6.6-17.5,6.6h-0.1L272.9,99.3z M251,59.3h2.1c4.5,0,7.9-1,10.2-2.9s3.4-5,3.4-9.2 c0-5.1-1.3-8.8-3.9-11.2c-2.6-2.4-6.3-3.6-11.2-3.6h-0.6V59.3z M287.4,99.3h51v-13.5h-35.4V20.2h35.4V6.6h-51V99.3z M384.8,85.8 V33.8h-15.6v51.9L384.8,85.8z M413.4,99.3l-10.7-13.5h-19.1l-10.7,13.5h-17.1l32.8-49.6l32.8,49.6H413.4z M400.9,72.3l-9.1-11.4 l-9.1,11.4H400.9z M454.4,99.3l-20.2-27.4h-1.5v27.4h-15.6V20.2h17.1c8.4,0,13.7,2.2,16.5,6.6c2.8,4.4,4.2,10.6,4.2,18.5 c0,9.7-1.9,16.7-5.7,21.1c-3.8,4.4-9.6,6.6-17.5,6.6h-0.1L454.4,99.3z M432.5,59.3h2.1c4.5,0,7.9-1,10.2-2.9s3.4-5,3.4-9.2 c0-5.1-1.3-8.8-3.9-11.2c-2.6-2.4-6.3-3.6-11.2-3.6h-0.6V59.3z M522.6,99.3h-15.6V20.2h15.6V99.3z M537.1,99.3h15.6V20.2h-15.6 V99.3z M594.1,99.3h-31.3V20.2h31.3v13.5h-15.6v15.6h15.6v13.5h-15.6v22.9h15.6V99.3z M608.6,99.3h15.6V20.2h-15.6V99.3z M639.8,99.3V20.2h31.3v79.1H639.8z M655.4,85.8V33.8h-15.6v51.9H655.4z" class="st1"/><text x="803.9" y="32.8" class="st1 st2 st3" id="text357">ANEXO No 5</text><text x="803.9" y="52.2" class="st1 st2 st4" id="text359">Declaración Para el Tránsito Aduanero Internacional</text><text x="803.9" y="65.3" class="st1 st2 st5" id="text361">Terrestre - DTI</text></g></g><g id="g371" transform="translate(1 -1)"><rect id="rect367" width="80" height="120.5" x="0" y="0" class="st1"/><text x="14.3" y="112.5" class="st0 st2 st6" id="text369">EXOS</text></g></svg>
+```
+- public/imagenes/HEADERANEX7DETAIL.svg:
+```svg
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" id="Capa_1" x="0" y="0" version="1.1" viewBox="0 0 1009 119.5" xml:space_preserve"><style type="text/css" id="style374">.st0{fill:#fff}.st1{fill:#1b355d}.st2{font-family:Arial,sans-serif}.st3{font-size:18px}.st4{font-size:10px}.st5{font-size:14px}.st6{font-size:8px}</style><g id="g388"><rect id="rect376" width="1009" height="119.5" x="0" y="0" class="st0"/><g id="g386"><path id="path378" d="M125.8,20.2v79.1H94.5V20.2H125.8z M235.1,99.3h-31.3V20.2h31.3v13.5h-15.6v15.6h15.6v13.5h-15.6v22.9 h15.6V99.3z M272.9,99.3l-20.2-27.4h-1.5v27.4h-15.6V20.2h17.1c8.4,0,13.7,2.2,16.5,6.6c2.8,4.4,4.2,10.6,4.2,18.5 c0,9.7-1.9,16.7-5.7,21.1c-3.8,4.4-9.6,6.6-17.5,6.6h-0.1L272.9,99.3z M251,59.3h2.1c4.5,0,7.9-1,10.2-2.9s3.4-5,3.4-9.2 c0-5.1-1.3-8.8-3.9-11.2c-2.6-2.4-6.3-3.6-11.2-3.6h-0.6V59.3z M287.4,99.3h51v-13.5h-35.4V20.2h35.4V6.6h-51V99.3z M384.8,85.8 V33.8h-15.6v51.9L384.8,85.8z M413.4,99.3l-10.7-13.5h-19.1l-10.7,13.5h-17.1l32.8-49.6l32.8,49.6H413.4z M400.9,72.3l-9.1-11.4 l-9.1,11.4H400.9z M454.4,99.3l-20.2-27.4h-1.5v27.4h-15.6V20.2h17.1c8.4,0,13.7,2.2,16.5,6.6c2.8,4.4,4.2,10.6,4.2,18.5 c0,9.7-1.9,16.7-5.7,21.1c-3.8,4.4-9.6,6.6-17.5,6.6h-0.1L454.4,99.3z M432.5,59.3h2.1c4.5,0,7.9-1,10.2-2.9s3.4-5,3.4-9.2 c0-5.1-1.3-8.8-3.9-11.2c-2.6-2.4-6.3-3.6-11.2-3.6h-0.6V59.3z M522.6,99.3h-15.6V20.2h15.6V99.3z M537.1,99.3h15.6V20.2h-15.6 V99.3z M594.1,99.3h-31.3V20.2h31.3v13.5h-15.6v15.6h15.6v13.5h-15.6v22.9h15.6V99.3z M608.6,99.3h15.6V20.2h-15.6V99.3z M639.8,99.3V20.2h31.3v79.1H639.8z M655.4,85.8V33.8h-15.6v51.9H655.4z" class="st1"/><text x="803.9" y="32.8" class="st1 st2 st3" id="text380">ANEXO No 7</text><text x="803.9" y="52.2" class="st1 st2 st4" id="text382">Declaración Para el Tránsito Aduanero Internacional</text><text x="803.9" y="65.3" class="st1 st2 st5" id="text384">Terrestre - DTI</text></g></g><g id="g394" transform="translate(1 -1)"><rect id="rect390" width="80" height="120.5" x="0" y="0" class="st1"/><text x="14.3" y="112.5" class="st0 st2 st6" id="text392">EXOS</text></g></svg>
+```
+- public/imagenes/HEADERSEXA.svg:
+```svg
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" id="Capa_1" x="0" y="0" version="1.1" viewBox="0 0

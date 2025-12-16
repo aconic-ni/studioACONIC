@@ -329,23 +329,24 @@ function AforoDataMigrator() {
             const worksheetIds = relevantCases.map(c => c.worksheetId).filter(Boolean) as string[];
 
             if(worksheetIds.length > 0){
+                // Firestore 'in' query limit is 30
                 const metadataDocsPromises = [];
                 for(let i = 0; i < worksheetIds.length; i += 30) {
                     const chunk = worksheetIds.slice(i, i + 30);
-                    const metadataQuery = query(collection(db, 'worksheets'), where(documentId(), 'in', chunk));
+                    const metadataQuery = query(collectionGroup(db, 'aforo'), where('__name__', 'in', chunk.map(id => `worksheets/${id}/aforo/metadata`)));
                     metadataDocsPromises.push(getDocs(metadataQuery));
                 }
                 const metadataSnapshots = await Promise.all(metadataDocsPromises);
                 
                 const existingMetadataWorksheetIds = new Set<string>();
-                for (const snapshot of metadataSnapshots) {
-                    for (const wsDoc of snapshot.docs) {
-                         const aforoSubColl = await getDocs(collection(db, `worksheets/${wsDoc.id}/aforo`));
-                         if (!aforoSubColl.empty) {
-                             existingMetadataWorksheetIds.add(wsDoc.id);
-                         }
-                    }
-                }
+                 metadataSnapshots.forEach(snapshot => {
+                    snapshot.forEach(doc => {
+                        const pathParts = doc.ref.path.split('/');
+                        if (pathParts.length >= 2) {
+                            existingMetadataWorksheetIds.add(pathParts[1]);
+                        }
+                    });
+                });
                 
                 casesToMigrateCount = worksheetIds.filter(id => !existingMetadataWorksheetIds.has(id)).length;
             }
@@ -376,10 +377,10 @@ function AforoDataMigrator() {
                 .filter(c => c.worksheetId);
 
             let migratedCount = 0;
-            const batch = writeBatch(db);
             
             for (const caseData of casesToProcess) {
                  if (caseData.worksheetId) {
+                    const batch = writeBatch(db);
                     const metadataRef = doc(db, `worksheets/${caseData.worksheetId}/aforo/metadata`);
                     const metadataSnap = await getDoc(metadataRef);
 
@@ -408,13 +409,13 @@ function AforoDataMigrator() {
                             entregadoAforoAt: caseData.entregadoAforoAt || null,
                         };
                         batch.set(metadataRef, dataToMigrate, { merge: true });
+                        await batch.commit(); // Commit one by one to avoid large batch issues
                         migratedCount++;
                     }
                  }
             }
 
             if (migratedCount > 0) {
-                await batch.commit();
                 toast({ title: 'Migración Completa', description: `${migratedCount} registros de aforo han sido migrados a sus hojas de trabajo.` });
             } else {
                 toast({ title: 'Sin cambios necesarios', description: 'Todos los datos de aforo aplicables ya están migrados.' });
@@ -477,8 +478,8 @@ function BitacoraMigrator() {
                     if (!sourceUpdatesSnapshot.empty) {
                         casesWithLogsCount++;
                         
-                        const targetAforoRef = collection(db, 'worksheets', caseData.worksheetId, 'aforo');
-                        const targetUpdatesSnapshot = await getDocs(collection(targetAforoRef, 'actualizaciones'));
+                        const targetUpdatesRef = collection(db, 'worksheets', caseData.worksheetId, 'aforo', 'actualizaciones');
+                        const targetUpdatesSnapshot = await getDocs(targetUpdatesRef);
                         
                         if (targetUpdatesSnapshot.empty) { // Only count if target is empty
                             totalLogsToMigrate += sourceUpdatesSnapshot.size;
@@ -512,13 +513,10 @@ function BitacoraMigrator() {
                 if (caseData.worksheetId) {
                     const sourceUpdatesRef = collection(db, 'AforoCases', caseDoc.id, 'actualizaciones');
                     const targetUpdatesRef = collection(db, 'worksheets', caseData.worksheetId, 'aforo', 'actualizaciones');
-
-                    const [sourceSnapshot, targetSnapshot] = await Promise.all([
-                        getDocs(sourceUpdatesRef),
-                        getDocs(targetSnapshot)
-                    ]);
                     
-                    // Only migrate if source has logs and target is empty
+                    const sourceSnapshot = await getDocs(sourceUpdatesRef);
+                    const targetSnapshot = await getDocs(targetUpdatesRef);
+                    
                     if (!sourceSnapshot.empty && targetSnapshot.empty) {
                         const batch = writeBatch(db);
                         sourceSnapshot.forEach(logDoc => {
@@ -534,7 +532,7 @@ function BitacoraMigrator() {
             if (migratedCount > 0) {
                 toast({ title: 'Migración Completa', description: `${migratedCount} registros de bitácora han sido migrados.` });
             } else {
-                toast({ title: 'Sin cambios necesarios', description: 'Todas las bitácoras ya estaban migradas.' });
+                toast({ title: 'Sin cambios necesarios', description: 'Todas las bitácoras aplicables ya estaban migradas.' });
             }
         } catch (error) {
             console.error("Error during bitácora migration:", error);
@@ -601,10 +599,4 @@ export default function UpdatesAdminPage() {
                 <TotalPosicionesMigrator />
             </TabsContent>
             <TabsContent value="stats" className="mt-4">
-                <p>Módulo de estadísticas en desarrollo.</p>
-            </TabsContent>
-        </Tabs>
-      </div>
-    </AppShell>
-  );
-}
+                <p>Módulo de estadísticas
