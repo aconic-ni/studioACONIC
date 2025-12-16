@@ -111,13 +111,13 @@ service cloud.firestore {
         allow update: if isAuthenticated() && (hasRole('ejecutivo') || isAdmin() || isAgenteAduanero() || isSupervisor() || hasRole('coordinadora') || hasRole('aforador'));
         allow delete: if isAdmin();
 
-        // Rules for the 'aforo' subcollection
-        match /aforo/{document} {
-          allow read, write: if isAuthenticated();
-          
-          match /actualizaciones/{updateId} {
-             allow read, write: if isAuthenticated();
-          }
+        // Rules for the 'aforo' subcollection and its documents/subcollections
+        match /aforo/metadata {
+            allow read, write: if isAuthenticated();
+        }
+        
+        match /aforo/actualizaciones/{updateId} {
+            allow read, write: if isAuthenticated();
         }
     }
 
