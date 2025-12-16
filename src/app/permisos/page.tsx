@@ -544,6 +544,7 @@ export default function PermisosPage() {
                   </TableHead>
                   <TableHead>Fecha de Reporte</TableHead>
                   <TableHead>ETA</TableHead>
+                  <TableHead>Referencia</TableHead>
                   <TableHead>NE</TableHead>
                   <TableHead>Consignatario</TableHead>
                   <TableHead>Factura Asociada</TableHead>
@@ -581,6 +582,7 @@ export default function PermisosPage() {
                         </TableCell>
                         <TableCell className="font-medium">{formatDate(permit.worksheetCreatedAt, false)}</TableCell>
                         <TableCell className="font-medium">{formatDate(permit.eta, false)}</TableCell>
+                        <TableCell>{permit.reference || 'N/A'}</TableCell>
                         <TableCell className="font-medium">{permit.ne}</TableCell>
                         <TableCell>{permit.consignee}</TableCell>
                         <TableCell>{permit.facturaNumber || 'N/A'}</TableCell>
