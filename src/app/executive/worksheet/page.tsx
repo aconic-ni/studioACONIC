@@ -167,28 +167,14 @@ function WorksheetForm() {
       setEditingWorksheetId(id);
       const fetchWorksheet = async () => {
         const wsDocRef = doc(db, 'worksheets', id);
-        const aforoCaseDocRef = doc(db, 'AforoCases', id);
-  
-        const [wsSnap, aforoCaseSnap] = await Promise.all([
-          getDoc(wsDocRef),
-          getDoc(aforoCaseDocRef)
-        ]);
-  
+        const wsSnap = await getDoc(wsDocRef);
         if (wsSnap.exists()) {
           const wsData = {id: wsSnap.id, ...wsSnap.data()} as Worksheet;
-          const aforoCaseData = aforoCaseSnap.exists() ? aforoCaseSnap.data() as AforoCase : null;
-          
           setOriginalWorksheet(wsData);
-  
-          // Prioritize AforoCase data for RESA if it exists
-          const resaNumber = aforoCaseData?.resaNumber || wsData.resa;
-          const resaNotificationDate = aforoCaseData?.resaNotificationDate?.toDate() || wsData.resaNotificationDate?.toDate();
-          const resaDueDate = aforoCaseData?.resaDueDate?.toDate() || wsData.resaDueDate?.toDate();
   
           const formData: Partial<WorksheetFormData> = {
             ...wsData,
             eta: wsData.eta?.toDate() ?? null,
-            resa: resaNumber || '',
             operationType: wsData.operationType ?? null, // Ensure null is passed if undefined
             requiredPermits: (wsData.requiredPermits || []).map((p: any) => ({
               ...p,
@@ -500,7 +486,7 @@ function WorksheetForm() {
             ...data, 
             id: neTrimmed, 
             ne: neTrimmed, 
-            eta: data.eta ? Timestamp.fromDate(data.eta) : null,
+            eta: data.eta ? Timestamp.fromDate(data.eta) : null, 
             createdAt: creationTimestamp, 
             createdBy: user.email!, 
             requiredPermits: data.requiredPermits || [], 
@@ -1159,7 +1145,7 @@ function WorksheetForm() {
                                 </FormItem>
                             )}
                         />
-                         <FormField control={form.control} name="subRegime" render={({ field }) => (<FormItem><FormLabel>Sub-Régimen</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>)}/>
+                         <FormField control={form.control} name="subRegime" render={({ field }) => (<FormItem><FormLabel>Sub-Régimen</FormLabel><FormControl><Input {...field} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>)}/>
                     </div>
                 )}
             </div>
@@ -1188,7 +1174,7 @@ function WorksheetForm() {
 
             <div className="pt-4 border-t">
                 <FormField control={form.control} name="observations" render={({ field }) => (
-                    <FormItem><FormLabel>Observaciones</FormLabel><FormControl><Textarea {...field} placeholder="Añada cualquier observación adicional aquí..." value={field.value ?? ''}/></FormControl><FormMessage /></FormItem>
+                    <FormItem><FormLabel>Observaciones</FormLabel><FormControl><Textarea {...field} placeholder="Añada cualquier observación adicional aquí..." value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>
                 )}/>
             </div>
             <div className="flex justify-end gap-2 pt-6">
