@@ -86,6 +86,8 @@ const LastUpdateTooltip = ({ lastUpdate, caseCreation }: { lastUpdate?: LastUpda
 export function DigitizationCasesTable({ filters, setAllFetchedCases, showPendingOnly }: DigitizationCasesTableProps) {
   const { user } = useAuth();
   const { toast } = useToast();
+  const router = useRouter();
+  const isMobile = useIsMobile();
   const [assignableUsers, setAssignableUsers] = useState<AppUser[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [savingState, setSavingState] = useState<{ [key: string]: boolean }>({});
@@ -358,7 +360,7 @@ export function DigitizationCasesTable({ filters, setAllFetchedCases, showPendin
       <div className="flex items-center gap-2 p-2">
           {canEdit && (
             <>
-              <Button variant="outline" size="sm" onClick={() => setAssignmentModal({isOpen: true, case: null, type: 'bulk-revisor'})} disabled={selectedRows.length === 0}>Asignar Digitador ({selectedRows.length})</Button>
+              <Button variant="outline" size="sm" onClick={() => setAssignmentModal({isOpen: true, case: null, type: 'revisor'})} disabled={selectedRows.length === 0}>Asignar Digitador ({selectedRows.length})</Button>
               <Button variant="outline" size="sm" onClick={() => setStatusModal({isOpen: true})} disabled={selectedRows.length === 0}>Asignar Estatus ({selectedRows.length})</Button>
             </>
           )}
@@ -509,7 +511,7 @@ export function DigitizationCasesTable({ filters, setAllFetchedCases, showPendin
     )}
      <Dialog open={statusModal.isOpen} onOpenChange={() => setStatusModal({isOpen: false})}>
         <DialogContent>
-            <DialogHeader><DialogTitle>Asignar Estatus de Digitación Masivo</DialogTitle><DialogDescription>Seleccione el estatus a aplicar a los ${selectedRows.length} casos seleccionados.</DialogDescription></DialogHeader>
+            <DialogHeader><DialogTitle>Asignar Estatus de Digitación Masivo</DialogTitle><DialogDescription>Seleccione el estatus a aplicar a los {selectedRows.length} casos seleccionados.</DialogDescription></DialogHeader>
             <Select onValueChange={(value) => { handleBulkAction('digitacionStatus', value); }}>
                 <SelectTrigger><SelectValue placeholder="Seleccionar estatus..." /></SelectTrigger>
                 <SelectContent>
