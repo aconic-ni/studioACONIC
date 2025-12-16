@@ -424,21 +424,21 @@ function WorksheetForm() {
     
     if (editingWorksheetId) {
         const worksheetDocRef = doc(db, 'worksheets', editingWorksheetId);
-        const logCollectionRef = collection(db, 'worksheets', editingWorksheetId, 'aforo', 'actualizaciones');
         const batch = writeBatch(db);
 
         try {
-            // Exclude fields that should not be overwritten on update
             const { createdBy, createdAt, ...restOfData } = data;
             
             const updatedWorksheetData = { 
                 ...restOfData, 
                 eta: data.eta ? Timestamp.fromDate(data.eta) : null,
                 lastUpdatedAt: Timestamp.now(),
+                createdBy: originalWorksheet?.createdBy || user.email,
             };
     
             batch.update(worksheetDocRef, updatedWorksheetData);
             
+            const logCollectionRef = collection(db, 'worksheets', editingWorksheetId, 'aforo', 'actualizaciones');
             const logRef = doc(logCollectionRef);
             const updateLog: AforoCaseUpdate = {
               updatedAt: Timestamp.now(),
@@ -530,7 +530,7 @@ function WorksheetForm() {
         };
         batch.set(aforoCaseDocRef, aforoCaseData);
   
-        const initialLogRef = doc(collection(worksheetDocRef, 'aforo', 'actualizaciones'));
+        const initialLogRef = doc(collection(db, 'worksheets', neTrimmed, 'aforo', 'actualizaciones'));
         const initialLog: AforoCaseUpdate = {
             updatedAt: Timestamp.now(),
             updatedBy: user.displayName,
@@ -1219,3 +1219,5 @@ export default function WorksheetPage() {
         </AppShell>
     )
 }
+
+    
