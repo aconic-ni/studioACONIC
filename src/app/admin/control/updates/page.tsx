@@ -602,4 +602,9 @@ export default function UpdatesAdminPage() {
             </TabsContent>
             <TabsContent value="stats" className="mt-4">
                 <p>Módulo de estadísticas en desarrollo.</p>
-            </TabsContent
+            </TabsContent>
+        </Tabs>
+      </div>
+    </AppShell>
+  );
+}
