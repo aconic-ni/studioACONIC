@@ -1,22 +1,20 @@
 
-"use client";
-import React, { useEffect, useState } from 'react';
+import React from 'react';
 import Image from 'next/image';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
-import { X, Printer, Edit } from 'lucide-react';
+import { Card, CardContent, CardFooter } from '@/components/ui/card';
+import { Printer, Edit } from 'lucide-react';
 import type { Worksheet, AppUser } from '@/types';
 import { Timestamp, collection, query, where, getDocs } from 'firebase/firestore';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Badge } from '@/components/ui/badge';
 import { format as formatDateFns } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { aduanas, aduanaToShortCode } from '@/lib/formData';
+import { aduanas } from '@/lib/formData';
 import { WorksheetDetails } from '../WorksheetDetails';
 import { cn } from "@/lib/utils";
 import { db } from '@/lib/firebase';
 import Link from 'next/link';
 import { Anexo7Details } from './Anexo7Details';
+import { Anexo5PrintButton } from './Anexo5PrintButton';
 
 const formatShortDate = (timestamp: Timestamp | Date | null | undefined): string => {
   if (!timestamp) return '';
@@ -67,28 +65,17 @@ const SignatureSection: React.FC<{
   );
 };
 
+// This is now a Server Component
+export async function Anexo5Details({ worksheet, onClose }: { worksheet: Worksheet; onClose: () => void; }) {
+  let agente: AppUser | null = null;
+  if (worksheet.aforador && worksheet.aforador !== '-') {
+      const q = query(collection(db, 'users'), where('displayName', '==', worksheet.aforador));
+      const querySnapshot = await getDocs(q);
+      if (!querySnapshot.empty) {
+          agente = querySnapshot.docs[0].data() as AppUser;
+      }
+  }
 
-export const Anexo5Details: React.FC<{ worksheet: Worksheet; onClose: () => void; }> = ({ worksheet, onClose }) => {
-  const [agente, setAgente] = useState<AppUser | null>(null);
-
-  useEffect(() => {
-    const fetchAgent = async () => {
-        if (worksheet.aforador && worksheet.aforador !== '-') {
-            const q = query(collection(db, 'users'), where('displayName', '==', worksheet.aforador));
-            const querySnapshot = await getDocs(q);
-            if (!querySnapshot.empty) {
-                const agentData = querySnapshot.docs[0].data() as AppUser;
-                setAgente(agentData);
-            }
-        }
-    };
-    fetchAgent();
-  }, [worksheet.aforador]);
-
-  const handlePrint = () => {
-    window.print();
-  };
-  
   const productHeaders = ["CANTIDAD", "ORIGEN", "UM", "SAC", "PESO", "DESCRIPCION", "LINEA AEREA", "N° DE GUIA AEREA", "BULTO", "TOTAL"];
   
   const cantidadTotal = Number(worksheet.cantidadTotal) || (worksheet.documents || []).reduce((sum, doc) => sum + (Number((doc as any).cantidad) || 0), 0);
@@ -276,17 +263,15 @@ export const Anexo5Details: React.FC<{ worksheet: Worksheet; onClose: () => void
       </div>
       <CardFooter className="justify-end gap-2 no-print border-t pt-4 mt-4">
           <Button asChild variant="outline">
-          <Link href={`/executive/anexos?type=${worksheet.worksheetType}&id=${worksheet.id}`}>
+            <Link href={`/executive/anexos?type=${worksheet.worksheetType}&id=${worksheet.id}`}>
               <Edit className="mr-2 h-4 w-4" /> Editar
-          </Link>
+            </Link>
           </Button>
           <Button type="button" onClick={onClose} variant="outline">
-          Cerrar
+            Cerrar
           </Button>
-          <Button type="button" onClick={handlePrint} variant="default">
-          <Printer className="mr-2 h-4 w-4" /> Imprimir
-          </Button>
+          <Anexo5PrintButton />
       </CardFooter>
     </Card>
   );
-};
+}
