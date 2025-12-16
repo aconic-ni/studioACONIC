@@ -1,6 +1,7 @@
+
 "use client";
 import { useState, useMemo, useCallback } from 'react';
-import type { AforoCase, WorksheetWithCase } from '@/types';
+import type { AforoCase, WorksheetWithCase, Worksheet } from '@/types';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../ui/card';
 import type { DateRange } from 'react-day-picker';
@@ -12,7 +13,7 @@ import { AforoPieChartCard } from './AforoPieChartCard';
 
 
 interface AforoDashboardProps {
-    allCases: AforoCase[];
+    allCases: WorksheetWithCase[];
 }
 
 const currentYear = new Date().getFullYear();
@@ -32,15 +33,6 @@ export function AforoDashboard({ allCases }: AforoDashboardProps) {
     const [selectedYear, setSelectedYear] = useState<number>(currentYear);
 
     const filteredCases = useMemo(() => {
-        let examsToProcess: AforoCase[] = [];
-
-        const filterCasesByDate = (cases: AforoCase[], dateField: 'createdAt' | 'assignmentDate', start: Date, end: Date) => {
-            return cases.filter(c => {
-                const caseDate = (c[dateField] as Timestamp)?.toDate();
-                return caseDate && caseDate >= start && caseDate <= end;
-            });
-        };
-
         let start: Date, end: Date;
         const now = new Date();
 
@@ -70,7 +62,10 @@ export function AforoDashboard({ allCases }: AforoDashboardProps) {
                 return allCases;
         }
 
-        return filterCasesByDate(allCases, 'createdAt', start, end);
+        return allCases.filter(c => {
+            const caseDate = (c.createdAt as Timestamp)?.toDate();
+            return caseDate && caseDate >= start && caseDate <= end;
+        });
 
     }, [allCases, filterType, dateRange, selectedMonth, selectedYear, specificDate]);
 
@@ -79,7 +74,7 @@ export function AforoDashboard({ allCases }: AforoDashboardProps) {
         const aforadorStats: { [key: string]: { assigned: number; readyForReview: number; revalidated: number; posiciones: number } } = {};
         
         const hojaDeTrabajoCases = allCases.filter(c => 
-            (c as WorksheetWithCase).worksheet?.worksheetType === 'hoja_de_trabajo' || (c as WorksheetWithCase).worksheet?.worksheetType === undefined
+            c.worksheet?.worksheetType === 'hoja_de_trabajo' || !c.worksheet?.worksheetType
         );
         
         let start: Date, end: Date;
@@ -113,13 +108,15 @@ export function AforoDashboard({ allCases }: AforoDashboardProps) {
         }
 
         const casesForAssignedMetric = hojaDeTrabajoCases.filter(c => {
-             const assignmentDate = (c.assignmentDate as Timestamp)?.toDate();
+             const aforoInfo = (c.worksheet as any)?.aforo;
+             const assignmentDate = (aforoInfo?.aforadorAssignedAt as Timestamp)?.toDate();
              const isPsmt = c.consignee?.toUpperCase().trim() === "PSMT NICARAGUA, SOCIEDAD ANONIMA";
              return !isPsmt && assignmentDate && assignmentDate >= start && assignmentDate <= end;
         });
 
         casesForAssignedMetric.forEach(c => {
-            const aforadorName = c.aforador || 'Sin Asignar';
+            const aforoInfo = (c.worksheet as any)?.aforo;
+            const aforadorName = aforoInfo?.aforador || 'Sin Asignar';
             if (!aforadorStats[aforadorName]) {
                 aforadorStats[aforadorName] = { assigned: 0, readyForReview: 0, revalidated: 0, posiciones: 0 };
             }
@@ -128,22 +125,23 @@ export function AforoDashboard({ allCases }: AforoDashboardProps) {
         });
 
         const filteredHojaDeTrabajoCases = filteredCases.filter(c => 
-            (c as WorksheetWithCase).worksheet?.worksheetType === 'hoja_de_trabajo' || (c as WorksheetWithCase).worksheet?.worksheetType === undefined
+            c.worksheet?.worksheetType === 'hoja_de_trabajo' || !c.worksheet?.worksheetType
         );
 
         filteredHojaDeTrabajoCases.forEach(c => {
-            const aforadorName = c.aforador || 'Sin Asignar';
+            const aforoInfo = (c.worksheet as any)?.aforo;
+            const aforadorName = aforoInfo?.aforador || 'Sin Asignar';
             const isPsmt = c.consignee?.toUpperCase().trim() === "PSMT NICARAGUA, SOCIEDAD ANONIMA";
             
-            if (isPsmt) return; // Exclude PSMT from general stats for "readyForReview" and "revalidated"
+            if (isPsmt) return;
 
             if (!aforadorStats[aforadorName]) {
                 aforadorStats[aforadorName] = { assigned: 0, readyForReview: 0, revalidated: 0, posiciones: 0 };
             }
-            if (c.aforadorStatus === 'En revisión') {
+            if (aforoInfo?.aforadorStatus === 'En revisión') {
                 aforadorStats[aforadorName].readyForReview += 1;
             }
-            if (c.revisorStatus === 'Revalidación Solicitada') {
+            if (aforoInfo?.revisorStatus === 'Revalidación Solicitada') {
                 aforadorStats[aforadorName].revalidated += 1;
             }
         });
@@ -192,12 +190,14 @@ export function AforoDashboard({ allCases }: AforoDashboardProps) {
         }
 
         const casesForAssignedMetric = psmtCases.filter(c => {
-             const assignmentDate = (c.assignmentDate as Timestamp)?.toDate();
+             const aforoInfo = (c.worksheet as any)?.aforo;
+             const assignmentDate = (aforoInfo?.aforadorAssignedAt as Timestamp)?.toDate();
              return assignmentDate && assignmentDate >= start && assignmentDate <= end;
         });
 
         casesForAssignedMetric.forEach(c => {
-            const aforadorName = c.aforador || 'Sin Asignar';
+            const aforoInfo = (c.worksheet as any)?.aforo;
+            const aforadorName = aforoInfo?.aforador || 'Sin Asignar';
             if (!aforadorStats[aforadorName]) {
                 aforadorStats[aforadorName] = { assigned: 0, posiciones: 0 };
             }
@@ -217,27 +217,25 @@ export function AforoDashboard({ allCases }: AforoDashboardProps) {
         const digitadorStats: { [key: string]: { assigned: number; liquidated: number; stored: number } } = {};
 
         const filteredHojaDeTrabajoCases = filteredCases.filter(c => 
-            (c as WorksheetWithCase).worksheet?.worksheetType === 'hoja_de_trabajo' || (c as WorksheetWithCase).worksheet?.worksheetType === undefined
+            c.worksheet?.worksheetType === 'hoja_de_trabajo' || !c.worksheet?.worksheetType
         );
 
         filteredHojaDeTrabajoCases.forEach(c => {
-            const digitadorName = c.digitadorAsignado || 'Sin Asignar';
+            const aforoInfo = (c.worksheet as any)?.aforo;
+            const digitadorName = aforoInfo?.digitador || 'Sin Asignar';
              if (!digitadorStats[digitadorName]) {
                 digitadorStats[digitadorName] = { assigned: 0, liquidated: 0, stored: 0 };
             }
 
-            // Count assigned cases for digitization
-            if (c.digitadorAsignado) {
+            if (aforoInfo?.digitador) {
                 digitadorStats[digitadorName].assigned += 1;
             }
 
-            // Count liquidated cases (those with a declaration number)
-            if (c.declaracionAduanera) {
+            if (aforoInfo?.declaracionAduanera) {
                  digitadorStats[digitadorName].liquidated += 1;
             }
             
-            // Count stored cases
-            if (c.digitacionStatus === 'Almacenado') {
+            if (aforoInfo?.digitadorStatus === 'Almacenado') {
                  digitadorStats[digitadorName].stored += 1;
             }
         });
