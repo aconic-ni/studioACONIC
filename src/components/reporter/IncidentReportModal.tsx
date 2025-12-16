@@ -162,12 +162,12 @@ export function IncidentReportModal({ isOpen, onClose, caseData }: IncidentRepor
               )}
                <div className="col-span-1 md:col-span-2">
                 <FormField control={form.control} name="motivoRectificacion" render={({ field }) => (
-                    <FormItem><FormLabel>Motivo de la Rectificación</FormLabel><FormControl><Textarea {...field} rows={4}/></FormControl><FormMessage /></FormItem>
+                    <FormItem><FormLabel>Motivo de la Rectificación</FormLabel><FormControl><Textarea {...field} rows={4} value={field.value ?? ''}/></FormControl><FormMessage /></FormItem>
                 )}/>
                </div>
                <div className="col-span-1 md:col-span-2">
                 <FormField control={form.control} name="observaciones" render={({ field }) => (
-                    <FormItem><FormLabel>Observaciones</FormLabel><FormControl><Textarea {...field} rows={3}/></FormControl><FormMessage /></FormItem>
+                    <FormItem><FormLabel>Observaciones</FormLabel><FormControl><Textarea {...field} rows={3} value={field.value ?? ''}/></FormControl><FormMessage /></FormItem>
                 )}/>
                </div>
                <div className="col-span-1 md:col-span-2">

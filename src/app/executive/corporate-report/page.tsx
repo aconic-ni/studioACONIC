@@ -214,7 +214,7 @@ function CorporateReportForm() {
                 <FormField control={form.control} name="fechaDespacho" render={({ field }) => (<FormItem className="flex flex-col"><FormLabel>Fecha Despacho</FormLabel><FormControl><DatePicker date={field.value || undefined} onDateChange={field.onChange} /></FormControl><FormMessage /></FormItem>)} />
               </div>
 
-              <FormField control={form.control} name="observations" render={({ field }) => (<FormItem className="pt-4 border-t"><FormLabel>Observaciones</FormLabel><FormControl><Textarea rows={3} {...field} /></FormControl><FormMessage /></FormItem>)} />
+              <FormField control={form.control} name="observations" render={({ field }) => (<FormItem className="pt-4 border-t"><FormLabel>Observaciones</FormLabel><FormControl><Textarea rows={3} {...field} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>)} />
 
               <div className="flex justify-end gap-2 pt-6">
                 <Button type="button" variant="outline" asChild><Link href="/executive"><ArrowLeft className="mr-2 h-4 w-4" /> Volver</Link></Button>

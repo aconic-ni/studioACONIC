@@ -108,6 +108,7 @@ export function DigitizationCommentModal({ isOpen, onClose, caseData }: Digitiza
                     <Textarea
                       {...field}
                       rows={5}
+                      value={field.value ?? ''}
                       disabled={!canEdit || isSubmitting}
                       placeholder={canEdit ? 'Añada la observación aquí...' : 'Sin observación.'}
                     />

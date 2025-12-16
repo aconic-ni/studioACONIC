@@ -556,7 +556,7 @@ function AnexoForm() {
                       <FormField control={form.control} name="cantidadTotal" render={({ field }) => (<FormItem><FormLabel>Cantidad Total</FormLabel><FormControl><Input placeholder="Cantidad" {...field} readOnly className="bg-muted/50" /></FormControl></FormItem>)} />
                       <FormField control={form.control} name="unidadMedidaTotal" render={({ field }) => (<FormItem><FormLabel>Unidad</FormLabel><FormControl><Input placeholder="Unidad" {...field} /></FormControl></FormItem>)} />
                     </div>
-                    <FormField control={form.control} name="observations" render={({ field }) => (<FormItem><FormLabel>Nota</FormLabel><FormControl><Textarea rows={8} {...field} /></FormControl><FormMessage /></FormItem>)}/>
+                    <FormField control={form.control} name="observations" render={({ field }) => (<FormItem><FormLabel>Nota</FormLabel><FormControl><Textarea rows={8} {...field} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>)}/>
                 </div>
                  <div className="space-y-4">
                      <div className="space-y-2">

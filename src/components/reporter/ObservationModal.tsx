@@ -136,6 +136,7 @@ export function ObservationModal({ isOpen, onClose, caseData }: ObservationModal
                     <Textarea
                       {...field}
                       rows={5}
+                      value={field.value ?? ''}
                       disabled={!canEdit || isSubmitting}
                       placeholder={canEdit ? 'Añada sus observaciones aquí...' : 'Sin observaciones.'}
                     />

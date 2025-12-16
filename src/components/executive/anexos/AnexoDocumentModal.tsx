@@ -91,7 +91,7 @@ export function AnexoDocumentModal({ isOpen, onClose, onSave, documentData, work
                             </>
                         )}
                         <FormField control={form.control} name="total" render={({ field }) => (<FormItem className="md:col-span-2"><FormLabel>Total (US$)</FormLabel><FormControl><Input type="number" step="0.01" {...field} /></FormControl><FormMessage /></FormItem>)} />
-                        <FormField control={form.control} name="descripcion" render={({ field }) => (<FormItem className="md:col-span-2"><FormLabel>Descripción</FormLabel><FormControl><Textarea rows={4} {...field} /></FormControl><FormMessage /></FormItem>)} />
+                        <FormField control={form.control} name="descripcion" render={({ field }) => (<FormItem className="md:col-span-2"><FormLabel>Descripción</FormLabel><FormControl><Textarea rows={4} {...field} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>)} />
                     </div>
                 </div>
             </ScrollArea>
