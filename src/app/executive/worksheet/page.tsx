@@ -424,7 +424,7 @@ function WorksheetForm() {
     
     if (editingWorksheetId) {
         const worksheetDocRef = doc(db, 'worksheets', editingWorksheetId);
-        const aforoCaseDocRef = doc(db, 'AforoCases', editingWorksheetId);
+        const logCollectionRef = collection(db, 'worksheets', editingWorksheetId, 'aforo', 'actualizaciones');
         const batch = writeBatch(db);
 
         try {
@@ -439,7 +439,7 @@ function WorksheetForm() {
     
             batch.update(worksheetDocRef, updatedWorksheetData);
             
-            const logRef = doc(collection(aforoCaseDocRef, 'actualizaciones'));
+            const logRef = doc(logCollectionRef);
             const updateLog: AforoCaseUpdate = {
               updatedAt: Timestamp.now(),
               updatedBy: user.displayName,
@@ -530,7 +530,7 @@ function WorksheetForm() {
         };
         batch.set(aforoCaseDocRef, aforoCaseData);
   
-        const initialLogRef = doc(collection(aforoCaseDocRef, 'actualizaciones'));
+        const initialLogRef = doc(collection(worksheetDocRef, 'aforo', 'actualizaciones'));
         const initialLog: AforoCaseUpdate = {
             updatedAt: Timestamp.now(),
             updatedBy: user.displayName,
@@ -1219,3 +1219,5 @@ export default function WorksheetPage() {
         </AppShell>
     )
 }
+
+    
