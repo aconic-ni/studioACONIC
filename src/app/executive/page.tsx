@@ -40,6 +40,8 @@ import { AnnouncementsCarousel } from '@/components/executive/AnnouncementsCarou
 import { AssignUserModal } from '@/components/reporter/AssignUserModal';
 import { ResaNotificationModal } from '@/components/executive/ResaNotificationModal';
 import { useIsMobile } from '@/hooks/use-mobile';
+import { MobileCasesList } from '@/components/executive/MobileCasesList';
+import { StatusBadges } from '@/components/executive/StatusBadges';
 import { useAppContext } from '@/context/AppContext';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { ViewIncidentsModal } from '@/components/executive/ViewIncidentsModal';
@@ -49,7 +51,6 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { StatusProcessModal } from '@/components/executive/StatusProcessModal';
 import { Textarea } from '@/components/ui/textarea';
 import { ExecutiveCasesTable } from '@/components/executive/ExecutiveCasesTable';
-import { MobileCasesList } from '@/components/executive/MobileCasesList';
 import { v4 as uuidv4 } from 'uuid';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 
@@ -106,6 +107,7 @@ function ExecutivePageContent() {
   const [savingState, setSavingState] = useState<{ [key: string]: boolean }>({});
   
   const [facturadoFilter, setFacturadoFilter] = useState({ facturado: false, noFacturado: true });
+  const [acuseFilter, setAcuseFilter] = useState({ conAcuse: false, sinAcuse: true });
   const [dateFilterType, setDateFilterType] = useState<DateFilterType>('range');
   const [dateRangeInput, setDateRangeInput] = useState<DateRange | undefined>();
   const [selectedMonth, setSelectedMonth] = useState<number>(new Date().getMonth());
@@ -128,6 +130,8 @@ function ExecutivePageContent() {
     searchTerm: '',
     facturado: false,
     noFacturado: true,
+    conAcuse: false,
+    sinAcuse: true,
     dateFilterType: 'range' as DateFilterType,
     dateRange: undefined as DateRange | undefined,
     isSearchActive: false, 
@@ -373,6 +377,7 @@ function ExecutivePageContent() {
     setAppliedFilters({
       searchTerm,
       ...facturadoFilter,
+      ...acuseFilter,
       dateFilterType: dateFilterType,
       dateRange: dateRange,
       isSearchActive: true, // Mark search as active
@@ -452,6 +457,7 @@ function ExecutivePageContent() {
   const clearFilters = () => {
     setSearchTerm('');
     setFacturadoFilter({ facturado: false, noFacturado: true });
+    setAcuseFilter({ conAcuse: false, sinAcuse: true });
     setDateRangeInput(undefined);
     setNeFilter('');
     setEjecutivoFilter('');
@@ -459,7 +465,7 @@ function ExecutivePageContent() {
     setFacturaFilter('');
     setSelectividadFilter('');
     setIncidentTypeFilter('');
-    setAppliedFilters({ searchTerm: '', facturado: false, noFacturado: true, dateFilterType: 'range', dateRange: undefined, isSearchActive: false });
+    setAppliedFilters({ searchTerm: '', facturado: false, noFacturado: true, conAcuse: false, sinAcuse: true, dateFilterType: 'range', dateRange: undefined, isSearchActive: false });
     setCurrentPage(1);
     setSearchHint(null);
   };
@@ -523,6 +529,11 @@ function ExecutivePageContent() {
       } else if (appliedFilters.facturado && !appliedFilters.noFacturado) {
           finalFiltered = finalFiltered.filter(c => c.facturado === true);
       }
+      if (appliedFilters.conAcuse && !appliedFilters.sinAcuse) {
+          finalFiltered = finalFiltered.filter(c => c.entregadoAforoAt);
+      } else if (appliedFilters.sinAcuse && !appliedFilters.conAcuse) {
+          finalFiltered = finalFiltered.filter(c => !c.entregadoAforoAt);
+      }
       // Apply date filter
       if (appliedFilters.dateRange?.from) {
           const start = startOfDay(appliedFilters.dateRange.from);
@@ -580,7 +591,7 @@ function ExecutivePageContent() {
         setSearchHint(null);
         return tabFiltered.slice(0, 15);
     }
-  }, [allCases, appliedFilters, activeTab, neFilter, ejecutivoFilter, consignatarioFilter, facturaFilter, selectividadFilter, incidentTypeFilter]);
+  }, [allCases, appliedFilters, activeTab, neFilter, ejecutivoFilter, consignatarioFilter, facturaFilter, selectividadFilter, incidentTypeFilter, acuseFilter]);
   
   const totalPages = Math.ceil(filteredCases.length / itemsPerPage);
   const paginatedCases = appliedFilters.isSearchActive ? filteredCases.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage) : filteredCases;
@@ -912,6 +923,10 @@ function ExecutivePageContent() {
                                     <div className="grid gap-2">
                                       <label className="flex items-center gap-2 text-sm font-normal"><Checkbox checked={facturadoFilter.noFacturado} onCheckedChange={(checked) => setFacturadoFilter(f => ({...f, noFacturado: !!checked}))}/>No Facturados</label>
                                       <label className="flex items-center gap-2 text-sm font-normal"><Checkbox checked={facturadoFilter.facturado} onCheckedChange={(checked) => setFacturadoFilter(f => ({...f, facturado: !!checked}))}/>Facturados</label>
+                                    </div>
+                                     <div className="grid gap-2 mt-2 pt-2 border-t">
+                                        <label className="flex items-center gap-2 text-sm font-normal"><Checkbox checked={acuseFilter.sinAcuse} onCheckedChange={(checked) => setAcuseFilter(f => ({...f, sinAcuse: !!checked}))}/>Sin Acuse</label>
+                                        <label className="flex items-center gap-2 text-sm font-normal"><Checkbox checked={acuseFilter.conAcuse} onCheckedChange={(checked) => setAcuseFilter(f => ({...f, conAcuse: !!checked}))}/>Con Acuse</label>
                                     </div>
                                 </PopoverContent>
                             </Popover>
