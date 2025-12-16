@@ -103,7 +103,7 @@ export const navLinkDetails: Record<NavLink, { href: string; label: string; icon
   reportsAforo: { href: '/thereporter', label: 'Reportes de Aforo', icon: Search },
   agenteCasos: { href: '/agente/casos', label: 'Gestión de Casos', icon: Briefcase },
   supervisor: { href: '/supervisor', label: 'Panel Supervisor', icon: Users },
-  executive: { href: '/executive?tab=worksheets', label: 'Módulo Ejecutivo', icon: Briefcase },
+  executive: { href: '/executive', label: 'Módulo Ejecutivo', icon: Briefcase },
   reporter: { href: '/thereporter', label: 'Módulo Aforador', icon: Search },
   facturacion: { href: '/facturacion', label: 'Facturación', icon: FileDigit },
   legal: { href: '/legal', label: 'Módulo Legal', icon: Scale },

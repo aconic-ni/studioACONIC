@@ -1,6 +1,7 @@
 
 "use client";
 import React from 'react';
+import Image from 'next/image'; // Import Image from next/image
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/context/AuthContext';
 import { LogOut, UserCircle, Menu, X, Database } from 'lucide-react';
@@ -49,11 +50,9 @@ const renderAppIdentity = (user: any) => {
         }
     }
     
-    const LogoIcon = navLinkDetails['reportsPrevios'].icon;
-
     return (
         <Link href={homePath} className="flex items-center gap-3">
-          <LogoIcon className="h-8 w-8 text-primary" />
+          <Image src="/imagenes/LOGOAPP.svg" alt="App Logo" width={32} height={32} className="h-8 w-8" />
           <div className="flex flex-col">
             <h1 className="font-montserrat text-2xl md:text-3xl text-foreground leading-none">
                 <span className="font-semibold">EX'</span>
