@@ -125,10 +125,12 @@ function AforoDataMigrator() {
             let casesToMigrateCount = 0;
 
             for (const caseItem of relevantCases) {
-                const metadataRef = doc(db, `worksheets/${caseItem.worksheetId}/aforo/metadata`);
-                const metadataSnap = await getDoc(metadataRef);
-                if (!metadataSnap.exists()) {
-                    casesToMigrateCount++;
+                if (caseItem.worksheetId) {
+                    const metadataRef = doc(db, `worksheets/${caseItem.worksheetId}/aforo/metadata`);
+                    const metadataSnap = await getDoc(metadataRef);
+                    if (!metadataSnap.exists()) {
+                        casesToMigrateCount++;
+                    }
                 }
             }
 
@@ -153,18 +155,20 @@ function AforoDataMigrator() {
         try {
             const q = query(collection(db, 'AforoCases'), where('worksheetId', '!=', null));
             const querySnapshot = await getDocs(q);
-            const casesToProcess = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as AforoCase));
+            const casesToProcess = querySnapshot.docs
+                .map(doc => ({ id: doc.id, ...doc.data() } as AforoCase))
+                .filter(c => c.worksheetId);
 
-            const batch = writeBatch(db);
             let migratedCount = 0;
 
             for (const caseData of casesToProcess) {
-                if (caseData.worksheetId) {
+                 if (caseData.worksheetId) {
                     const metadataRef = doc(db, `worksheets/${caseData.worksheetId}/aforo/metadata`);
                     const metadataSnap = await getDoc(metadataRef);
 
                     // Only migrate if it hasn't been migrated before
                     if (!metadataSnap.exists()) {
+                        const batch = writeBatch(db);
                         const dataToMigrate = {
                             aforador: caseData.aforador || null,
                             aforadorAssignedAt: caseData.assignmentDate || null,
@@ -185,15 +189,16 @@ function AforoDataMigrator() {
                             digitadorStatus: caseData.digitacionStatus || null,
                             digitadorStatusLastUpdate: caseData.digitacionStatusLastUpdate || null,
                             declaracionAduanera: caseData.declaracionAduanera || null,
+                            entregadoAforoAt: caseData.entregadoAforoAt || null, // Added field
                         };
                         batch.set(metadataRef, dataToMigrate, { merge: true });
+                        await batch.commit(); // Commit one by one to avoid large batch issues and check existence individually
                         migratedCount++;
                     }
-                }
+                 }
             }
 
             if (migratedCount > 0) {
-                await batch.commit();
                 toast({ title: 'Migración Completa', description: `${migratedCount} registros de aforo han sido migrados a sus hojas de trabajo.` });
             } else {
                 toast({ title: 'Sin cambios necesarios', description: 'Todos los datos de aforo aplicables ya están migrados.' });
