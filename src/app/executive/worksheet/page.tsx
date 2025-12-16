@@ -1,4 +1,3 @@
-
 "use client";
 import React, { useEffect, useState, useMemo, useCallback, Suspense } from 'react';
 import { useForm, Controller, useFieldArray } from 'react-hook-form';
@@ -419,8 +418,11 @@ function WorksheetForm() {
       const batch = writeBatch(db);
 
       try {
+        // Exclude 'createdBy' from the update payload
+        const { createdBy, ...restOfData } = data;
+
         const updatedWorksheetData = { 
-            ...data, 
+            ...restOfData, 
             eta: data.eta ? Timestamp.fromDate(data.eta) : null,
             lastUpdatedAt: Timestamp.now(),
         };
@@ -572,12 +574,12 @@ function WorksheetForm() {
                     render={({ field }) => (
                         <FormItem>
                             <FormLabel>NE</FormLabel>
-                            <FormControl><Input {...field} value={field.value ?? ''} disabled={!!editingWorksheetId} /></FormControl>
+                            <FormControl><Input {...field} disabled={!!editingWorksheetId} /></FormControl>
                             <FormMessage />
                         </FormItem>
                     )}
                 />
-                <FormField control={form.control} name="reference" render={({ field }) => (<FormItem><FormLabel>Referencia</FormLabel><FormControl><Input {...field} maxLength={12} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>)}/>
+                <FormField control={form.control} name="reference" render={({ field }) => (<FormItem><FormLabel>Referencia</FormLabel><FormControl><Input {...field} maxLength={12} /></FormControl><FormMessage /></FormItem>)}/>
                 <FormField
                   control={form.control}
                   name="executive"
@@ -585,7 +587,7 @@ function WorksheetForm() {
                     <FormItem>
                       <FormLabel>Ejecutivo</FormLabel>
                       {['admin', 'supervisor', 'coordinadora'].includes(user?.role || '') ? (
-                         <Select onValueChange={field.onChange} value={field.value}>
+                         <Select onValueChange={field.onChange} defaultValue={field.value}>
                            <FormControl>
                              <SelectTrigger>
                                <SelectValue placeholder="Seleccionar ejecutivo..." />
@@ -633,7 +635,7 @@ function WorksheetForm() {
                             render={({ field }) => (
                             <FormItem>
                                 <FormLabel>Asignar Aforador (para PSMT)</FormLabel>
-                                <Select onValueChange={field.onChange} value={field.value}>
+                                <Select onValueChange={field.onChange} defaultValue={field.value}>
                                 <FormControl>
                                     <SelectTrigger>
                                     <SelectValue placeholder="Seleccionar aforador..." />
@@ -674,7 +676,7 @@ function WorksheetForm() {
                     <FormField control={form.control} name="appliesTLC" render={({ field }) => (<FormItem className="flex flex-row items-center space-x-3"><FormControl><Switch checked={field.value} onCheckedChange={field.onChange} /></FormControl><FormLabel>Aplica TLC</FormLabel></FormItem>)} />
                     {watchAppliesTLC && (
                       <div className="space-y-2 pl-4">
-                        <FormField control={form.control} name="tlcName" render={({ field }) => (<FormItem><FormLabel>Nombre TLC</FormLabel><FormControl><Input placeholder="Nombre del Tratado" {...field} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>)} />
+                        <FormField control={form.control} name="tlcName" render={({ field }) => (<FormItem><FormLabel>Nombre TLC</FormLabel><FormControl><Input placeholder="Nombre del Tratado" {...field} /></FormControl><FormMessage /></FormItem>)} />
                         <div className="flex items-center gap-2">
                             <Input value={tlcNumberInput} onChange={e => setTlcNumberInput(e.target.value)} placeholder="Número de TLC" className="flex-grow" />
                              <div className="flex items-center gap-2 pt-5"><Switch checked={isOriginal} onCheckedChange={setIsOriginal} /><Label>Es Original</Label></div>
@@ -687,7 +689,7 @@ function WorksheetForm() {
                       <FormField control={form.control} name="appliesModexo" render={({ field }) => (<FormItem className="flex flex-row items-center space-x-3"><FormControl><Switch checked={field.value} onCheckedChange={field.onChange} /></FormControl><FormLabel>Aplica Modexo</FormLabel></FormItem>)} />
                       {watchAppliesModexo && (
                          <div className="space-y-2 pl-4">
-                          <FormField control={form.control} name="modexoCode" render={({ field }) => (<FormItem><FormLabel>Código Modexo</FormLabel><FormControl><Input placeholder="Código Modexo" {...field} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>)} />
+                          <FormField control={form.control} name="modexoCode" render={({ field }) => (<FormItem><FormLabel>Código Modexo</FormLabel><FormControl><Input placeholder="Código Modexo" {...field} /></FormControl><FormMessage /></FormItem>)} />
                            <div className="flex items-center gap-2">
                              <div className="flex items-center gap-2 pt-5"><Switch checked={isOriginal} onCheckedChange={setIsOriginal} /><Label>Es Original</Label></div>
                              <Button type="button" size="sm" variant="outline" onClick={handleAddModexo} className="w-full">Añadir Modexo como Documento</Button>
@@ -707,9 +709,9 @@ function WorksheetForm() {
                     )}/>
                 </div>
 
-                <FormField control={form.control} name="grossWeight" render={({ field }) => (<FormItem><FormLabel>Peso Bruto</FormLabel><FormControl><Input {...field} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>)}/>
-                <FormField control={form.control} name="netWeight" render={({ field }) => (<FormItem><FormLabel>Peso Neto</FormLabel><FormControl><Input {...field} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>)}/>
-                <FormField control={form.control} name="packageNumber" render={({ field }) => (<FormItem><FormLabel>Número de Bultos</FormLabel><FormControl><Input {...field} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>)}/>
+                <FormField control={form.control} name="grossWeight" render={({ field }) => (<FormItem><FormLabel>Peso Bruto</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>)}/>
+                <FormField control={form.control} name="netWeight" render={({ field }) => (<FormItem><FormLabel>Peso Neto</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>)}/>
+                <FormField control={form.control} name="packageNumber" render={({ field }) => (<FormItem><FormLabel>Número de Bultos</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>)}/>
                  
                  <div className="lg:col-span-3">
                      <FormField
@@ -863,7 +865,7 @@ function WorksheetForm() {
                          <FormItem className="flex flex-row items-center gap-2"><FormControl><Switch checked={field.value} onCheckedChange={field.onChange} /></FormControl><FormLabel>En Aduana Aérea</FormLabel></FormItem>
                        )}/>
                     </div>
-                   {(watchInWarehouse || watchInCustoms) && <FormField control={form.control} name="location" render={({ field }) => (<FormItem><FormControl><Input placeholder="Especifique localización..." {...field} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>)}/>}
+                   {(watchInWarehouse || watchInCustoms) && <FormField control={form.control} name="location" render={({ field }) => (<FormItem><FormControl><Input placeholder="Especifique localización..." {...field} /></FormControl><FormMessage /></FormItem>)}/>}
                 </div>
             </div>
              {(watchInWarehouse || watchInCustoms || watchTransportMode === 'aereo') && (
@@ -873,7 +875,7 @@ function WorksheetForm() {
                     render={({ field }) => (
                         <FormItem>
                             <FormLabel>RESA</FormLabel>
-                            <FormControl><Input {...field} placeholder="Número de RESA" value={field.value ?? ''} /></FormControl>
+                            <FormControl><Input {...field} placeholder="Número de RESA" /></FormControl>
                             <FormMessage />
                         </FormItem>
                     )}
@@ -884,7 +886,7 @@ function WorksheetForm() {
                 <FormField control={form.control} name="description" render={({ field }) => (
                     <FormItem>
                         <FormLabel>Descripción de la Mercancía *</FormLabel>
-                        <FormControl><Textarea rows={3} placeholder="Breve descripción de la mercancía" {...field} value={field.value ?? ''} /></FormControl>
+                        <FormControl><Textarea rows={3} placeholder="Breve descripción de la mercancía" {...field} /></FormControl>
                         <FormMessage />
                     </FormItem>
                 )}/>
@@ -941,13 +943,13 @@ function WorksheetForm() {
                             control={form.control}
                             name="transportCompany"
                             render={({ field }) => (
-                            <FormItem><FormLabel>Compañía</FormLabel><FormControl><Input {...field} placeholder="Nombre de la compañía" value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>
+                            <FormItem><FormLabel>Compañía</FormLabel><FormControl><Input {...field} placeholder="Nombre de la compañía" /></FormControl><FormMessage /></FormItem>
                         )}/>
                         <FormField
                             control={form.control}
                             name="transportDocumentNumber"
                             render={({ field }) => (
-                            <FormItem><FormLabel>Número</FormLabel><FormControl><Input {...field} placeholder="Número del documento" value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>
+                            <FormItem><FormLabel>Número</FormLabel><FormControl><Input {...field} placeholder="Número del documento" /></FormControl><FormMessage /></FormItem>
                         )}/>
                     </div>
                     <div className="flex items-center gap-4 mt-2">
@@ -1157,7 +1159,7 @@ function WorksheetForm() {
                                 </FormItem>
                             )}
                         />
-                         <FormField control={form.control} name="subRegime" render={({ field }) => (<FormItem><FormLabel>Sub-Régimen</FormLabel><FormControl><Input {...field} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>)}/>
+                         <FormField control={form.control} name="subRegime" render={({ field }) => (<FormItem><FormLabel>Sub-Régimen</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>)}/>
                     </div>
                 )}
             </div>
@@ -1168,14 +1170,14 @@ function WorksheetForm() {
                 )}/>
                 {watchIsJoint && (
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <FormField control={form.control} name="jointNe" render={({ field }) => (<FormItem><FormLabel>NE Mancomunado</FormLabel><FormControl><Input {...field} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>)}/>
-                        <FormField control={form.control} name="jointReference" render={({ field }) => (<FormItem><FormLabel>Referencia Mancomunada</FormLabel><FormControl><Input {...field} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>)}/>
+                        <FormField control={form.control} name="jointNe" render={({ field }) => (<FormItem><FormLabel>NE Mancomunado</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>)}/>
+                        <FormField control={form.control} name="jointReference" render={({ field }) => (<FormItem><FormLabel>Referencia Mancomunada</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>)}/>
                     </div>
                 )}
             </div>
             
              <div className="flex items-end gap-6 pt-4">
-                <FormField control={form.control} name="dcCorrespondiente" render={({ field }) => (<FormItem className="flex-1"><FormControl><Input placeholder="Ingresar DC Correspondiente" {...field} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>)}/>
+                <FormField control={form.control} name="dcCorrespondiente" render={({ field }) => (<FormItem className="flex-1"><FormControl><Input placeholder="Ingresar DC Correspondiente" {...field} /></FormControl><FormMessage /></FormItem>)}/>
                 <FormField control={form.control} name="isSplit" render={({ field }) => (
                     <FormItem className="flex flex-row items-center space-x-3 pb-2">
                         <FormControl><Checkbox checked={field.value} onCheckedChange={field.onChange} id="is-split"/></FormControl>
@@ -1186,7 +1188,7 @@ function WorksheetForm() {
 
             <div className="pt-4 border-t">
                 <FormField control={form.control} name="observations" render={({ field }) => (
-                    <FormItem><FormLabel>Observaciones</FormLabel><FormControl><Textarea {...field} placeholder="Añada cualquier observación adicional aquí..." value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>
+                    <FormItem><FormLabel>Observaciones</FormLabel><FormControl><Textarea {...field} placeholder="Añada cualquier observación adicional aquí..."/></FormControl><FormMessage /></FormItem>
                 )}/>
             </div>
             <div className="flex justify-end gap-2 pt-6">
@@ -1225,3 +1227,5 @@ export default function WorksheetPage() {
         </AppShell>
     )
 }
+
+    
