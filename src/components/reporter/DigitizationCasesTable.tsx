@@ -92,7 +92,6 @@ export function DigitizationCasesTable({ filters, setAllFetchedCases, showPendin
   const [isLoading, setIsLoading] = useState(true);
   const [savingState, setSavingState] = useState<{ [key: string]: boolean }>({});
   const [displayCases, setDisplayCases] = useState<AforoCase[]>([]);
-  const [allCases, setInternalAllCases] = useState<AforoCase[]>([]);
   
   const [selectedCaseForHistory, setSelectedCaseForHistory] = useState<AforoCase | null>(null);
   const [selectedCaseForComment, setSelectedCaseForComment] = useState<AforoCase | null>(null);
@@ -100,7 +99,6 @@ export function DigitizationCasesTable({ filters, setAllFetchedCases, showPendin
   const [selectedCaseForAssignment, setSelectedCaseForAssignment] = useState<AforoCase | null>(null);
   const [selectedRows, setSelectedRows] = useState<string[]>([]);
   const [statusModal, setStatusModal] = useState<{isOpen: boolean; caseData?: AforoCase | null}>({isOpen: false, caseData: null});
-  const [assignmentModal, setAssignmentModal] = useState<{ isOpen: boolean; case: AforoCase | null; type: 'aforador' | 'revisor' | 'bulk-aforador' | 'bulk-revisor' | 'bulk-digitador' }>({ isOpen: false, case: null, type: 'aforador' });
 
 
   const handleAutoSave = useCallback(async (caseId: string, field: keyof AforoCase, value: any, isTriggerFromFieldUpdate: boolean = false) => {
@@ -192,18 +190,21 @@ export function DigitizationCasesTable({ filters, setAllFetchedCases, showPendin
 
     fetchAssignableUsers();
     
-    let qCases;
+    let qCases: Query;
+    const mainQuery = collection(db, 'AforoCases');
+    const statuses = ['Pendiente de Digitación', 'En Proceso', 'Almacenado', 'Trámite Completo'];
 
+    let queryConstraints: any[] = [
+      where('digitacionStatus', 'in', statuses),
+      where('worksheetType', '==', 'hoja_de_trabajo'),
+      orderBy('revisorStatus', 'desc'), 
+      orderBy('createdAt', 'desc')
+    ];
+    
     if (filters.ne?.trim()) {
-        qCases = query(collection(db, 'AforoCases'), where('ne', '==', filters.ne.trim().toUpperCase()));
+      qCases = query(mainQuery, where('ne', '==', filters.ne.trim().toUpperCase()));
     } else {
-        const statuses = ['Pendiente de Digitación', 'En Proceso', 'Almacenado', 'Trámite Completo'];
-        qCases = query(
-            collection(db, 'AforoCases'),
-            where('digitacionStatus', 'in', statuses),
-            orderBy('revisorStatus', 'desc'), 
-            orderBy('createdAt', 'desc')
-        );
+      qCases = query(mainQuery, ...queryConstraints);
     }
 
     const unsubscribe = onSnapshot(qCases, (snapshot) => {
@@ -216,9 +217,9 @@ export function DigitizationCasesTable({ filters, setAllFetchedCases, showPendin
         if(showPendingOnly) {
             filtered = filtered.filter(c => c.digitacionStatus !== 'Trámite Completo');
         }
-
-        setAllFetchedCases(filtered);
-        setDisplayCases(filtered);
+        
+        setAllFetchedCases(fetchedCases); // Keep all cases for export if needed
+        setDisplayCases(filtered); // Cases to be displayed after filtering
         setIsLoading(false);
     }, (error) => {
         console.error("Error fetching digitization cases: ", error);
@@ -244,7 +245,7 @@ export function DigitizationCasesTable({ filters, setAllFetchedCases, showPendin
         handleAutoSave(caseId, 'digitacionStatus', value);
     }
   }
-
+  
   const handleBulkAction = async (type: 'digitador' | 'digitacionStatus', value: string) => {
     if (!user || !user.displayName || selectedRows.length === 0) return;
     
@@ -293,6 +294,7 @@ export function DigitizationCasesTable({ filters, setAllFetchedCases, showPendin
     }
   };
   
+
   const toggleSelectAll = () => {
     if (selectedRows.length === displayCases.length) {
       setSelectedRows([]);
@@ -311,6 +313,7 @@ export function DigitizationCasesTable({ filters, setAllFetchedCases, showPendin
 
   const openHistoryModal = (caseItem: AforoCase) => setSelectedCaseForHistory(caseItem);
   const openCommentModal = (caseItem: AforoCase) => setSelectedCaseForComment(caseItem);
+  const [assignmentModal, setAssignmentModal] = useState<{ isOpen: boolean; case: AforoCase | null; type: 'aforador' | 'revisor' | 'bulk-aforador' | 'bulk-revisor' | 'bulk-digitador' }>({ isOpen: false, case: null, type: 'aforador' });
     
   if (isLoading) {
     return (
@@ -334,7 +337,7 @@ export function DigitizationCasesTable({ filters, setAllFetchedCases, showPendin
   const canEdit = user?.role === 'admin' || user?.role === 'coordinadora' || user?.role === 'supervisor';
   const isDigitador = user?.role === 'digitador';
   
-  if (isMobile) {
+  if (useIsMobile()) {
     return (
       <div className="space-y-4">
         {displayCases.map((caseItem) => (
@@ -500,7 +503,7 @@ export function DigitizationCasesTable({ filters, setAllFetchedCases, showPendin
             description={`Seleccione un usuario para asignar al caso NE: ${selectedCaseForAssignment.ne}`}
         />
     )}
-     {assignmentModal.isOpen && (
+    {assignmentModal.isOpen && (
         <AssignUserModal
             isOpen={assignmentModal.isOpen}
             onClose={() => setAssignmentModal({ isOpen: false, case: null, type: 'aforador' })}
@@ -542,4 +545,3 @@ export function DigitizationCasesTable({ filters, setAllFetchedCases, showPendin
     </>
   );
 }
-
