@@ -23,6 +23,7 @@ import { AssignUserModal } from './AssignUserModal';
 import { InvolvedUsersModal } from './InvolvedUsersModal';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { MobileDigitacionCard } from './MobileDigitacionCard';
+import { StatusBadges } from '../executive/StatusBadges';
 import { useRouter } from 'next/navigation';
 import { Checkbox } from '../ui/checkbox';
 import { Popover, PopoverContent, PopoverTrigger } from '../ui/popover';
@@ -440,14 +441,7 @@ export function DigitizationCasesTable({ filters, setAllFetchedCases, showPendin
                     <Button
                         variant="outline"
                         className="w-[180px] justify-start"
-                        onClick={() => {
-                            if (isCompleted) return;
-                            if (currentStatus === 'Completar Trámite') {
-                                setSelectedCaseForCompletion(caseItem);
-                            } else {
-                                setStatusModal({ isOpen: true, caseData: caseItem });
-                            }
-                        }}
+                        onClick={() => setStatusModal({ isOpen: true, caseData: caseItem })}
                         disabled={(!isDigitador && !canEdit) || isCompleted}
                     >
                         <Badge variant={getDigitacionBadgeVariant(currentStatus)}>{currentStatus || 'N/A'}</Badge>
@@ -549,4 +543,3 @@ export function DigitizationCasesTable({ filters, setAllFetchedCases, showPendin
   );
 }
 
-```
