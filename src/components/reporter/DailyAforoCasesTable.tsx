@@ -1,8 +1,7 @@
-
 "use client";
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { db } from '@/lib/firebase';
-import { collection, query, where, onSnapshot, Timestamp, orderBy, doc, updateDoc, addDoc, getDocs, writeBatch, getCountFromServer, getDoc, documentId, Query } from 'firebase/firestore';
+import { collection, query, where, onSnapshot, Timestamp, orderBy, doc, updateDoc, addDoc, getDocs, writeBatch, getCountFromServer, getDoc, documentId, type Query } from 'firebase/firestore';
 import { useAuth } from '@/context/AuthContext';
 import type { AforoCase, AforadorStatus, AforoCaseUpdate, AppUser, LastUpdateInfo, Worksheet, WorksheetWithCase } from '@/types';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -45,14 +44,10 @@ import { AforadorCommentModal } from './AforadorCommentModal';
 
 
 interface DailyAforoCasesTableProps {
-  filters: {
-    ne?: string;
-    consignee?: string;
-    dateRange?: DateRange;
-    dateFilterType: 'range' | 'month' | 'today';
-  };
-  setAllFetchedCases: (cases: WorksheetWithCase[]) => void;
-  showPendingOnly: boolean;
+  cases: WorksheetWithCase[];
+  isLoading: boolean;
+  error: string | null;
+  onRefresh: () => void;
 }
 
 const formatDate = (date: Date | Timestamp | null | undefined): string => {
@@ -85,19 +80,14 @@ const LastUpdateTooltip = ({ lastUpdate, caseCreation }: { lastUpdate?: LastUpda
 };
 
 
-export function DailyAforoCasesTable({ filters, setAllFetchedCases, showPendingOnly }: DailyAforoCasesTableProps) {
+export function DailyAforoCasesTable({ cases, isLoading, error, onRefresh }: DailyAforoCasesTableProps) {
   const { user } = useAuth();
   const { toast } = useToast();
-  const router = useRouter();
-  const isMobile = useIsMobile();
   const [assignableUsers, setAssignableUsers] = useState<AppUser[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const [savingState, setSavingState] = useState<{ [key: string]: boolean }>({});
   const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
   const [selectedRows, setSelectedRows] = useState<string[]>([]);
   const [displayCases, setDisplayCases] = useState<WorksheetWithCase[]>([]);
-  const [allCases, setInternalAllCases] = useState<WorksheetWithCase[]>([]);
   
   const [selectedCaseForHistory, setSelectedCaseForHistory] = useState<AforoCase | null>(null);
   const [selectedCaseForAforadorComment, setSelectedCaseForAforadorComment] = useState<AforoCase | null>(null);
@@ -107,9 +97,13 @@ export function DailyAforoCasesTable({ filters, setAllFetchedCases, showPendingO
   const [assignmentModal, setAssignmentModal] = useState<{ isOpen: boolean; case: AforoCase | null; type: 'aforador' | 'revisor' | 'bulk-aforador' | 'bulk-revisor' }>({ isOpen: false, case: null, type: 'aforador' });
   const [statusModal, setStatusModal] = useState<{isOpen: boolean}>({isOpen: false});
   const [involvedUsersModal, setInvolvedUsersModal] = useState<{ isOpen: boolean; caseData: AforoCase | null }>({ isOpen: false, caseData: null });
-  const [caseAuditLogs, setCaseAuditLogs] = useState<Map<string, AforoCaseUpdate[]>>(new Map());
   const [bulkActionResult, setBulkActionResult] = useState<{ isOpen: boolean, success: string[], skipped: string[] }>({ isOpen: false, success: [], skipped: [] });
   const [isDeathkeyModalOpen, setIsDeathkeyModalOpen] = useState(false);
+  const isMobile = useIsMobile();
+  
+  useEffect(() => {
+    setDisplayCases(cases);
+  }, [cases]);
 
 
   const handleAutoSave = useCallback(async (caseId: string, field: keyof AforoCase, value: any, isTriggerFromFieldUpdate: boolean = false) => {
@@ -168,13 +162,14 @@ export function DailyAforoCasesTable({ filters, setAllFetchedCases, showPendingO
         if(!isTriggerFromFieldUpdate) {
             toast({ title: "Guardado Automático", description: `El campo se ha actualizado.` });
         }
+        onRefresh();
     } catch (error) {
         console.error("Error updating case:", error);
         toast({ title: "Error", description: `No se pudo guardar el cambio.`, variant: "destructive" });
     } finally {
         setSavingState(prev => ({ ...prev, [caseId]: false }));
     }
-  }, [user, displayCases, toast]);
+  }, [user, displayCases, toast, onRefresh]);
   
   const handleValidatePattern = useCallback(async (caseId: string) => {
     if (!user || !user.displayName) return;
@@ -204,13 +199,14 @@ export function DailyAforoCasesTable({ filters, setAllFetchedCases, showPendingO
         title: "Patrón Validado",
         description: "Ahora puede asignar un aforador."
       });
+      onRefresh();
     } catch (error) {
       console.error("Error validating pattern:", error);
       toast({ title: "Error", description: "No se pudo validar el patrón.", variant: "destructive" });
     } finally {
        setSavingState(prev => ({ ...prev, [caseId]: false }));
     }
-  }, [user, toast]);
+  }, [user, toast, onRefresh]);
 
   const handleAssignUser = useCallback((caseId: string, userName: string, type: 'aforador' | 'revisor') => {
       const field = type === 'aforador' ? 'aforador' : 'revisorAsignado';
@@ -248,6 +244,7 @@ export function DailyAforoCasesTable({ filters, setAllFetchedCases, showPendingO
         description: `${selectedRows.length} caso(s) han sido actualizados en la bitácora.`
       });
       setSelectedRows([]);
+      onRefresh();
     } catch (error) {
       console.error("Error with bulk acknowledge:", error);
       toast({ title: "Error", description: "No se pudo registrar el acuse masivo.", variant: "destructive" });
@@ -278,109 +275,12 @@ export function DailyAforoCasesTable({ filters, setAllFetchedCases, showPendingO
         await batch.commit();
         
         toast({ title: "Acuse Registrado", description: "Se ha registrado la recepción de la hoja de trabajo en la bitácora." });
+        onRefresh();
     } catch (error) {
         console.error("Error acknowledging worksheet:", error);
         toast({ title: "Error", description: "No se pudo registrar el acuse.", variant: "destructive" });
     }
   };
-
-  useEffect(() => {
-    if (!user) return;
-    setIsLoading(true);
-    setError(null);
-  
-    const fetchAssignableUsers = async () => {
-      // Logic remains the same...
-    };
-    fetchAssignableUsers();
-    
-    let qCases: Query;
-    const mainQuery = collection(db, 'AforoCases');
-    const statuses = ['Pendiente ', 'En proceso', 'Incompleto', 'En revisión'];
-
-    const queryConstraints = [
-      where('worksheetType', '==', 'hoja_de_trabajo'),
-      where('aforadorStatus', 'in', statuses),
-      orderBy('createdAt', 'desc')
-    ];
-    
-    if (filters.ne?.trim()) {
-      qCases = query(mainQuery, where('ne', '==', filters.ne.trim().toUpperCase()));
-    } else if (filters.consignee?.trim()) {
-      qCases = query(mainQuery, where('consignee', '>=', filters.consignee.trim()), where('consignee', '<=', filters.consignee.trim() + '\uf8ff'));
-    } else {
-      qCases = query(mainQuery, ...queryConstraints);
-    }
-  
-    const unsubscribe = onSnapshot(qCases, 
-      async (snapshot) => {
-        const aforoCasesData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as AforoCase));
-        const worksheetIds = aforoCasesData.map(c => c.worksheetId).filter(Boolean) as string[];
-
-        if (worksheetIds.length === 0) {
-            setInternalAllCases(aforoCasesData.map(c => ({...c, worksheet: null})));
-            setIsLoading(false);
-            return;
-        }
-        
-        const worksheetPromises = [];
-        for (let i = 0; i < worksheetIds.length; i += 30) {
-            const chunk = worksheetIds.slice(i, i + 30);
-            if(chunk.length > 0) {
-                worksheetPromises.push(getDocs(query(collection(db, 'worksheets'), where(documentId(), 'in', chunk))));
-            }
-        }
-        
-        try {
-            const worksheetSnapshots = await Promise.all(worksheetPromises);
-            const worksheetsMap = new Map<string, Worksheet>();
-            worksheetSnapshots.forEach(snap => snap.forEach(doc => worksheetsMap.set(doc.id, { id: doc.id, ...doc.data()} as Worksheet)));
-
-            const combinedData = aforoCasesData.map(caseItem => ({
-                ...caseItem,
-                worksheet: worksheetsMap.get(caseItem.worksheetId || '') || null,
-            }));
-            
-            let filtered = combinedData;
-            
-            if (filters.dateRange?.from) {
-                const start = filters.dateRange.from;
-                const end = endOfDay(filters.dateRange.to || filters.dateRange.from);
-                filtered = filtered.filter(c => {
-                    const caseDate = (c.createdAt as Timestamp)?.toDate();
-                    return caseDate && caseDate >= start && caseDate <= end;
-                });
-            }
-            
-            const sorted = filtered.sort((a, b) => (b.createdAt?.toMillis() ?? 0) - (a.createdAt?.toMillis() ?? 0));
-            setInternalAllCases(sorted);
-
-        } catch (error) {
-            console.error("Error fetching worksheets for cases:", error);
-            setError("No se pudieron cargar los detalles de las hojas de trabajo.");
-        } finally {
-          setIsLoading(false);
-        }
-      },
-      (error: any) => {
-        console.error("Error fetching main aforo cases:", error);
-        setError("Error al cargar los casos de aforo.");
-        setIsLoading(false);
-      }
-    );
-  
-    return () => unsubscribe();
-  }, [user, filters, toast]);
-  
-  useEffect(() => {
-    let filtered = allCases;
-    if(showPendingOnly) {
-        const pendingStatuses = ['Pendiente ', 'En proceso', 'Incompleto', 'En revisión'];
-        filtered = filtered.filter(c => !c.declaracionAduanera && pendingStatuses.includes(c.aforadorStatus || ''));
-    }
-    setDisplayCases(filtered);
-    setAllFetchedCases(filtered);
-  }, [showPendingOnly, allCases, setAllFetchedCases]);
 
   const handleRequestRevalidation = async (caseItem: AforoCase) => {
     if (!user || !user.displayName) return;
@@ -403,6 +303,7 @@ export function DailyAforoCasesTable({ filters, setAllFetchedCases, showPendingO
         
         await batch.commit();
         toast({ title: "Revalidación Solicitada", description: "Se ha notificado al revisor para una nueva validación." });
+        onRefresh();
     } catch(e) {
         toast({ title: 'Error', description: 'No se pudo solicitar la revalidación.', variant: 'destructive'});
     }
@@ -430,6 +331,7 @@ export function DailyAforoCasesTable({ filters, setAllFetchedCases, showPendingO
         await batch.commit();
 
         toast({ title: 'Enviado a Digitación', description: 'El caso está listo para que el digitador lo procese.' });
+        onRefresh();
      } catch(e) {
         toast({ title: 'Error', description: 'No se pudo enviar a digitación.', variant: 'destructive'});
      }
@@ -483,6 +385,7 @@ export function DailyAforoCasesTable({ filters, setAllFetchedCases, showPendingO
       await batch.commit();
       toast({ title: "Acción Masiva Exitosa", description: `${selectedRows.length} casos han sido actualizados.` });
       setSelectedRows([]);
+      onRefresh();
     } catch (error) {
       console.error("Error with bulk action:", error);
       toast({ title: "Error", description: "No se pudo completar la acción masiva.", variant: "destructive" });
@@ -527,6 +430,7 @@ export function DailyAforoCasesTable({ filters, setAllFetchedCases, showPendingO
         try {
           await batch.commit();
           toast({ title: "Envío Exitoso", description: `${successCases.length} caso(s) enviados a digitación.` });
+          onRefresh();
         } catch(e) {
           toast({ title: "Error", description: "Error al enviar casos a digitación.", variant: "destructive" });
         }
@@ -539,7 +443,8 @@ export function DailyAforoCasesTable({ filters, setAllFetchedCases, showPendingO
 
 
   const handleSearchPrevio = (ne: string) => {
-    router.push(`/database?ne=${ne}`);
+    const url = `/database?ne=${encodeURIComponent(ne)}`;
+    window.open(url, '_blank');
   };
 
   const toggleRowExpansion = (caseId: string) => {
@@ -612,6 +517,7 @@ export function DailyAforoCasesTable({ filters, setAllFetchedCases, showPendingO
             setSelectedRows([]);
             setIsDeathkeyModalOpen(false);
             setPinInput('');
+            onRefresh();
         } catch (error) {
             console.error("Error with Deathkey action:", error);
             toast({ title: "Error", description: "No se pudieron reclasificar los casos.", variant: "destructive" });
@@ -626,7 +532,6 @@ export function DailyAforoCasesTable({ filters, setAllFetchedCases, showPendingO
   const openAforadorCommentModal = (caseItem: AforoCase) => setSelectedCaseForAforadorComment(caseItem);
   const openIncidentModal = (caseItem: AforoCase) => setSelectedCaseForIncident(caseItem);
   const openObservationModal = (caseItem: AforoCase) => {
-    // This function seems to be missing from the original component, likely meant for `setSelectedCaseForAforadorComment`. Re-routing for now.
     setSelectedCaseForAforadorComment(caseItem);
   };
   const openAssignmentModal = (caseItem: AforoCase, type: 'aforador' | 'revisor') => setAssignmentModal({ isOpen: true, case: caseItem, type });
@@ -760,7 +665,7 @@ export function DailyAforoCasesTable({ filters, setAllFetchedCases, showPendingO
             const isPatternValidated = caseItem.isPatternValidated === true;
             const allowPatternEdit = caseItem.revisorStatus === 'Rechazado';
             
-            const hasAcuse = caseItem.acuseDeRecibido === true || caseAuditLogs.get(caseItem.id)?.some(log => log.newValue === 'worksheet_received');
+            const hasAcuse = caseItem.acuseDeRecibido === true;
 
             return (
             <React.Fragment key={caseItem.id}>
@@ -1098,7 +1003,7 @@ export function DailyAforoCasesTable({ filters, setAllFetchedCases, showPendingO
             description={assignmentModal.case ? `Seleccione un usuario para asignar al caso NE: ${assignmentModal.case.ne}` : `Seleccione un usuario para asignar a los ${selectedRows.length} casos seleccionados.`}
         />
     )}
-     <Dialog open={statusModal.isOpen} onOpenChange={() => setStatusModal({isOpen: false})}>
+     <Dialog open={statusModal.isOpen} onOpenChange={() => setStatusModal({isOpen: false, caseData: undefined})}>
           <DialogContent>
               <DialogHeader>
                   <DialogTitle>Asignar Estatus de Aforador Masivo</DialogTitle>
@@ -1184,5 +1089,3 @@ export function DailyAforoCasesTable({ filters, setAllFetchedCases, showPendingO
     </>
   );
 }
-
-    
