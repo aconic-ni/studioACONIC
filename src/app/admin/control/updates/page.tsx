@@ -465,7 +465,6 @@ function BitacoraMigrator() {
     const fetchStats = useCallback(async () => {
         setIsLoading(true);
         try {
-            // Efficiently get all 'actualizaciones' documents across all 'AforoCases'
             const sourceUpdatesQuery = query(collectionGroup(db, 'actualizaciones'));
             const sourceUpdatesSnapshot = await getDocs(sourceUpdatesQuery);
             
@@ -479,7 +478,7 @@ function BitacoraMigrator() {
 
             setStats({
                 casesWithLogs: caseIdsWithLogs.size,
-                logsToMigrate: sourceUpdatesSnapshot.size, // This is a raw count, will be refined during migration
+                logsToMigrate: sourceUpdatesSnapshot.size, 
             });
 
         } catch (error) {
@@ -501,36 +500,28 @@ function BitacoraMigrator() {
         
         let migratedCount = 0;
         try {
-            // Get all cases that have a worksheetId to know where to migrate to
             const aforoCasesSnapshot = await getDocs(query(collection(db, 'AforoCases'), where('worksheetId', '!=', null)));
-            const caseIdToWorksheetIdMap = new Map<string, string>();
-            aforoCasesSnapshot.forEach(doc => {
-                const data = doc.data();
-                if(data.worksheetId) {
-                    caseIdToWorksheetIdMap.set(doc.id, data.worksheetId);
-                }
-            });
+            
+            for (const caseDoc of aforoCasesSnapshot.docs) {
+                const caseData = caseDoc.data();
+                const worksheetId = caseData.worksheetId;
 
-            const sourceUpdatesQuery = query(collectionGroup(db, 'actualizaciones'));
-            const sourceSnapshot = await getDocs(sourceUpdatesQuery);
-
-            for (const logDoc of sourceSnapshot.docs) {
-                const pathParts = logDoc.ref.path.split('/');
-                const caseId = pathParts[1];
-                const worksheetId = caseIdToWorksheetIdMap.get(caseId);
-
-                if (pathParts[0] === 'AforoCases' && worksheetId) {
+                if (worksheetId) {
+                    const sourceUpdatesRef = collection(db, 'AforoCases', caseDoc.id, 'actualizaciones');
                     const targetUpdatesRef = collection(db, 'worksheets', worksheetId, 'aforo', 'actualizaciones');
-                    
-                    // Check if target subcollection is empty before migrating.
-                    // This is less efficient but safer. A better approach is to check once per case.
+
                     const targetSnapshot = await getDocs(query(targetUpdatesRef));
-                    if (targetSnapshot.empty) {
-                        const newLogRef = doc(targetUpdatesRef, logDoc.id);
-                        const batch = writeBatch(db);
-                        batch.set(newLogRef, logDoc.data());
-                        await batch.commit(); // Commit individually or in smaller batches
-                        migratedCount++;
+                    if (targetSnapshot.empty) { // Only migrate if target is empty
+                        const sourceSnapshot = await getDocs(query(sourceUpdatesRef));
+                        if (!sourceSnapshot.empty) {
+                            const batch = writeBatch(db);
+                            sourceSnapshot.forEach(logDoc => {
+                                const newLogRef = doc(targetUpdatesRef, logDoc.id);
+                                batch.set(newLogRef, logDoc.data());
+                                migratedCount++;
+                            });
+                            await batch.commit();
+                        }
                     }
                 }
             }
