@@ -35,7 +35,7 @@ export default function GestionLocalPage() {
 
     const q = query(
         collection(db, 'worksheets'), 
-        where('worksheetType', 'in', ['hoja_de_trabajo', null]), // Filter for worksheets only or docs without the type
+        where('worksheetType', 'in', ['hoja_de_trabajo', null]),
         orderBy('createdAt', 'desc')
     );
 
@@ -104,12 +104,12 @@ export default function GestionLocalPage() {
             ) : (
               <GestionLocalTable
                 worksheets={filteredWorksheets}
+                setWorksheets={setWorksheets}
                 selectedRows={selectedRows}
                 setSelectedRows={setSelectedRows}
                 onAssign={(worksheet, type) => setAssignmentModal({ isOpen: true, type, worksheet })}
                 onComment={(worksheet) => setCommentModal({ isOpen: true, worksheet })}
                 onView={(worksheet) => setViewModal({ isOpen: true, worksheet })}
-                onRefresh={fetchWorksheets}
               />
             )}
           </CardContent>
@@ -123,6 +123,7 @@ export default function GestionLocalPage() {
           worksheet={assignmentModal.worksheet}
           type={assignmentModal.type}
           selectedWorksheetIds={selectedRows}
+          setWorksheets={setWorksheets}
         />
       )}
 

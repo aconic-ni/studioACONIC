@@ -34,7 +34,6 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-  AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import * as XLSX from 'xlsx';
 import { Label } from '../ui/label';
@@ -42,15 +41,15 @@ import { Switch } from '../ui/switch';
 
 interface GestionLocalTableProps {
   worksheets: Worksheet[];
+  setWorksheets: React.Dispatch<React.SetStateAction<Worksheet[]>>;
   selectedRows: string[];
   setSelectedRows: React.Dispatch<React.SetStateAction<string[]>>;
   onAssign: (worksheet: Worksheet, type: 'aforador' | 'revisor' | 'digitador') => void;
   onComment: (worksheet: Worksheet) => void;
   onView: (worksheet: Worksheet) => void;
-  onRefresh: () => void;
 }
 
-export function GestionLocalTable({ worksheets, selectedRows, setSelectedRows, onAssign, onComment, onView, onRefresh }: GestionLocalTableProps) {
+export function GestionLocalTable({ worksheets, setWorksheets, selectedRows, setSelectedRows, onAssign, onComment, onView }: GestionLocalTableProps) {
   const { toast } = useToast();
   const { user } = useAuth();
   const [currentPage, setCurrentPage] = useState(1);
@@ -125,10 +124,17 @@ export function GestionLocalTable({ worksheets, selectedRows, setSelectedRows, o
     try {
         if (successNEs.length > 0) {
             await batch.commit();
+             // Optimistic update
+            setWorksheets(prev => prev.map(ws => {
+                if (successNEs.includes(ws.ne)) {
+                    const newAforo = { ...(ws as any).aforo, digitadorStatus: 'Trámite Completo' };
+                    return { ...ws, aforo: newAforo };
+                }
+                return ws;
+            }));
         }
         setBulkActionResult({ isOpen: true, success: successNEs, skipped: skippedNEs });
         setSelectedRows([]);
-        onRefresh();
     } catch(e) {
         toast({ title: "Error", description: "No se pudo completar la acción masiva.", variant: "destructive"});
     } finally {
@@ -158,7 +164,14 @@ export function GestionLocalTable({ worksheets, selectedRows, setSelectedRows, o
     try {
         await batch.commit();
         toast({ title: 'Actualización Masiva Exitosa', description: `${selectedRows.length} registros actualizados.`});
-        onRefresh();
+        // Optimistic update
+        setWorksheets(prev => prev.map(ws => {
+            if (selectedRows.includes(ws.id)) {
+                const newAforo = { ...(ws as any).aforo, [type]: value };
+                return { ...ws, aforo: newAforo };
+            }
+            return ws;
+        }));
         setSelectedRows([]);
     } catch(e) {
         console.error("Bulk update error:", e);
@@ -188,7 +201,13 @@ export function GestionLocalTable({ worksheets, selectedRows, setSelectedRows, o
         };
         await writeBatch(db).set(worksheetRef, updateData, { merge: true }).commit();
         toast({ title: 'Estado Actualizado', description: `El estado del ${type} ha sido actualizado a "${newStatus}".` });
-        onRefresh();
+        setWorksheets(prev => prev.map(ws => {
+            if (ws.id === worksheetId) {
+                const newAforo = { ...(ws as any).aforo, [fieldName]: newStatus };
+                return { ...ws, aforo: newAforo };
+            }
+            return ws;
+        }));
         setStatusModal({isOpen: false, type: 'aforador'});
     } catch (e) {
         console.error(e);
@@ -206,7 +225,13 @@ export function GestionLocalTable({ worksheets, selectedRows, setSelectedRows, o
         };
         await writeBatch(db).set(worksheetRef, updateData, { merge: true }).commit();
         toast({ title: 'Solicitud Enviada', description: 'Se ha solicitado la revalidación al revisor.' });
-        onRefresh();
+        setWorksheets(prev => prev.map(ws => {
+            if (ws.id === worksheetId) {
+                const newAforo = { ...(ws as any).aforo, revisorStatus: 'Revalidación Solicitada' };
+                return { ...ws, aforo: newAforo };
+            }
+            return ws;
+        }));
     } catch(e) {
         console.error(e);
         toast({ title: "Error", description: "No se pudo solicitar la revalidación.", variant: "destructive" });
@@ -229,7 +254,13 @@ export function GestionLocalTable({ worksheets, selectedRows, setSelectedRows, o
 
       await batch.commit();
       toast({ title: "Declaración y Estado Guardados", description: `Declaración guardada y estado actualizado a 'Trámite Completo'.` });
-      onRefresh();
+      setWorksheets(prev => prev.map(ws => {
+            if (ws.id === worksheetId) {
+                const newAforo = { ...(ws as any).aforo, declaracionAduanera: declaracion, digitadorStatus: 'Trámite Completo' };
+                return { ...ws, aforo: newAforo };
+            }
+            return ws;
+        }));
     } catch (e) {
       console.error(e);
       toast({ title: "Error", description: "No se pudo guardar el número de declaración.", variant: "destructive" });
@@ -287,8 +318,19 @@ export function GestionLocalTable({ worksheets, selectedRows, setSelectedRows, o
         
         if (updatedCount > 0) {
             await batch.commit();
+            setWorksheets(prev => prev.map(ws => {
+                const row = json.find(r => String(r['NE']).trim().toUpperCase() === ws.id);
+                if (row && neToUpdate.has(ws.id)) {
+                    const declaracion = String(row['Declaracion Aduanera'] || '').trim();
+                    const newAforo = { ...(ws as any).aforo, declaracionAduanera: declaracion };
+                    if(isForBulkComplete) {
+                        newAforo.digitadorStatus = 'Trámite Completo';
+                    }
+                    return { ...ws, aforo: newAforo };
+                }
+                return ws;
+            }));
             toast({ title: "Importación Completa", description: `${updatedCount} declaraciones han sido actualizadas.` });
-            onRefresh();
             if(isForBulkComplete) {
                 setIsBulkCompleteModalOpen(false);
                 setSelectedRows([]);
@@ -311,7 +353,6 @@ export function GestionLocalTable({ worksheets, selectedRows, setSelectedRows, o
     if (!user || !user.displayName || selectedRows.length === 0) return;
     setIsLoading(true);
     const batch = writeBatch(db);
-    const comment = "Se reciben hojas fisicas de casos";
 
     for (const wsId of selectedRows) {
         const worksheetRef = doc(db, 'worksheets', wsId);
@@ -322,10 +363,15 @@ export function GestionLocalTable({ worksheets, selectedRows, setSelectedRows, o
       await batch.commit();
       toast({
         title: "Acuse Masivo Exitoso",
-        description: `${selectedRows.length} caso(s) han sido actualizados en la bitácora.`
+        description: `${selectedRows.length} caso(s) han sido actualizados.`
       });
+      setWorksheets(prev => prev.map(ws => {
+          if (selectedRows.includes(ws.id)) {
+              return { ...ws, entregadoAforoAt: Timestamp.now() };
+          }
+          return ws;
+      }));
       setSelectedRows([]);
-      onRefresh();
     } catch (error) {
       console.error("Error with bulk acknowledge:", error);
       toast({ title: "Error", description: "No se pudo registrar el acuse masivo.", variant: "destructive" });
@@ -418,7 +464,7 @@ export function GestionLocalTable({ worksheets, selectedRows, setSelectedRows, o
                 </DropdownMenu>
               </TableCell>
               <TableCell>
-                <StatusBadges caseData={ws as any} />
+                <StatusBadges caseData={{...ws, ...aforoData}} />
               </TableCell>
               <TableCell>{ws.ne}</TableCell>
               <TableCell>{ws.consignee}</TableCell>
@@ -594,7 +640,7 @@ export function GestionLocalTable({ worksheets, selectedRows, setSelectedRows, o
      <AlertDialog open={bulkActionResult.isOpen} onOpenChange={(isOpen) => setBulkActionResult(prev => ({...prev, isOpen}))}>
         <AlertDialogContent>
             <AlertDialogHeader>
-                <AlertDialogTitle>Resultado de la Operación Masiva</AlertDialogTitle>
+                <DialogTitle>Resultado de la Operación Masiva</DialogTitle>
                 <AlertDialogDescription>
                     <div className="space-y-4 max-h-60 overflow-y-auto">
                         {bulkActionResult.success.length > 0 && (

@@ -19,9 +19,10 @@ interface AssignUserModalProps {
   worksheet?: Worksheet | null;
   type: 'aforador' | 'revisor' | 'digitador' | 'bulk-aforador' | 'bulk-revisor' | 'bulk-digitador';
   selectedWorksheetIds?: string[];
+  setWorksheets?: React.Dispatch<React.SetStateAction<Worksheet[]>>;
 }
 
-export function AssignUserModal({ isOpen, onClose, worksheet, type, selectedWorksheetIds }: AssignUserModalProps) {
+export function AssignUserModal({ isOpen, onClose, worksheet, type, selectedWorksheetIds, setWorksheets }: AssignUserModalProps) {
   const { user: currentUser } = useAuth();
   const { toast } = useToast();
   const [selectedUser, setSelectedUser] = useState<AppUser | null>(null);
@@ -95,6 +96,17 @@ export function AssignUserModal({ isOpen, onClose, worksheet, type, selectedWork
             title: "Asignación Exitosa",
             description: `${userDisplayName} ha sido asignado como ${fieldToUpdate} a ${idsToUpdate.length} hoja(s) de trabajo.`,
         });
+        
+        if (setWorksheets) {
+            setWorksheets(prev => prev.map(ws => {
+                if (idsToUpdate.includes(ws.id)) {
+                    const newAforo = { ...(ws as any).aforo, [fieldToUpdate]: userDisplayName };
+                    return { ...ws, aforo: newAforo };
+                }
+                return ws;
+            }));
+        }
+
         onClose();
     } catch(e) {
         console.error(e);
