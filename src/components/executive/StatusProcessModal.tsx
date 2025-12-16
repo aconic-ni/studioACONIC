@@ -1,14 +1,17 @@
+
 "use client";
 
+import { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tooltip, TooltipProvider, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import type { AforoCase, LastUpdateInfo } from "@/types";
-import { ArrowRight, CheckCircle, Clock, Hourglass, XCircle } from "lucide-react";
+import type { AforoCase, LastUpdateInfo } from '@/types';
+import { ArrowRight, CheckCircle, Clock, Hourglass, XCircle, Loader2 } from "lucide-react";
 import { format, toDate } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { Timestamp } from "firebase/firestore";
+import { Timestamp, doc, onSnapshot } from "firebase/firestore";
+import { db } from '@/lib/firebase';
 
 interface StatusProcessModalProps {
     isOpen: boolean;
@@ -25,9 +28,9 @@ const formatDate = (date: Date | Timestamp | null | undefined): string => {
 const StatusStep = ({ title, status, lastUpdate, icon }: { title: string; status: string; lastUpdate?: LastUpdateInfo | null; icon: React.ReactNode }) => {
     const getVariant = (status: string) => {
         const lowerStatus = status.toLowerCase();
-        if (lowerStatus.includes('aprobado') || lowerStatus.includes('completo')) return 'default';
+        if (lowerStatus.includes('aprobado') || lowerStatus.includes('completo') || lowerStatus.includes('trámite completo') || lowerStatus.includes('en revisión')) return 'default';
         if (lowerStatus.includes('rechazado') || lowerStatus.includes('incompleto')) return 'destructive';
-        if (lowerStatus.includes('proceso') || lowerStatus.includes('revisión')) return 'secondary';
+        if (lowerStatus.includes('proceso')) return 'secondary';
         return 'outline';
     };
 
@@ -64,6 +67,32 @@ const StatusStep = ({ title, status, lastUpdate, icon }: { title: string; status
 }
 
 export function StatusProcessModal({ isOpen, onClose, caseData }: StatusProcessModalProps) {
+    const [aforoData, setAforoData] = useState<Partial<AforoCase> | null>(null);
+    const [isLoading, setIsLoading] = useState(true);
+
+    useEffect(() => {
+        if (!isOpen || !caseData.id) return;
+        
+        setIsLoading(true);
+        const aforoMetaRef = doc(db, 'worksheets', caseData.id, 'aforo', 'metadata');
+        
+        const unsubscribe = onSnapshot(aforoMetaRef, (docSnap) => {
+            if (docSnap.exists()) {
+                setAforoData(docSnap.data() as Partial<AforoCase>);
+            } else {
+                // If no subcollection data, fall back to the main case data for display
+                setAforoData(caseData);
+            }
+            setIsLoading(false);
+        }, (error) => {
+            console.error("Error fetching aforo metadata:", error);
+            setAforoData(caseData); // Fallback on error
+            setIsLoading(false);
+        });
+
+        return () => unsubscribe();
+    }, [isOpen, caseData]);
+
     if (!isOpen) return null;
 
     const getStatusInfo = (status: string | undefined | null, defaultStatus: string, iconMapping: any) => {
@@ -72,25 +101,26 @@ export function StatusProcessModal({ isOpen, onClose, caseData }: StatusProcessM
         return { status: currentStatus, Icon };
     };
 
-    const aforadorStatusInfo = getStatusInfo(caseData.aforadorStatus, 'Pendiente ', {
+    const aforadorStatusInfo = getStatusInfo(aforoData?.aforadorStatus, 'Pendiente ', {
         'En revisión': Hourglass,
         'Pendiente ': Clock,
         'Incompleto': XCircle,
         'En proceso': Hourglass
     });
 
-    const revisorStatusInfo = getStatusInfo(caseData.revisorStatus, 'Pendiente', {
+    const revisorStatusInfo = getStatusInfo(aforoData?.revisorStatus, 'Pendiente', {
         'Aprobado': CheckCircle,
         'Rechazado': XCircle,
-        'Pendiente': Clock
+        'Pendiente': Clock,
+        'Revalidación Solicitada': Clock,
     });
     
-    const preliquidationStatusInfo = getStatusInfo(caseData.preliquidationStatus, 'Pendiente', {
+    const preliquidationStatusInfo = getStatusInfo(aforoData?.preliquidationStatus, 'Pendiente', {
         'Aprobada': CheckCircle,
         'Pendiente': Clock
     });
 
-    const digitacionStatusInfo = getStatusInfo(caseData.digitacionStatus, 'Pendiente', {
+    const digitacionStatusInfo = getStatusInfo(aforoData?.digitacionStatus, 'Pendiente de Digitación', {
         'Trámite Completo': CheckCircle,
         'Pendiente de Digitación': Clock,
         'En Proceso': Hourglass,
@@ -108,51 +138,59 @@ export function StatusProcessModal({ isOpen, onClose, caseData }: StatusProcessM
                     </DialogDescription>
                 </DialogHeader>
                 <div className="py-4 -mb-12">
-                    <StatusStep
-                        title="1. Proceso de Aforo"
-                        status={aforadorStatusInfo.status}
-                        lastUpdate={caseData.aforadorStatusLastUpdate}
-                        icon={<aforadorStatusInfo.Icon className="h-5 w-5" />}
-                    />
-                     <StatusStep
-                        title="2. Revisión de Agente"
-                        status={revisorStatusInfo.status}
-                        lastUpdate={caseData.revisorStatusLastUpdate}
-                        icon={<revisorStatusInfo.Icon className="h-5 w-5" />}
-                    />
-                    <StatusStep
-                        title="3. Preliquidación"
-                        status={preliquidationStatusInfo.status}
-                        lastUpdate={caseData.preliquidationStatusLastUpdate}
-                        icon={<preliquidationStatusInfo.Icon className="h-5 w-5" />}
-                    />
-                    <div className="flex items-start gap-4">
-                        <div className="flex flex-col items-center">
-                            <div className="rounded-full bg-primary/10 text-primary p-2">
-                                <digitacionStatusInfo.Icon className="h-5 w-5" />
+                   {isLoading ? (
+                       <div className="flex justify-center items-center h-48">
+                           <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                       </div>
+                   ) : (
+                       <>
+                        <StatusStep
+                            title="1. Proceso de Aforo"
+                            status={aforadorStatusInfo.status}
+                            lastUpdate={aforoData?.aforadorStatusLastUpdate}
+                            icon={<aforadorStatusInfo.Icon className="h-5 w-5" />}
+                        />
+                        <StatusStep
+                            title="2. Revisión de Agente"
+                            status={revisorStatusInfo.status}
+                            lastUpdate={aforoData?.revisorStatusLastUpdate}
+                            icon={<revisorStatusInfo.Icon className="h-5 w-5" />}
+                        />
+                        <StatusStep
+                            title="3. Preliquidación"
+                            status={preliquidationStatusInfo.status}
+                            lastUpdate={aforoData?.preliquidationStatusLastUpdate}
+                            icon={<preliquidationStatusInfo.Icon className="h-5 w-5" />}
+                        />
+                        <div className="flex items-start gap-4">
+                            <div className="flex flex-col items-center">
+                                <div className="rounded-full bg-primary/10 text-primary p-2">
+                                    <digitacionStatusInfo.Icon className="h-5 w-5" />
+                                </div>
+                            </div>
+                            <div className="flex-1">
+                                <p className="font-semibold text-foreground">4. Digitación</p>
+                                <div className="flex items-center gap-2 mt-1">
+                                    <Badge variant={getVariant(digitacionStatusInfo.status)}>{digitacionStatusInfo.status}</Badge>
+                                    {aforoData?.digitacionStatusLastUpdate && aforoData.digitacionStatusLastUpdate.by && (
+                                        <TooltipProvider>
+                                            <Tooltip>
+                                                <TooltipTrigger asChild>
+                                                    <p className="text-xs text-muted-foreground cursor-help">
+                                                        por {aforoData.digitacionStatusLastUpdate.by}
+                                                    </p>
+                                                </TooltipTrigger>
+                                                <TooltipContent>
+                                                    <p>Fecha: {formatDate(aforoData.digitacionStatusLastUpdate.at)}</p>
+                                                </TooltipContent>
+                                            </Tooltip>
+                                        </TooltipProvider>
+                                    )}
+                                </div>
                             </div>
                         </div>
-                        <div className="flex-1">
-                            <p className="font-semibold text-foreground">4. Digitación</p>
-                             <div className="flex items-center gap-2 mt-1">
-                                <Badge variant={getVariant(digitacionStatusInfo.status)}>{digitacionStatusInfo.status}</Badge>
-                                {caseData.digitacionStatusLastUpdate && caseData.digitacionStatusLastUpdate.by && (
-                                    <TooltipProvider>
-                                        <Tooltip>
-                                            <TooltipTrigger asChild>
-                                                <p className="text-xs text-muted-foreground cursor-help">
-                                                    por {caseData.digitacionStatusLastUpdate.by}
-                                                </p>
-                                            </TooltipTrigger>
-                                            <TooltipContent>
-                                                <p>Fecha: {formatDate(caseData.digitacionStatusLastUpdate.at)}</p>
-                                            </TooltipContent>
-                                        </Tooltip>
-                                    </TooltipProvider>
-                                )}
-                            </div>
-                        </div>
-                    </div>
+                       </>
+                   )}
                 </div>
 
                 <DialogFooter>
@@ -165,8 +203,8 @@ export function StatusProcessModal({ isOpen, onClose, caseData }: StatusProcessM
 
 function getVariant(status: string) {
     const lowerStatus = status.toLowerCase();
-    if (lowerStatus.includes('aprobado') || lowerStatus.includes('completo') || lowerStatus.includes('almacenado')) return 'default';
+    if (lowerStatus.includes('aprobado') || lowerStatus.includes('completo') || lowerStatus.includes('trámite completo') || lowerStatus.includes('almacenado') || lowerStatus.includes('en revisión')) return 'default';
     if (lowerStatus.includes('rechazado') || lowerStatus.includes('incompleto')) return 'destructive';
-    if (lowerStatus.includes('proceso') || lowerStatus.includes('revisión')) return 'secondary';
+    if (lowerStatus.includes('proceso')) return 'secondary';
     return 'outline';
 }
