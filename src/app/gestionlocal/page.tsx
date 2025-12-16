@@ -3,7 +3,7 @@
 import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { db } from '@/lib/firebase';
-import { collection, query, onSnapshot, orderBy, getDoc, doc } from 'firebase/firestore';
+import { collection, query, onSnapshot, orderBy, getDoc, doc, where } from 'firebase/firestore';
 import type { Worksheet } from '@/types';
 import { AppShell } from '@/components/layout/AppShell';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -33,12 +33,16 @@ export default function GestionLocalPage() {
     if (!user) return;
     setIsLoading(true);
 
-    const q = query(collection(db, 'worksheets'), orderBy('createdAt', 'desc'));
+    const q = query(
+        collection(db, 'worksheets'), 
+        where('worksheetType', 'in', ['hoja_de_trabajo', null]), // Filter for worksheets only or docs without the type
+        orderBy('createdAt', 'desc')
+    );
+
     const unsubscribe = onSnapshot(q, async (snapshot) => {
       const fetchedWorksheetsPromises = snapshot.docs.map(async (docSnapshot) => {
         const worksheetData = { id: docSnapshot.id, ...docSnapshot.data() } as Worksheet;
         
-        // Fetch the aforo subcollection data
         const aforoRef = doc(db, `worksheets/${docSnapshot.id}/aforo/metadata`);
         const aforoSnap = await getDoc(aforoRef);
         if (aforoSnap.exists()) {
