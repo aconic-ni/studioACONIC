@@ -129,15 +129,6 @@ const worksheetSchema = z.object({
 .refine(data => !data.resa || !!data.resaNotificationDate, {
     message: "La fecha de notificación es requerida si se ingresa un número de RESA.",
     path: ["resaNotificationDate"],
-})
-.refine(data => {
-    if (data.consignee.toUpperCase().trim() === "PSMT NICARAGUA, SOCIEDAD ANONIMA") {
-      return !!data.aforador && data.aforador.trim() !== '';
-    }
-    return true;
-  }, {
-    message: "Debe seleccionar un aforador para PSMT.",
-    path: ["aforador"],
 });
 
 
@@ -503,6 +494,12 @@ function WorksheetForm() {
         setIsSubmitting(false);
       }
     } else {
+        if (data.consignee.toUpperCase().trim() === "PSMT NICARAGUA, SOCIEDAD ANONIMA" && (!data.aforador || data.aforador.trim() === '')) {
+            toast({ title: "Campo Requerido", description: "Debe seleccionar un aforador para el consignatario PSMT.", variant: "destructive" });
+            setIsSubmitting(false);
+            return;
+        }
+
       const neTrimmed = data.ne.trim().toUpperCase();
       const worksheetDocRef = doc(db, 'worksheets', neTrimmed);
       const aforoCaseDocRef = doc(db, 'AforoCases', neTrimmed);
@@ -1251,3 +1248,4 @@ export default function WorksheetPage() {
         </AppShell>
     )
 }
+
