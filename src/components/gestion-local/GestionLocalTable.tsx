@@ -44,11 +44,13 @@ export function GestionLocalTable({ worksheets, selectedRows, setSelectedRows, o
   const { user } = useAuth();
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(30);
-  const [statusModal, setStatusModal] = useState<{ isOpen: boolean; worksheet?: Worksheet | null; type: 'aforador' | 'digitador' | 'bulk-aforador' | 'bulk-digitador' }>({ isOpen: false });
+  const [statusModal, setStatusModal] = useState<{ isOpen: boolean; worksheet?: Worksheet | null; type: 'aforador' | 'digitador' | 'bulk-aforador' | 'bulk-digitador' }>({ isOpen: false, type: 'aforador' });
   const [isImporting, setIsImporting] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isBulkCompleteModalOpen, setIsBulkCompleteModalOpen] = useState(false);
   const [showOnlyPending, setShowOnlyPending] = useState(false);
+  const [bulkActionResult, setBulkActionResult] = useState<{ isOpen: boolean, success: string[], skipped: string[] }>({ isOpen: false, success: [], skipped: [] });
+
 
   const filteredWorksheets = useMemo(() => {
     if (showOnlyPending) {
@@ -87,12 +89,49 @@ export function GestionLocalTable({ worksheets, selectedRows, setSelectedRows, o
       return format(date, 'dd/MM/yyyy');
   };
   
+  const handleBulkCompleteDigitacion = async () => {
+    if (!user || !user.displayName || selectedRows.length === 0) return;
+    setIsImporting(true);
+    const batch = writeBatch(db);
+    let successNEs: string[] = [];
+    let skippedNEs: string[] = [];
+    
+    for (const wsId of selectedRows) {
+        const ws = worksheets.find(w => w.id === wsId);
+        const aforoData = (ws as any)?.aforo;
+        if (ws && aforoData && aforoData.declaracionAduanera) {
+            const worksheetRef = doc(db, 'worksheets', wsId, 'aforo', 'metadata');
+            batch.set(worksheetRef, {
+                digitadorStatus: 'Trámite Completo',
+                digitadorStatusLastUpdate: { by: user.displayName, at: Timestamp.now() }
+            }, { merge: true });
+            successNEs.push(ws.ne);
+        } else if (ws) {
+            skippedNEs.push(ws.ne);
+        }
+    }
+
+    try {
+        if (successNEs.length > 0) {
+            await batch.commit();
+        }
+        setBulkActionResult({ isOpen: true, success: successNEs, skipped: skippedNEs });
+        setSelectedRows([]);
+        onRefresh();
+    } catch(e) {
+        toast({ title: "Error", description: "No se pudo completar la acción masiva.", variant: "destructive"});
+    } finally {
+        setIsImporting(false);
+    }
+  }
+
+
   const handleBulkAction = async (type: 'aforadorStatus' | 'digitadorStatus', value: string) => {
     if (!user || !user.displayName || selectedRows.length === 0) return;
 
     if (type === 'digitadorStatus' && value === 'Trámite Completo') {
         setIsBulkCompleteModalOpen(true);
-        setStatusModal({isOpen: false}); // Close the status selection modal
+        setStatusModal({isOpen: false, type: 'aforador'}); // Close the status selection modal
         return;
     }
 
@@ -114,7 +153,7 @@ export function GestionLocalTable({ worksheets, selectedRows, setSelectedRows, o
         console.error("Bulk update error:", e);
         toast({ title: "Error", description: "No se pudo completar la acción masiva.", variant: "destructive"});
     }
-    setStatusModal({isOpen: false});
+    setStatusModal({isOpen: false, type: 'aforador'});
   };
 
   const handleStatusUpdate = async (worksheetId: string, newStatus: string, type: 'aforador' | 'digitador') => {
@@ -139,7 +178,7 @@ export function GestionLocalTable({ worksheets, selectedRows, setSelectedRows, o
         await writeBatch(db).set(worksheetRef, updateData, { merge: true }).commit();
         toast({ title: 'Estado Actualizado', description: `El estado del ${type} ha sido actualizado a "${newStatus}".` });
         onRefresh();
-        setStatusModal({ isOpen: false });
+        setStatusModal({isOpen: false, type: 'aforador'});
     } catch (e) {
         console.error(e);
         toast({ title: "Error", description: "No se pudo actualizar el estado.", variant: "destructive" });
@@ -267,7 +306,14 @@ export function GestionLocalTable({ worksheets, selectedRows, setSelectedRows, o
             <Button onClick={() => handleDownloadTemplate(false)} variant="outline" size="sm">
                 <Download className="mr-2 h-4 w-4" /> Plantilla
             </Button>
-             <input type="file" ref={fileInputRef} onChange={(e) => handleFileImport(e, false)} className="hidden" accept=".xlsx, .xls" />
+            <input type="file" ref={fileInputRef} onChange={(e) => handleFileImport(e, false)} className="hidden" accept=".xlsx, .xls" />
+            <Button variant="secondary" size="sm" onClick={handleBulkCompleteDigitacion} disabled={selectedRows.length === 0 || isImporting}>
+                Completar Digitación ({selectedRows.length})
+            </Button>
+            <Button variant="outline" size="sm" onClick={() => setStatusModal({isOpen: true, type: 'bulk-aforador'})} disabled={selectedRows.length === 0}>
+                Asignar Estatus Aforador ({selectedRows.length})
+            </Button>
+
         </div>
         <div className="flex items-center space-x-2">
             <Switch
@@ -431,7 +477,7 @@ export function GestionLocalTable({ worksheets, selectedRows, setSelectedRows, o
             </Button>
         </div>
     </div>
-    <Dialog open={statusModal.isOpen} onOpenChange={() => setStatusModal({ isOpen: false })}>
+    <Dialog open={statusModal.isOpen} onOpenChange={() => setStatusModal({ isOpen: false, type: 'aforador'})}>
         <DialogContent>
             <DialogHeader>
                 <DialogTitle>Cambiar Estado de {statusModal.type?.includes('aforador') ? 'Aforador' : 'Digitador'} {statusModal.type?.includes('bulk') ? 'Masivo' : ''}</DialogTitle>
@@ -466,7 +512,7 @@ export function GestionLocalTable({ worksheets, selectedRows, setSelectedRows, o
                 </SelectContent>
             </Select>
             <DialogFooter>
-                <Button variant="outline" onClick={() => setStatusModal({ isOpen: false })}>Cancelar</Button>
+                <Button variant="outline" onClick={() => setStatusModal({ isOpen: false, type: 'aforador' })}>Cancelar</Button>
             </DialogFooter>
         </DialogContent>
     </Dialog>
@@ -493,6 +539,36 @@ export function GestionLocalTable({ worksheets, selectedRows, setSelectedRows, o
             </DialogFooter>
         </DialogContent>
     </Dialog>
+     <AlertDialog open={bulkActionResult.isOpen} onOpenChange={(isOpen) => setBulkActionResult(prev => ({...prev, isOpen}))}>
+        <AlertDialogContent>
+            <AlertDialogHeader>
+                <DialogTitle>Resultado de la Operación Masiva</DialogTitle>
+                <AlertDialogDescription>
+                    <div className="space-y-4 max-h-60 overflow-y-auto">
+                        {bulkActionResult.success.length > 0 && (
+                            <div>
+                                <p className="font-semibold text-green-600">Casos completados exitosamente:</p>
+                                <ul className="list-disc list-inside text-sm text-muted-foreground">
+                                    {bulkActionResult.success.map(ne => <li key={ne}>{ne}</li>)}
+                                </ul>
+                            </div>
+                        )}
+                        {bulkActionResult.skipped.length > 0 && (
+                             <div>
+                                <p className="font-semibold text-amber-600">Casos omitidos (sin declaración aduanera):</p>
+                                <ul className="list-disc list-inside text-sm text-muted-foreground">
+                                    {bulkActionResult.skipped.map(ne => <li key={ne}>{ne}</li>)}
+                                </ul>
+                            </div>
+                        )}
+                    </div>
+                </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+                <AlertDialogAction onClick={() => setBulkActionResult({ isOpen: false, success: [], skipped: [] })}>Entendido</AlertDialogAction>
+            </AlertDialogFooter>
+        </AlertDialogContent>
+    </AlertDialog>
     </>
   );
 }
