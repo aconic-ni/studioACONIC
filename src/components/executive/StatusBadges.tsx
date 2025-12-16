@@ -1,4 +1,3 @@
-
 "use client";
 
 import React from 'react';
@@ -53,8 +52,8 @@ const BadgeIcon: React.FC<{
   );
 };
 
-const AcuseBadge: React.FC<{ acuseDeRecibido?: boolean; acuseLog?: AforoCaseUpdate | null }> = ({ acuseDeRecibido, acuseLog }) => {
-    const hasAcuse = acuseDeRecibido === true || !!acuseLog;
+const AcuseBadge: React.FC<{ entregadoAforoAt?: any; acuseLog?: AforoCaseUpdate | null }> = ({ entregadoAforoAt, acuseLog }) => {
+    const hasAcuse = !!entregadoAforoAt;
     const receivedBy = acuseLog?.updatedBy;
 
     if (!hasAcuse) {
@@ -157,7 +156,7 @@ export function StatusBadges({ caseData }: StatusBadgesProps) {
   return (
     <TooltipProvider>
         <div className="flex items-center gap-1.5">
-            <AcuseBadge acuseDeRecibido={caseData.acuseDeRecibido} acuseLog={caseData.acuseLog} />
+            <AcuseBadge entregadoAforoAt={caseData.entregadoAforoAt} acuseLog={caseData.acuseLog} />
             <DocumentTypeBadge worksheetType={caseData.worksheet?.worksheetType} />
             <BadgeIcon Icon={GitBranch} tooltipText="Permisos" isComplete={hasPermits ? allPermitsDone : null} />
             <BadgeIcon Icon={Banknote} tooltipText="Pagos" isComplete={hasPayments ? allPaymentsDone : null} />

@@ -6,7 +6,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Checkbox } from '@/components/ui/checkbox';
 import { Button } from '@/components/ui/button';
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from '@/components/ui/dropdown-menu';
-import { MoreHorizontal, UserCheck, MessageSquare, Eye, Edit, Repeat, Upload, Download, FileUp, Loader2, Filter } from 'lucide-react';
+import { MoreHorizontal, UserCheck, MessageSquare, Eye, Edit, Repeat, Upload, Download, FileUp, Loader2, Filter, FileSignature } from 'lucide-react';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { Badge } from '@/components/ui/badge';
@@ -307,10 +307,37 @@ export function GestionLocalTable({ worksheets, selectedRows, setSelectedRows, o
     reader.readAsArrayBuffer(file);
   };
   
+  const handleBulkAcknowledge = async () => {
+    if (!user || !user.displayName || selectedRows.length === 0) return;
+    setIsLoading(true);
+    const batch = writeBatch(db);
+    const comment = "Se reciben hojas fisicas de casos";
+
+    for (const wsId of selectedRows) {
+        const worksheetRef = doc(db, 'worksheets', wsId);
+        batch.update(worksheetRef, { entregadoAforoAt: Timestamp.now() });
+    }
+    
+    try {
+      await batch.commit();
+      toast({
+        title: "Acuse Masivo Exitoso",
+        description: `${selectedRows.length} caso(s) han sido actualizados en la bitácora.`
+      });
+      setSelectedRows([]);
+      onRefresh();
+    } catch (error) {
+      console.error("Error with bulk acknowledge:", error);
+      toast({ title: "Error", description: "No se pudo registrar el acuse masivo.", variant: "destructive" });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   return (
     <>
     <div className="flex items-center justify-between gap-2 p-2">
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
             <Button variant="outline" size="sm" onClick={() => fileInputRef.current?.click()} disabled={isImporting}>
                 {isImporting ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : <Upload className="mr-2 h-4 w-4" />} Importar Declaraciones
             </Button>
@@ -323,6 +350,9 @@ export function GestionLocalTable({ worksheets, selectedRows, setSelectedRows, o
             </Button>
             <Button variant="outline" size="sm" onClick={() => setStatusModal({isOpen: true, type: 'bulk-aforador'})} disabled={selectedRows.length === 0}>
                 Asignar Estatus Aforador ({selectedRows.length})
+            </Button>
+            <Button variant="outline" size="sm" onClick={handleBulkAcknowledge} disabled={selectedRows.length === 0 || isLoading}>
+                <FileSignature className="mr-2 h-4 w-4" /> Enviar Acuse ({selectedRows.length})
             </Button>
 
         </div>
@@ -462,8 +492,11 @@ export function GestionLocalTable({ worksheets, selectedRows, setSelectedRows, o
             <Select
                 value={String(itemsPerPage)}
                 onValueChange={(value) => {
-                    const numValue = Number(value);
-                    setItemsPerPage(numValue === filteredWorksheets.length ? filteredWorksheets.length : numValue);
+                    if (value === 'all') {
+                        setItemsPerPage(filteredWorksheets.length);
+                    } else {
+                        setItemsPerPage(Number(value));
+                    }
                     setCurrentPage(1);
                 }}
             >
@@ -472,7 +505,7 @@ export function GestionLocalTable({ worksheets, selectedRows, setSelectedRows, o
                     <SelectItem value="30">30</SelectItem>
                     <SelectItem value="40">40</SelectItem>
                     <SelectItem value="50">50</SelectItem>
-                    <SelectItem value={String(filteredWorksheets.length)}>Todos</SelectItem>
+                    <SelectItem value="all">Todos</SelectItem>
                 </SelectContent>
             </Select>
         </div>
@@ -561,7 +594,7 @@ export function GestionLocalTable({ worksheets, selectedRows, setSelectedRows, o
      <AlertDialog open={bulkActionResult.isOpen} onOpenChange={(isOpen) => setBulkActionResult(prev => ({...prev, isOpen}))}>
         <AlertDialogContent>
             <AlertDialogHeader>
-                <DialogTitle>Resultado de la Operación Masiva</DialogTitle>
+                <AlertDialogTitle>Resultado de la Operación Masiva</AlertDialogTitle>
                 <AlertDialogDescription>
                     <div className="space-y-4 max-h-60 overflow-y-auto">
                         {bulkActionResult.success.length > 0 && (
