@@ -385,7 +385,7 @@ export function GestionLocalTable({ worksheets, setWorksheets, selectedRows, set
                 <Download className="mr-2 h-4 w-4" /> Plantilla
             </Button>
             <input type="file" ref={fileInputRef} onChange={(e) => handleFileImport(e, false)} className="hidden" accept=".xlsx, .xls" />
-            <Button variant="secondary" size="sm" onClick={() => handleBulkCompleteDigitacion()} disabled={selectedRows.length === 0 || isImporting}>
+            <Button variant="secondary" size="sm" onClick={() => setIsBulkCompleteModalOpen(true)} disabled={selectedRows.length === 0}>
                 Completar Digitación ({selectedRows.length})
             </Button>
             <Button variant="outline" size="sm" onClick={() => setStatusModal({isOpen: true, type: 'bulk-aforador'})} disabled={selectedRows.length === 0}>
@@ -394,7 +394,6 @@ export function GestionLocalTable({ worksheets, setWorksheets, selectedRows, set
             <Button variant="outline" size="sm" onClick={handleBulkAcknowledge} disabled={selectedRows.length === 0 || isLoading}>
                 <FileSignature className="mr-2 h-4 w-4" /> Enviar Acuse ({selectedRows.length})
             </Button>
-
         </div>
         <div className="flex items-center space-x-2">
             <Switch
@@ -420,12 +419,12 @@ export function GestionLocalTable({ worksheets, setWorksheets, selectedRows, set
             <TableHead>Consignatario</TableHead>
             <TableHead>Aforador</TableHead>
             <TableHead>Estado Aforador</TableHead>
+            <TableHead>Posiciones</TableHead>
             <TableHead>Revisor</TableHead>
             <TableHead>Estado Revisor</TableHead>
             <TableHead>Digitador</TableHead>
             <TableHead>Estado Digitador</TableHead>
             <TableHead>Declaración</TableHead>
-            <TableHead>Posiciones</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -452,6 +451,7 @@ export function GestionLocalTable({ worksheets, setWorksheets, selectedRows, set
                     <DropdownMenuItem onClick={() => onAssign(ws, 'revisor')}><UserCheck className="mr-2 h-4 w-4" /> Asignar Revisor</DropdownMenuItem>
                     <DropdownMenuItem onClick={() => onAssign(ws, 'digitador')}><UserCheck className="mr-2 h-4 w-4" /> Asignar Digitador</DropdownMenuItem>
                     <DropdownMenuItem onClick={() => onComment(ws)}><MessageSquare className="mr-2 h-4 w-4" /> Ver/Añadir Comentarios</DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => handleRevalidationRequest(ws.id)} disabled={!aforoData || aforoData.revisorStatus !== 'Rechazado'}><Repeat className="mr-2 h-4 w-4"/>Solicitar Revalidación</DropdownMenuItem>
                   </DropdownMenuContent>
                 </DropdownMenu>
               </TableCell>
@@ -467,6 +467,12 @@ export function GestionLocalTable({ worksheets, setWorksheets, selectedRows, set
                     </Badge>
                     <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => setStatusModal({isOpen: true, worksheet: ws, type: 'aforador'})}><Edit className="h-3 w-3"/></Button>
                  </div>
+              </TableCell>
+               <TableCell>
+                  <div className="flex items-center gap-1">
+                    <Badge variant="outline">{aforoData?.totalPosiciones || 0}</Badge>
+                    <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => { setPositionsInput(aforoData?.totalPosiciones || ''); setPositionsModal({isOpen: true, worksheet: ws})}}><Edit className="h-3 w-3"/></Button>
+                  </div>
               </TableCell>
               <TableCell>
                 <Badge variant="secondary">{aforoData?.revisor || 'N/A'}</Badge>
@@ -489,12 +495,6 @@ export function GestionLocalTable({ worksheets, setWorksheets, selectedRows, set
               </TableCell>
               <TableCell>
                   {aforoData?.declaracionAduanera ? <Badge variant="default">{aforoData.declaracionAduanera}</Badge> : 'N/A'}
-              </TableCell>
-               <TableCell>
-                  <div className="flex items-center gap-1">
-                    <Badge variant="outline">{aforoData?.totalPosiciones || 0}</Badge>
-                    <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => { setPositionsInput(aforoData?.totalPosiciones || ''); setPositionsModal({isOpen: true, worksheet: ws})}}><Edit className="h-3 w-3"/></Button>
-                  </div>
               </TableCell>
             </TableRow>
           )})}
@@ -644,7 +644,7 @@ export function GestionLocalTable({ worksheets, setWorksheets, selectedRows, set
      <AlertDialog open={bulkActionResult.isOpen} onOpenChange={(isOpen) => setBulkActionResult(prev => ({...prev, isOpen}))}>
         <AlertDialogContent>
             <AlertDialogHeader>
-                <DialogTitle>Resultado de la Operación Masiva</DialogTitle>
+                <AlertDialogTitle>Resultado de la Operación Masiva</AlertDialogTitle>
                 <AlertDialogDescription>
                     <div className="space-y-4 max-h-60 overflow-y-auto">
                         {bulkActionResult.success.length > 0 && (
