@@ -1,9 +1,8 @@
-
 "use client";
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { db } from '@/lib/firebase';
-import { collection, query, where, onSnapshot, Timestamp, orderBy, doc, updateDoc, addDoc, getDocs, writeBatch, getCountFromServer, getDoc } from 'firebase/firestore';
+import { collection, query, where, onSnapshot, Timestamp, orderBy, doc, updateDoc, addDoc, getDocs, writeBatch, getCountFromServer, getDoc, documentId, type Query } from 'firebase/firestore';
 import { useAuth } from '@/context/AuthContext';
 import type { AforoCase, DigitacionStatus, AforoCaseUpdate, AppUser, LastUpdateInfo, Worksheet, WorksheetWithCase } from '@/types';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -139,8 +138,9 @@ export function DigitizationCasesTable({ filters, setAllFetchedCases, displayCas
 
         await batch.commit();
 
-        toast({ title: "Guardado Automático", description: `El campo se ha actualizado.` });
-
+        if(!isTriggerFromFieldUpdate) {
+            toast({ title: "Guardado Automático", description: `El campo se ha actualizado.` });
+        }
     } catch (error) {
         console.error("Error updating case:", error);
         toast({ title: "Error", description: `No se pudo guardar el cambio.`, variant: "destructive" });
@@ -372,12 +372,13 @@ export function DigitizationCasesTable({ filters, setAllFetchedCases, displayCas
             isOpen={!!selectedCaseForAssignment}
             onClose={() => setSelectedCaseForAssignment(null)}
             caseData={selectedCaseForAssignment}
-            assignableUsers={assignableUsers}
+            assignableUsers={assignableUsers.filter(u => u.role === 'digitador' || u.role === 'coordinadora' || u.role === 'supervisor' || u.role === 'aforador')}
             onAssign={handleAssignDigitador}
             title="Asignar Digitador"
-            description={`Seleccione un usuario para asignar al caso NE: ${selectedCaseForAssignment.ne}`}
+            description={\`Seleccione un usuario para asignar al caso NE: ${selectedCaseForAssignment.ne}\`}
         />
     )}
     </>
   );
 }
+
