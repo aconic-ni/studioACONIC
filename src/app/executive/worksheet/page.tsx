@@ -428,8 +428,8 @@ function WorksheetForm() {
         const batch = writeBatch(db);
 
         try {
-            // Exclude 'createdBy' from the update payload
-            const { createdBy, ...restOfData } = data;
+            // Exclude fields that should not be overwritten on update
+            const { createdBy, createdAt, ...restOfData } = data;
             
             const updatedWorksheetData = { 
                 ...restOfData, 
