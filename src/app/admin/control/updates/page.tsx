@@ -118,12 +118,31 @@ function AforoDataMigrator() {
     const fetchStats = useCallback(async () => {
         setIsLoading(true);
         try {
-            const q = query(collection(db, 'AforoCases'));
-            const querySnapshot = await getDocs(q);
-            const allCases = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as AforoCase));
+            const aforoQuery = query(collection(db, 'AforoCases'));
+            const aforoSnapshot = await getDocs(aforoQuery);
+            const allCases = aforoSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as AforoCase));
+            
+            const worksheetIds = allCases.map(c => c.worksheetId).filter((id): id is string => !!id);
+            if(worksheetIds.length === 0) {
+                 setStats({ totalCases: allCases.length, casesToMigrate: 0 });
+                 setIsLoading(false);
+                 return;
+            }
+
+            // Fetch all worksheets in chunks to avoid query limitations
+            const worksheetPromises = [];
+            for (let i = 0; i < worksheetIds.length; i += 30) {
+                const chunk = worksheetIds.slice(i, i + 30);
+                worksheetPromises.push(getDocs(query(collection(db, 'worksheets'), where('__name__', 'in', chunk))));
+            }
+            const worksheetSnapshots = await Promise.all(worksheetPromises);
+            const existingWorksheetIds = new Set<string>();
+            worksheetSnapshots.forEach(snap => snap.forEach(doc => existingWorksheetIds.add(doc.id)));
+
+            const relevantCases = allCases.filter(c => c.worksheetId && existingWorksheetIds.has(c.worksheetId));
             
             let casesWithDataToMigrate = 0;
-            for(const caseItem of allCases) {
+            for(const caseItem of relevantCases) {
                 if (caseItem.worksheetId) {
                     const metadataRef = doc(db, `worksheets/${caseItem.worksheetId}/aforo/metadata`);
                     const metadataSnap = await getDoc(metadataRef);
@@ -133,7 +152,7 @@ function AforoDataMigrator() {
                 }
             }
 
-            setStats({ totalCases: allCases.length, casesToMigrate: casesWithDataToMigrate });
+            setStats({ totalCases: relevantCases.length, casesToMigrate: casesWithDataToMigrate });
 
         } catch (error) {
             console.error("Error fetching migration stats:", error);
@@ -221,7 +240,7 @@ function AforoDataMigrator() {
                     <div className="flex items-center gap-2 text-muted-foreground"><Loader2 className="h-4 w-4 animate-spin"/>Cargando estadísticas...</div>
                 ) : (
                     <div className="p-4 bg-muted/50 rounded-lg border">
-                        <p>Total de Casos de Aforo: <span className="font-bold">{stats.totalCases}</span></p>
+                        <p>Total de Casos de Aforo relevantes: <span className="font-bold">{stats.totalCases}</span></p>
                         <p>Casos pendientes de migración: <span className="font-bold text-amber-600">{stats.casesToMigrate}</span></p>
                     </div>
                 )}
