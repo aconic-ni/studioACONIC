@@ -1,3 +1,4 @@
+
 "use client";
 import React, { useEffect, useState, useMemo, useCallback, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
@@ -155,21 +156,21 @@ function ExecutivePageContent() {
     if (!user) return () => {};
     setIsLoading(true);
     
+    let aforoQuery;
     const globalVisibilityRoles = ['admin', 'supervisor', 'coordinadora'];
     const groupVisibilityRoles = ['ejecutivo'];
-    let aforoQuery;
 
     if (user.role && globalVisibilityRoles.includes(user.role)) {
       aforoQuery = query(collection(db, 'AforoCases'));
-    } else if (user.role && groupVisibilityRoles.includes(user.role)) {
-      const groupDisplayNames = Array.from(new Set([user.displayName, ...(user.visibilityGroup?.map(m => m.displayName) || [])])).filter(Boolean) as string[];
-             if (groupDisplayNames.length > 0) {
-                aforoQuery = query(collection(db, 'AforoCases'), where("executive", "in", groupDisplayNames));
-            } else {
-                aforoQuery = query(collection(db, 'AforoCases'), where('executive', '==', user.displayName));
-            }
+    } else if (user.role && groupVisibilityRoles.includes(user.role) && user.visibilityGroup && user.visibilityGroup.length > 0) {
+        const groupDisplayNames = Array.from(new Set([user.displayName, ...(user.visibilityGroup?.map(m => m.displayName) || [])])).filter(Boolean) as string[];
+        aforoQuery = query(collection(db, 'AforoCases'), where("executive", "in", groupDisplayNames));
+    } else if (user.displayName) {
+        aforoQuery = query(collection(db, 'AforoCases'), where('executive', '==', user.displayName));
     } else {
-      aforoQuery = query(collection(db, 'AforoCases'), where('executive', '==', user.displayName));
+        setAllCases([]);
+        setIsLoading(false);
+        return () => {};
     }
 
 
@@ -421,7 +422,7 @@ function ExecutivePageContent() {
     const worksheetDocRef = doc(db, 'worksheets', caseItem.worksheetId);
     const docSnap = await getDoc(worksheetDocRef);
     if (docSnap.exists()) {
-        setSelectedWorksheet({ id: docSnap.id, ...docSnap.data() as Worksheet, caseData: caseItem });
+        setSelectedWorksheet({ id: docSnap.id, ...docSnap.data() } as Worksheet);
     } else {
         toast({ title: "Error", description: "No se pudo encontrar la hoja de trabajo.", variant: "destructive" });
     }
@@ -761,7 +762,6 @@ function ExecutivePageContent() {
     setSelectedCaseForHistory,
     setSelectedIncidentForDetails,
     setSelectedCaseForComment,
-    setSelectedCaseForProcess,
     handleSearchPrevio,
     setCaseToArchive,
     setCaseToDuplicate,
