@@ -1,4 +1,3 @@
-
 "use client";
 import React, { useEffect, useState, useMemo, useCallback, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
@@ -11,7 +10,7 @@ import { Loader2, FilePlus, Search, Edit, Eye, History, PlusSquare, UserCheck, I
 import { db } from '@/lib/firebase';
 import { collection, query, where, onSnapshot, orderBy, Timestamp, doc, getDoc, updateDoc, writeBatch, addDoc, getDocs, collectionGroup, serverTimestamp } from 'firebase/firestore';
 import type { Worksheet, AforoCase, AforadorStatus, AforoCaseStatus, DigitacionStatus, WorksheetWithCase, AforoCaseUpdate, PreliquidationStatus, IncidentType, LastUpdateInfo, ExecutiveComment, InitialDataContext, AppUser, SolicitudRecord, ExamDocument, FacturacionStatus } from '@/types';
-import { format, toDate, isSameDay, startOfDay, endOfDay, differenceInDays } from 'date-fns';
+import { format, toDate, isSameDay, startOfDay, endOfDay, differenceInDays, startOfMonth, endOfMonth } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { Input } from '@/components/ui/input';
 import { AforoCaseHistoryModal } from '@/components/reporter/AforoCaseHistoryModal';
@@ -113,10 +112,15 @@ function ExecutivePageContent() {
   
   const urlTab = searchParams.get('tab') as TabValue | null;
   const activeTab = urlTab || 'worksheets';
+  
+  const [searchHint, setSearchHint] = useState<{ foundIn: TabValue; label: string } | null>(null);
+
 
   const handleTabChange = (value: string) => {
     const tabValue = value as TabValue;
     router.push(`/executive?tab=${tabValue}`, { scroll: false });
+    setCurrentPage(1); // Reset page on tab change
+    setSearchHint(null);
   };
   
   const [appliedFilters, setAppliedFilters] = useState({
@@ -417,7 +421,7 @@ function ExecutivePageContent() {
     const worksheetDocRef = doc(db, 'worksheets', caseItem.worksheetId);
     const docSnap = await getDoc(worksheetDocRef);
     if (docSnap.exists()) {
-        setSelectedWorksheet({ ...docSnap.data() as Worksheet, caseData: caseItem });
+        setSelectedWorksheet({ id: docSnap.id, ...docSnap.data() as Worksheet, caseData: caseItem });
     } else {
         toast({ title: "Error", description: "No se pudo encontrar la hoja de trabajo.", variant: "destructive" });
     }
@@ -456,6 +460,7 @@ function ExecutivePageContent() {
     setIncidentTypeFilter('');
     setAppliedFilters({ searchTerm: '', facturado: false, noFacturado: true, dateFilterType: 'range', dateRange: undefined, isSearchActive: false });
     setCurrentPage(1);
+    setSearchHint(null);
   };
   
   const handleSendToFacturacion = async (caseId: string) => {
@@ -492,57 +497,87 @@ function ExecutivePageContent() {
     
     let filtered = baseCases.filter(c => !c.isArchived);
 
+    // Initial filter by tab
+    let tabFiltered;
     if (activeTab === 'worksheets') {
-        filtered = filtered.filter(c => c.worksheet?.worksheetType === 'hoja_de_trabajo' || c.worksheet?.worksheetType === undefined);
+        tabFiltered = filtered.filter(c => c.worksheet?.worksheetType === 'hoja_de_trabajo' || c.worksheet?.worksheetType === undefined);
     } else if (activeTab === 'anexos') {
-        filtered = filtered.filter(c => c.worksheet?.worksheetType === 'anexo_5' || c.worksheet?.worksheetType === 'anexo_7');
-    } else if (activeTab === 'corporate') {
-        filtered = filtered.filter(c => c.worksheet?.worksheetType === 'corporate_report');
+        tabFiltered = filtered.filter(c => c.worksheet?.worksheetType === 'anexo_5' || c.worksheet?.worksheetType === 'anexo_7');
+    } else { // corporate
+        tabFiltered = filtered.filter(c => c.worksheet?.worksheetType === 'corporate_report');
     }
 
     if (appliedFilters.isSearchActive) {
+      let finalFiltered = tabFiltered;
+
+      // Apply text and status filters
       if (appliedFilters.searchTerm) {
-          filtered = filtered.filter(c =>
+          finalFiltered = finalFiltered.filter(c =>
             c.ne.toLowerCase().includes(appliedFilters.searchTerm.toLowerCase()) ||
             c.consignee.toLowerCase().includes(appliedFilters.searchTerm.toLowerCase())
           );
       }
-      
       if (appliedFilters.noFacturado && !appliedFilters.facturado) {
-          filtered = filtered.filter(c => !c.facturado);
+          finalFiltered = finalFiltered.filter(c => !c.facturado);
       } else if (appliedFilters.facturado && !appliedFilters.noFacturado) {
-          filtered = filtered.filter(c => c.facturado === true);
+          finalFiltered = finalFiltered.filter(c => c.facturado === true);
       }
-  
+      // Apply date filter
       if (appliedFilters.dateRange?.from) {
           const start = startOfDay(appliedFilters.dateRange.from);
           const end = appliedFilters.dateRange.to ? endOfDay(appliedFilters.dateRange.to) : endOfDay(appliedFilters.dateRange.from);
-          
-          filtered = filtered.filter(item => {
+          finalFiltered = finalFiltered.filter(item => {
               const itemDate = item.createdAt?.toDate();
               return itemDate && itemDate >= start && itemDate <= end;
           });
       }
-  
-      if (neFilter) filtered = filtered.filter(c => c.ne.toLowerCase().includes(neFilter.toLowerCase()));
-      if (ejecutivoFilter) filtered = filtered.filter(c => c.executive.toLowerCase().includes(ejecutivoFilter.toLowerCase()));
-      if (consignatarioFilter) filtered = filtered.filter(c => c.consignee.toLowerCase().includes(consignatarioFilter.toLowerCase()));
+      
+      // Column filters
+      if (neFilter) finalFiltered = finalFiltered.filter(c => c.ne.toLowerCase().includes(neFilter.toLowerCase()));
+      if (ejecutivoFilter) finalFiltered = finalFiltered.filter(c => c.executive.toLowerCase().includes(ejecutivoFilter.toLowerCase()));
+      if (consignatarioFilter) finalFiltered = finalFiltered.filter(c => c.consignee.toLowerCase().includes(consignatarioFilter.toLowerCase()));
       if (facturaFilter) {
         const lowerCaseFilter = facturaFilter.toLowerCase();
-        filtered = filtered.filter(c => {
+        finalFiltered = finalFiltered.filter(c => {
           const facturas = c.worksheet?.worksheetType === 'corporate_report' 
             ? (c.worksheet.documents?.filter(d => d.type === 'FACTURA').map(d => d.number) || [])
             : (c.facturaNumber ? c.facturaNumber.split(';').map(f => f.trim()) : []);
           return facturas.some(f => f.toLowerCase().includes(lowerCaseFilter));
         });
       }
-      if (selectividadFilter) filtered = filtered.filter(c => (c.selectividad || 'N/A').toLowerCase().includes(selectividadFilter.toLowerCase()));
-      if (incidentTypeFilter) filtered = filtered.filter(c => getIncidentTypeDisplay(c).toLowerCase().includes(incidentTypeFilter.toLowerCase()));
+      if (selectividadFilter) finalFiltered = finalFiltered.filter(c => (c.selectividad || 'N/A').toLowerCase().includes(selectividadFilter.toLowerCase()));
+      if (incidentTypeFilter) finalFiltered = finalFiltered.filter(c => getIncidentTypeDisplay(c).toLowerCase().includes(incidentTypeFilter.toLowerCase()));
       
-      return filtered;
+      // --- New Search Hint Logic ---
+      if (finalFiltered.length === 0 && appliedFilters.searchTerm) {
+        const term = appliedFilters.searchTerm.toLowerCase();
+        const otherTabs: TabValue[] = ['worksheets', 'anexos', 'corporate'].filter(t => t !== activeTab);
+        
+        for (const tab of otherTabs) {
+          let hintFiltered: WorksheetWithCase[];
+          if (tab === 'worksheets') {
+              hintFiltered = filtered.filter(c => (c.worksheet?.worksheetType === 'hoja_de_trabajo' || c.worksheet?.worksheetType === undefined) && (c.ne.toLowerCase().includes(term) || c.consignee.toLowerCase().includes(term)));
+          } else if (tab === 'anexos') {
+              hintFiltered = filtered.filter(c => (c.worksheet?.worksheetType === 'anexo_5' || c.worksheet?.worksheetType === 'anexo_7') && (c.ne.toLowerCase().includes(term) || c.consignee.toLowerCase().includes(term)));
+          } else { // corporate
+              hintFiltered = filtered.filter(c => c.worksheet?.worksheetType === 'corporate_report' && (c.ne.toLowerCase().includes(term) || c.consignee.toLowerCase().includes(term)));
+          }
+          if (hintFiltered.length > 0) {
+            setSearchHint({ foundIn: tab, label: tab === 'worksheets' ? 'Hojas de Trabajo' : tab === 'anexos' ? 'Anexos' : 'Reportes Corporativos' });
+            break; // Stop at the first hint found
+          } else {
+            setSearchHint(null);
+          }
+        }
+      } else {
+        setSearchHint(null);
+      }
+      
+      return finalFiltered;
     } else {
         // Not searching, return top 15 of the current tab
-        return filtered.slice(0, 15);
+        setSearchHint(null);
+        return tabFiltered.slice(0, 15);
     }
   }, [allCases, appliedFilters, activeTab, neFilter, ejecutivoFilter, consignatarioFilter, facturaFilter, selectividadFilter, incidentTypeFilter]);
   
@@ -737,10 +772,24 @@ function ExecutivePageContent() {
     if (isLoading) {
       return <div className="flex justify-center items-center py-10"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>;
     }
-    if (paginatedCases.length === 0 && appliedFilters.isSearchActive) {
-      return <p className="text-muted-foreground text-center py-10">No se encontraron casos con los filtros actuales.</p>;
+    if (filteredCases.length === 0 && appliedFilters.isSearchActive) {
+      return (
+        <div className="text-center py-10">
+          <p className="text-muted-foreground">No se encontraron casos con los filtros actuales.</p>
+          {searchHint && (
+            <div className="mt-4 p-4 bg-blue-100 dark:bg-blue-900/30 border border-blue-300 dark:border-blue-700 rounded-md">
+              <p className="text-sm text-blue-800 dark:text-blue-200">
+                Se encontró una coincidencia en la pestaña de <span className="font-semibold">{searchHint.label}</span>.
+              </p>
+              <Button onClick={() => handleTabChange(searchHint.foundIn)} className="mt-2" size="sm">
+                Ir a {searchHint.label}
+              </Button>
+            </div>
+          )}
+        </div>
+      );
     }
-    if (paginatedCases.length === 0 && !appliedFilters.isSearchActive) {
+    if (filteredCases.length === 0 && !appliedFilters.isSearchActive) {
       return <p className="text-muted-foreground text-center py-10">No hay casos recientes para mostrar. Use la búsqueda para encontrar casos más antiguos.</p>;
     }
 
