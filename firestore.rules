@@ -127,6 +127,11 @@ service cloud.firestore {
         allow list: if isAdmin() || hasRole('invitado') || (isAuthenticated() && hasRole('coordinadora')) || (isAuthenticated() && hasRole('ejecutivo') && isOwner()) || isAgenteAduanero() || isSupervisor();
         allow update: if isAuthenticated() && (hasRole('ejecutivo') || isAdmin() || isAgenteAduanero() || isSupervisor() || hasRole('coordinadora') || hasRole('aforador'));
         allow delete: if isAdmin();
+
+        // Add rule for the 'aforo' subcollection
+        match /aforo/{document=**} {
+          allow read, write: if isAdmin() || isSupervisor();
+        }
     }
 
     match /Validaciones/{validacionId} {

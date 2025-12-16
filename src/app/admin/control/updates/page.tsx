@@ -6,7 +6,7 @@ import { AppShell } from '@/components/layout/AppShell';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Loader2, ArrowLeft, RefreshCw, Database } from 'lucide-react';
 import { db } from '@/lib/firebase';
-import { collection, getDocs, query, where, writeBatch, doc, getDoc, setDoc } from 'firebase/firestore';
+import { collection, getDocs, query, where, writeBatch, doc, getDoc, setDoc, documentId } from 'firebase/firestore';
 import type { AforoCase, Worksheet } from '@/types';
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
@@ -122,17 +122,24 @@ function AforoDataMigrator() {
             const allCases = aforoSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as AforoCase));
             
             const relevantCases = allCases.filter(c => c.worksheetId);
-            let casesToMigrateCount = 0;
+            const worksheetIds = relevantCases.map(c => c.worksheetId!);
 
-            for (const caseItem of relevantCases) {
-                if (caseItem.worksheetId) {
-                    const metadataRef = doc(db, 'worksheets', caseItem.worksheetId, 'aforo', 'metadata');
-                    const metadataSnap = await getDoc(metadataRef);
-                    if (!metadataSnap.exists()) {
-                        casesToMigrateCount++;
-                    }
-                }
+            if (worksheetIds.length === 0) {
+                 setStats({ totalCases: 0, casesToMigrate: 0 });
+                 setIsLoading(false);
+                 return;
             }
+
+            // Fetch all metadata docs in one go
+            const metadataPromises = worksheetIds.map(id => getDoc(doc(db, `worksheets/${id}/aforo/metadata`)));
+            const metadataSnapshots = await Promise.all(metadataPromises);
+
+            let casesToMigrateCount = 0;
+            metadataSnapshots.forEach((metadataSnap, index) => {
+                 if (!metadataSnap.exists()) {
+                    casesToMigrateCount++;
+                }
+            });
 
             setStats({ totalCases: relevantCases.length, casesToMigrate: casesToMigrateCount });
 
