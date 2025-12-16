@@ -10,7 +10,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Loader2, Search, SlidersHorizontal, MessageSquare, Download, Upload, GitCommit, Check, FileEdit } from 'lucide-react';
 import { db } from '@/lib/firebase';
-import { collection, query, onSnapshot, orderBy, Timestamp, where, type Query, getDocs, doc, writeBatch, getDoc } from 'firebase/firestore';
+import { collection, query, onSnapshot, orderBy, Timestamp, where, type Query, getDocs, doc, writeBatch, getDoc, documentId } from 'firebase/firestore';
 import type { Worksheet, RequiredPermit, AppUser, PermitDelivery, DocumentStatus } from '@/types';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
@@ -18,7 +18,7 @@ import { format, differenceInDays } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { MobilePermitCard } from '@/components/permisos/MobilePermitCard';
-import { PermitCommentModal } from '@/components/executive/PermitCommentModal';
+import { PermitCommentModal } from '../executive/PermitCommentModal';
 import { useToast } from '@/hooks/use-toast';
 import * as XLSX from 'xlsx';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -26,7 +26,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 import { PermitDeliveryTicket } from '@/components/permisos/PermitDeliveryTicket';
 import { cn } from '@/lib/utils';
-import { PermitDetailsModal } from '@/components/executive/worksheet/PermitDetailsModal';
+import { PermitDetailsModal } from '../executive/worksheet/PermitDetailsModal';
 import { permitOptions } from '@/lib/formData';
 import { RadioGroup, RadioGroupItem } from '../ui/radio-group';
 import Link from 'next/link';
@@ -145,7 +145,7 @@ export default function PermisosPage() {
         if (user.role === 'admin' || user.role === 'supervisor' || user.role === 'coordinadora') {
             q = query(worksheetsRef, orderBy('createdAt', 'desc'));
         } else if (user.role === 'ejecutivo' && user.visibilityGroup && user.visibilityGroup.length > 0) {
-            const groupEmails = Array.from(new Set([user.email, ...user.visibilityGroup.map(m => m.email)])).filter(Boolean);
+            const groupEmails = Array.from(new Set([user.email, ...user.visibilityGroup.map(m => m.email)])).filter(Boolean) as string[];
             q = query(worksheetsRef, where('createdBy', 'in', groupEmails), orderBy('createdAt', 'desc'));
         } else if (user.role === 'invitado') {
              const dirRef = collection(db, `users/${user.uid}/consigneeDirectory`);
@@ -515,7 +515,7 @@ export default function PermisosPage() {
             <div className="space-y-4">
                 {filteredPermits.map(permit => (
                     <MobilePermitCard 
-                        key={permit.id} 
+                        key={`${permit.worksheetId}-${permit.id}`} 
                         permit={permit} 
                         getStatusBadgeVariant={getStatusBadgeVariant} 
                     />
@@ -564,7 +564,7 @@ export default function PermisosPage() {
                         (permit.status !== 'Entregado' && daysLeft !== null && daysLeft <= 3) && 'bg-yellow-100 dark:bg-yellow-900/30'
                     );
                     return (
-                      <TableRow key={permit.id} className={rowClass}>
+                      <TableRow key={`${permit.worksheetId}-${permit.id}`} className={rowClass}>
                         <TableCell>
                            <Checkbox
                                 checked={selectedRows.includes(permit.id)}
@@ -777,3 +777,5 @@ export default function PermisosPage() {
     </>
   );
 }
+
+    
