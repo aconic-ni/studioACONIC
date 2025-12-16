@@ -13,6 +13,110 @@ import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
+function EntregadoAforoMigrator() {
+    const { toast } = useToast();
+    const [stats, setStats] = useState({ casesWithDate: 0, worksheetsToUpdate: 0 });
+    const [isLoading, setIsLoading] = useState(true);
+    const [isMigrating, setIsMigrating] = useState(false);
+
+    const fetchStats = useCallback(async () => {
+        setIsLoading(true);
+        try {
+            const q = query(collection(db, 'AforoCases'), where('entregadoAforoAt', '!=', null));
+            const querySnapshot = await getDocs(q);
+            const casesWithDate = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as AforoCase));
+            
+            let worksheetsToUpdateCount = 0;
+            for (const caseItem of casesWithDate) {
+                if (caseItem.worksheetId) {
+                    const wsRef = doc(db, 'worksheets', caseItem.worksheetId);
+                    const wsSnap = await getDoc(wsRef);
+                    if (wsSnap.exists() && !wsSnap.data().entregadoAforoAt) {
+                        worksheetsToUpdateCount++;
+                    }
+                }
+            }
+
+            setStats({ casesWithDate: casesWithDate.length, worksheetsToUpdate: worksheetsToUpdateCount });
+        } catch (error) {
+            console.error("Error fetching entregadoAforoAt stats:", error);
+            toast({ title: 'Error', description: 'No se pudieron cargar las estadísticas de migración.', variant: 'destructive'});
+        } finally {
+            setIsLoading(false);
+        }
+    }, [toast]);
+
+    useEffect(() => {
+        fetchStats();
+    }, [fetchStats]);
+
+    const handleMigration = async () => {
+        setIsMigrating(true);
+        toast({ title: 'Migración iniciada', description: 'Transfiriendo fechas de "Entregado a Aforo". Esto puede tardar unos minutos...'});
+        
+        try {
+            const q = query(collection(db, 'AforoCases'), where('entregadoAforoAt', '!=', null));
+            const querySnapshot = await getDocs(q);
+            const casesToProcess = querySnapshot.docs.map(doc => doc.data() as AforoCase);
+            
+            let migratedCount = 0;
+            const batch = writeBatch(db);
+
+            for (const caseData of casesToProcess) {
+                if (caseData.worksheetId && caseData.entregadoAforoAt) {
+                    const wsRef = doc(db, 'worksheets', caseData.worksheetId);
+                    const wsSnap = await getDoc(wsRef);
+                    // Only migrate if worksheet exists and doesn't have the field yet
+                    if (wsSnap.exists() && !wsSnap.data().entregadoAforoAt) {
+                         batch.update(wsRef, { entregadoAforoAt: caseData.entregadoAforoAt });
+                         migratedCount++;
+                    }
+                }
+            }
+
+            if (migratedCount > 0) {
+                await batch.commit();
+                toast({ title: 'Migración Completa', description: `${migratedCount} fechas de "Entregado a Aforo" han sido transferidas.` });
+            } else {
+                toast({ title: 'Sin cambios necesarios', description: 'Todos los datos de fecha de entrega ya están sincronizados.' });
+            }
+
+        } catch (error) {
+            console.error("Error during entregadoAforoAt migration:", error);
+            toast({ title: 'Error en Migración', description: 'Ocurrió un error al migrar las fechas.', variant: 'destructive'});
+        } finally {
+            setIsMigrating(false);
+            fetchStats();
+        }
+    };
+
+    return (
+        <Card>
+            <CardHeader>
+                <CardTitle>Migrador de Fechas "Entregado a Aforo"</CardTitle>
+                <CardDescription>
+                    Esta herramienta transfiere la fecha `entregadoAforoAt` desde `AforoCases` a los documentos `Worksheet` correspondientes.
+                </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+                {isLoading ? (
+                    <div className="flex items-center gap-2 text-muted-foreground"><Loader2 className="h-4 w-4 animate-spin"/>Cargando estadísticas...</div>
+                ) : (
+                    <div className="p-4 bg-muted/50 rounded-lg border">
+                        <p>Casos con fecha de entrega: <span className="font-bold">{stats.casesWithDate}</span></p>
+                        <p>Hojas de trabajo a actualizar: <span className="font-bold text-amber-600">{stats.worksheetsToUpdate}</span></p>
+                    </div>
+                )}
+                 <Button onClick={handleMigration} disabled={isLoading || isMigrating || stats.worksheetsToUpdate === 0}>
+                    {isMigrating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Database className="mr-2 h-4 w-4" />}
+                    {isMigrating ? 'Migrando Fechas...' : 'Ejecutar Migración de Fechas'}
+                 </Button>
+            </CardContent>
+        </Card>
+    );
+}
+
+
 function WorksheetTypeSynchronizer() {
     const { toast } = useToast();
     const [stats, setStats] = useState({ total: 0, missingType: 0 });
@@ -123,15 +227,29 @@ function AforoDataMigrator() {
             
             const relevantCases = allCases.filter(c => c.worksheetId);
             let casesToMigrateCount = 0;
+            const worksheetIds = relevantCases.map(c => c.worksheetId).filter(Boolean) as string[];
 
-            for (const caseItem of relevantCases) {
-                if (caseItem.worksheetId) {
-                    const metadataRef = doc(db, `worksheets/${caseItem.worksheetId}/aforo/metadata`);
-                    const metadataSnap = await getDoc(metadataRef);
-                    if (!metadataSnap.exists()) {
-                        casesToMigrateCount++;
+            if(worksheetIds.length > 0){
+                const metadataDocsPromises = [];
+                // Firestore 'in' query supports up to 30 items
+                for(let i = 0; i < worksheetIds.length; i += 30) {
+                    const chunk = worksheetIds.slice(i, i + 30);
+                    const metadataQuery = query(collection(db, 'worksheets'), where(documentId(), 'in', chunk));
+                    metadataDocsPromises.push(getDocs(metadataQuery));
+                }
+                const metadataSnapshots = await Promise.all(metadataDocsPromises);
+                
+                const existingMetadataWorksheetIds = new Set<string>();
+                for (const snapshot of metadataSnapshots) {
+                    for (const wsDoc of snapshot.docs) {
+                         const aforoSubColl = await getDocs(collection(db, `worksheets/${wsDoc.id}/aforo`));
+                         if (!aforoSubColl.empty) {
+                             existingMetadataWorksheetIds.add(wsDoc.id);
+                         }
                     }
                 }
+                
+                casesToMigrateCount = worksheetIds.filter(id => !existingMetadataWorksheetIds.has(id)).length;
             }
 
             setStats({ totalCases: relevantCases.length, casesToMigrate: casesToMigrateCount });
@@ -160,7 +278,8 @@ function AforoDataMigrator() {
                 .filter(c => c.worksheetId);
 
             let migratedCount = 0;
-
+            const batch = writeBatch(db);
+            
             for (const caseData of casesToProcess) {
                  if (caseData.worksheetId) {
                     const metadataRef = doc(db, `worksheets/${caseData.worksheetId}/aforo/metadata`);
@@ -168,7 +287,6 @@ function AforoDataMigrator() {
 
                     // Only migrate if it hasn't been migrated before
                     if (!metadataSnap.exists()) {
-                        const batch = writeBatch(db);
                         const dataToMigrate = {
                             aforador: caseData.aforador || null,
                             aforadorAssignedAt: caseData.assignmentDate || null,
@@ -192,13 +310,13 @@ function AforoDataMigrator() {
                             entregadoAforoAt: caseData.entregadoAforoAt || null, // Added field
                         };
                         batch.set(metadataRef, dataToMigrate, { merge: true });
-                        await batch.commit(); // Commit one by one to avoid large batch issues and check existence individually
                         migratedCount++;
                     }
                  }
             }
 
             if (migratedCount > 0) {
+                await batch.commit();
                 toast({ title: 'Migración Completa', description: `${migratedCount} registros de aforo han sido migrados a sus hojas de trabajo.` });
             } else {
                 toast({ title: 'Sin cambios necesarios', description: 'Todos los datos de aforo aplicables ya están migrados.' });
@@ -265,6 +383,7 @@ export default function UpdatesAdminPage() {
             <TabsContent value="sync" className="mt-4 grid gap-6">
                 <WorksheetTypeSynchronizer />
                 <AforoDataMigrator />
+                <EntregadoAforoMigrator />
             </TabsContent>
             <TabsContent value="stats" className="mt-4">
                 <p>Módulo de estadísticas en desarrollo.</p>
