@@ -49,9 +49,11 @@ function WorksheetTypeSynchronizer() {
         toast({ title: 'Sincronización iniciada', description: 'Buscando y actualizando casos. Esto puede tardar unos minutos...'});
         
         try {
-            const q = query(collection(db, 'AforoCases'), where('worksheetType', '==', null));
-            const casesToUpdateSnapshot = await getDocs(q);
-            if (casesToUpdateSnapshot.empty) {
+            // Fetch all cases and filter in the client, as querying for null/undefined is unreliable.
+            const allCasesSnapshot = await getDocs(collection(db, 'AforoCases'));
+            const casesToUpdate = allCasesSnapshot.docs.filter(doc => !doc.data().worksheetType);
+
+            if (casesToUpdate.length === 0) {
                 toast({ title: 'Todo al día', description: 'No se encontraron casos para actualizar.' });
                 setIsSyncing(false);
                 fetchStats();
@@ -61,7 +63,7 @@ function WorksheetTypeSynchronizer() {
             let updatedCount = 0;
             const batch = writeBatch(db);
 
-            for (const caseDoc of casesToUpdateSnapshot.docs) {
+            for (const caseDoc of casesToUpdate) {
                 const caseData = caseDoc.data();
                 if (caseData.worksheetId) {
                     const worksheetRef = doc(db, 'worksheets', caseData.worksheetId);
@@ -77,7 +79,7 @@ function WorksheetTypeSynchronizer() {
                 await batch.commit();
                 toast({ title: 'Sincronización Completa', description: `${updatedCount} casos han sido actualizados con su tipo de hoja de trabajo.` });
             } else {
-                 toast({ title: 'Sin cambios necesarios', description: 'No se encontraron hojas de trabajo correspondientes para los casos sin tipo.' });
+                 toast({ title: 'Sin cambios necesarios', description: 'Aunque se encontraron casos sin tipo, no se pudieron asociar a una hoja de trabajo para actualizar.' });
             }
         } catch (error) {
             console.error("Error during sync:", error);
