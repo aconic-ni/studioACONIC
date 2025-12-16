@@ -59,7 +59,6 @@ const requiredPermitSchema = z.object({
   comments: z.array(z.any()).optional(),
   tramiteDate: z.custom<Timestamp>().optional().nullable(),
   estimatedDeliveryDate: z.custom<Timestamp>().optional().nullable(),
-  recibo: z.string().optional(),
   // Unified field
   tipoTramite: z.string().optional(),
   // INE Specific fields
@@ -468,7 +467,6 @@ function WorksheetForm() {
             resaNotificationDate: data.resaNotificationDate ? Timestamp.fromDate(data.resaNotificationDate) : null,
             resaDueDate: data.resaDueDate ? Timestamp.fromDate(data.resaDueDate) : null,
             lastUpdatedAt: Timestamp.now(),
-            createdBy: originalWorksheet?.createdBy || user.email // Preserve original creator
         };
         batch.update(worksheetDocRef, updatedWorksheetData);
         batch.update(aforoCaseDocRef, {
@@ -924,7 +922,7 @@ function WorksheetForm() {
                 <FormField control={form.control} name="description" render={({ field }) => (
                     <FormItem>
                         <FormLabel>Descripción de la Mercancía *</FormLabel>
-                        <FormControl><Textarea rows={3} placeholder="Breve descripción de la mercancía" {...field} /></FormControl>
+                        <FormControl><Textarea rows={3} placeholder="Breve descripción de la mercancía" {...field} value={field.value ?? ''} /></FormControl>
                         <FormMessage />
                     </FormItem>
                 )}/>
@@ -1214,7 +1212,7 @@ function WorksheetForm() {
 
             <div className="pt-4 border-t">
                 <FormField control={form.control} name="observations" render={({ field }) => (
-                    <FormItem><FormLabel>Observaciones</FormLabel><FormControl><Textarea {...field} placeholder="Añada cualquier observación adicional aquí..."/></FormControl><FormMessage /></FormItem>
+                    <FormItem><FormLabel>Observaciones</FormLabel><FormControl><Textarea {...field} placeholder="Añada cualquier observación adicional aquí..." value={field.value ?? ''}/></FormControl><FormMessage /></FormItem>
                 )}/>
             </div>
             <div className="flex justify-end gap-2 pt-6">
