@@ -122,6 +122,15 @@ const worksheetSchema = z.object({
 .refine(data => !data.operationType || (data.operationType && data.patternRegime && data.patternRegime.trim() !== ''), {
     message: "El Modelo (Patrón) es requerido si se especifica un Tipo de Operación.",
     path: ["patternRegime"],
+})
+.refine(data => {
+    if (data.consignee.toUpperCase().trim() === "PSMT NICARAGUA, SOCIEDAD ANONIMA") {
+      return !!data.aforador && data.aforador.trim() !== '';
+    }
+    return true;
+  }, {
+    message: "Debe seleccionar un aforador para PSMT.",
+    path: ["aforador"],
 });
 
 
@@ -419,13 +428,16 @@ function WorksheetForm() {
       const batch = writeBatch(db);
 
       try {
+        // Exclude createdBy from the update payload
+        const { createdBy, ...restOfData } = data;
         const updatedWorksheetData = { 
-            ...data, 
+            ...restOfData, 
             eta: data.eta ? Timestamp.fromDate(data.eta) : null,
             lastUpdatedAt: Timestamp.now(),
-            createdBy: originalWorksheet?.createdBy || user.email, // Preserve original creator
         };
+
         batch.update(worksheetDocRef, updatedWorksheetData);
+        
         batch.update(aforoCaseDocRef, {
             executive: data.executive,
             consignee: data.consignee,
@@ -481,6 +493,7 @@ function WorksheetForm() {
 
         const batch = writeBatch(db);
         const creationTimestamp = Timestamp.now();
+        const createdByInfo = { by: user.displayName, at: creationTimestamp };
   
         const worksheetData: Worksheet = { 
             ...data, 
@@ -506,12 +519,19 @@ function WorksheetForm() {
             aforador: data.aforador || '',
             assignmentDate: (data.aforador && data.aforador !== '-') ? creationTimestamp : null,
             aforadorStatus: 'Pendiente ',
+            aforadorStatusLastUpdate: createdByInfo,
             revisorStatus: 'Pendiente',
+            revisorStatusLastUpdate: createdByInfo,
             preliquidationStatus: 'Pendiente',
+            preliquidationStatusLastUpdate: createdByInfo,
             digitacionStatus: 'Pendiente',
+            digitacionStatusLastUpdate: createdByInfo,
             incidentStatus: 'Pendiente',
+            incidentStatusLastUpdate: createdByInfo,
             revisorAsignado: '',
+            revisorAsignadoLastUpdate: createdByInfo,
             digitadorAsignado: '',
+            digitadorAsignadoLastUpdate: createdByInfo,
             worksheetId: neTrimmed,
             entregadoAforoAt: creationTimestamp,
         };
