@@ -1,6 +1,6 @@
 
-"use client";
-import React, { useEffect, useState } from 'react';
+"use server";
+import React from 'react';
 import Image from 'next/image';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
@@ -16,6 +16,7 @@ import { WorksheetDetails } from '../WorksheetDetails';
 import { cn } from "@/lib/utils";
 import { db } from '@/lib/firebase';
 import Link from 'next/link';
+import { Anexo5PrintButton } from './Anexo5PrintButton';
 
 const formatShortDate = (timestamp: Timestamp | Date | null | undefined): string => {
   if (!timestamp) return '';
@@ -76,26 +77,15 @@ const SignatureSection: React.FC<{
 };
 
 
-export const Anexo7Details: React.FC<{ worksheet: Worksheet; onClose: () => void; }> = ({ worksheet, onClose }) => {
-  const [agente, setAgente] = useState<AppUser | null>(null);
-
-  useEffect(() => {
-    const fetchAgent = async () => {
-        if (worksheet.aforador && worksheet.aforador !== '-') {
-            const q = query(collection(db, 'users'), where('displayName', '==', worksheet.aforador));
-            const querySnapshot = await getDocs(q);
-            if (!querySnapshot.empty) {
-                const agentData = querySnapshot.docs[0].data() as AppUser;
-                setAgente(agentData);
-            }
-        }
-    };
-    fetchAgent();
-  }, [worksheet.aforador]);
-
-  const handlePrint = () => {
-    window.print();
-  };
+export async function Anexo7Details({ worksheet, onClose }: { worksheet: Worksheet; onClose: () => void; }) {
+  let agente: AppUser | null = null;
+  if (worksheet.aforador && worksheet.aforador !== '-') {
+      const q = query(collection(db, 'users'), where('displayName', '==', worksheet.aforador));
+      const querySnapshot = await getDocs(q);
+      if (!querySnapshot.empty) {
+          agente = querySnapshot.docs[0].data() as AppUser;
+      }
+  }
   
   const productHeaders = ["CANTIDAD", "ORIGEN", "UM", "SAC", "PESO", "DESCRIPCIÓN", "BULTOS", "VALOR"];
   
@@ -294,9 +284,7 @@ export const Anexo7Details: React.FC<{ worksheet: Worksheet; onClose: () => void
         <Button type="button" onClick={onClose} variant="outline">
           Cerrar
         </Button>
-        <Button type="button" onClick={handlePrint} variant="default">
-          <Printer className="mr-2 h-4 w-4" /> Imprimir
-        </Button>
+        <Anexo5PrintButton />
       </CardFooter>
     </Card>
     </>
