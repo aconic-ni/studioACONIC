@@ -122,24 +122,15 @@ function AforoDataMigrator() {
             const allCases = aforoSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as AforoCase));
             
             const relevantCases = allCases.filter(c => c.worksheetId);
-            const worksheetIds = relevantCases.map(c => c.worksheetId!);
-
-            if (worksheetIds.length === 0) {
-                 setStats({ totalCases: 0, casesToMigrate: 0 });
-                 setIsLoading(false);
-                 return;
-            }
-
-            // Fetch all metadata docs in one go
-            const metadataPromises = worksheetIds.map(id => getDoc(doc(db, `worksheets/${id}/aforo/metadata`)));
-            const metadataSnapshots = await Promise.all(metadataPromises);
-
             let casesToMigrateCount = 0;
-            metadataSnapshots.forEach((metadataSnap, index) => {
-                 if (!metadataSnap.exists()) {
+
+            for (const caseItem of relevantCases) {
+                const metadataRef = doc(db, `worksheets/${caseItem.worksheetId}/aforo/metadata`);
+                const metadataSnap = await getDoc(metadataRef);
+                if (!metadataSnap.exists()) {
                     casesToMigrateCount++;
                 }
-            });
+            }
 
             setStats({ totalCases: relevantCases.length, casesToMigrate: casesToMigrateCount });
 
@@ -160,7 +151,7 @@ function AforoDataMigrator() {
         toast({ title: 'Migración iniciada', description: 'Transfiriendo datos de aforo. Esto puede tardar unos minutos...'});
         
         try {
-            const q = query(collection(db, 'AforoCases'));
+            const q = query(collection(db, 'AforoCases'), where('worksheetId', '!=', null));
             const querySnapshot = await getDocs(q);
             const casesToProcess = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as AforoCase));
 
