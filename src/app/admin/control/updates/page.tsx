@@ -116,6 +116,106 @@ function EntregadoAforoMigrator() {
     );
 }
 
+function TotalPosicionesMigrator() {
+    const { toast } = useToast();
+    const [stats, setStats] = useState({ casesWithData: 0, worksheetsToUpdate: 0 });
+    const [isLoading, setIsLoading] = useState(true);
+    const [isMigrating, setIsMigrating] = useState(false);
+
+    const fetchStats = useCallback(async () => {
+        setIsLoading(true);
+        try {
+            const q = query(collection(db, 'AforoCases'), where('totalPosiciones', '>', 0));
+            const querySnapshot = await getDocs(q);
+            const casesWithData = querySnapshot.docs.map(doc => doc.data() as AforoCase);
+            
+            let worksheetsToUpdateCount = 0;
+            for (const caseItem of casesWithData) {
+                if (caseItem.worksheetId) {
+                    const metadataRef = doc(db, `worksheets/${caseItem.worksheetId}/aforo/metadata`);
+                    const metadataSnap = await getDoc(metadataRef);
+                    if (!metadataSnap.exists() || !metadataSnap.data().totalPosiciones) {
+                        worksheetsToUpdateCount++;
+                    }
+                }
+            }
+            setStats({ casesWithData: casesWithData.length, worksheetsToUpdate: worksheetsToUpdateCount });
+        } catch (error) {
+            console.error("Error fetching totalPosiciones stats:", error);
+            toast({ title: 'Error', description: 'No se pudieron cargar las estadísticas de migración de posiciones.', variant: 'destructive'});
+        } finally {
+            setIsLoading(false);
+        }
+    }, [toast]);
+
+    useEffect(() => {
+        fetchStats();
+    }, [fetchStats]);
+
+    const handleMigration = async () => {
+        setIsMigrating(true);
+        toast({ title: 'Migración iniciada', description: 'Transfiriendo el total de posiciones...'});
+        
+        try {
+            const q = query(collection(db, 'AforoCases'), where('totalPosiciones', '>', 0));
+            const querySnapshot = await getDocs(q);
+            const casesToProcess = querySnapshot.docs.map(doc => doc.data() as AforoCase);
+            
+            const batch = writeBatch(db);
+            let migratedCount = 0;
+
+            for (const caseData of casesToProcess) {
+                if (caseData.worksheetId && caseData.totalPosiciones) {
+                    const metadataRef = doc(db, 'worksheets', caseData.worksheetId, 'aforo', 'metadata');
+                    const metadataSnap = await getDoc(metadataRef);
+                    if (!metadataSnap.exists() || !metadataSnap.data().totalPosiciones) {
+                        batch.set(metadataRef, { totalPosiciones: caseData.totalPosiciones }, { merge: true });
+                        migratedCount++;
+                    }
+                }
+            }
+
+            if (migratedCount > 0) {
+                await batch.commit();
+                toast({ title: 'Migración Completa', description: `${migratedCount} registros de 'totalPosiciones' han sido migrados.` });
+            } else {
+                toast({ title: 'Sin cambios necesarios', description: 'Todos los datos de posiciones ya están sincronizados.' });
+            }
+        } catch (error) {
+            console.error("Error during totalPosiciones migration:", error);
+            toast({ title: 'Error en Migración', description: 'Ocurrió un error al migrar las posiciones.', variant: 'destructive'});
+        } finally {
+            setIsMigrating(false);
+            fetchStats();
+        }
+    };
+
+    return (
+        <Card>
+            <CardHeader>
+                <CardTitle>Migrador de Total de Posiciones</CardTitle>
+                <CardDescription>
+                    Esta herramienta transfiere el valor de `totalPosiciones` desde `AforoCases` a la subcolección `aforo/metadata` en `Worksheets`.
+                </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+                {isLoading ? (
+                    <div className="flex items-center gap-2 text-muted-foreground"><Loader2 className="h-4 w-4 animate-spin"/>Cargando estadísticas...</div>
+                ) : (
+                    <div className="p-4 bg-muted/50 rounded-lg border">
+                        <p>Casos con Total de Posiciones: <span className="font-bold">{stats.casesWithData}</span></p>
+                        <p>Registros de metadata a actualizar: <span className="font-bold text-amber-600">{stats.worksheetsToUpdate}</span></p>
+                    </div>
+                )}
+                 <Button onClick={handleMigration} disabled={isLoading || isMigrating || stats.worksheetsToUpdate === 0}>
+                    {isMigrating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Database className="mr-2 h-4 w-4" />}
+                    {isMigrating ? 'Migrando Posiciones...' : 'Ejecutar Migración de Posiciones'}
+                 </Button>
+            </CardContent>
+        </Card>
+    );
+}
+
 
 function WorksheetTypeSynchronizer() {
     const { toast } = useToast();
@@ -384,6 +484,7 @@ export default function UpdatesAdminPage() {
                 <WorksheetTypeSynchronizer />
                 <AforoDataMigrator />
                 <EntregadoAforoMigrator />
+                <TotalPosicionesMigrator />
             </TabsContent>
             <TabsContent value="stats" className="mt-4">
                 <p>Módulo de estadísticas en desarrollo.</p>
