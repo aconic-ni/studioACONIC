@@ -1,12 +1,13 @@
 
+      
 "use client";
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useRef } from 'react';
 import type { Worksheet } from '@/types';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Button } from '@/components/ui/button';
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from '@/components/ui/dropdown-menu';
-import { MoreHorizontal, UserCheck, MessageSquare, Eye, Edit, Repeat } from 'lucide-react';
+import { MoreHorizontal, UserCheck, MessageSquare, Eye, Edit, Repeat, Upload, Download, FileUp } from 'lucide-react';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { Badge } from '@/components/ui/badge';
@@ -25,6 +26,7 @@ import {
   DialogDescription,
   DialogFooter,
 } from "@/components/ui/dialog";
+import * as XLSX from 'xlsx';
 
 interface GestionLocalTableProps {
   worksheets: Worksheet[];
@@ -41,7 +43,11 @@ export function GestionLocalTable({ worksheets, selectedRows, setSelectedRows, o
   const { user } = useAuth();
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(30);
-  const [statusModal, setStatusModal] = useState<{ isOpen: boolean; worksheet?: Worksheet | null; type: 'aforador' | 'digitador' }>({ isOpen: false });
+  const [statusModal, setStatusModal] = useState<{ isOpen: boolean; worksheet?: Worksheet | null; type: 'aforador' | 'digitador' | 'bulk-aforador' | 'bulk-digitador' }>({ isOpen: false });
+  const [isImporting, setIsImporting] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [isBulkCompleteModalOpen, setIsBulkCompleteModalOpen] = useState(false);
+
 
   const totalPages = Math.ceil(worksheets.length / itemsPerPage);
   const paginatedWorksheets = useMemo(() => {
@@ -69,11 +75,48 @@ export function GestionLocalTable({ worksheets, selectedRows, setSelectedRows, o
       return format(date, 'dd/MM/yyyy');
   };
   
+  const handleBulkAction = async (type: 'aforadorStatus' | 'digitadorStatus', value: string) => {
+    if (!user || !user.displayName || selectedRows.length === 0) return;
+
+    if (type === 'digitadorStatus' && value === 'Trámite Completo') {
+        setIsBulkCompleteModalOpen(true);
+        setStatusModal({isOpen: false}); // Close the status selection modal
+        return;
+    }
+
+    const batch = writeBatch(db);
+    selectedRows.forEach(wsId => {
+        const worksheetRef = doc(db, 'worksheets', wsId, 'aforo', 'metadata');
+        batch.set(worksheetRef, {
+            [type]: value,
+            [`${type}LastUpdate`]: { by: user.displayName, at: Timestamp.now() }
+        }, { merge: true });
+    });
+
+    try {
+        await batch.commit();
+        toast({ title: 'Actualización Masiva Exitosa', description: `${selectedRows.length} registros actualizados.`});
+        onRefresh();
+        setSelectedRows([]);
+    } catch(e) {
+        console.error("Bulk update error:", e);
+        toast({ title: "Error", description: "No se pudo completar la acción masiva.", variant: "destructive"});
+    }
+    setStatusModal({isOpen: false});
+  };
+
   const handleStatusUpdate = async (worksheetId: string, newStatus: string, type: 'aforador' | 'digitador') => {
     if (!user || !user.displayName) {
         toast({ title: 'Error', description: 'Debe estar autenticado.', variant: 'destructive'});
         return;
     }
+
+    if (type === 'digitador' && newStatus === 'Trámite Completo') {
+        const ws = worksheets.find(w => w.id === worksheetId);
+        setStatusModal({isOpen: true, worksheet: ws, type: 'digitador'});
+        return;
+    }
+
     const worksheetRef = doc(db, 'worksheets', worksheetId, 'aforo', 'metadata');
     try {
         const fieldName = type === 'aforador' ? 'aforadorStatus' : 'digitadorStatus';
@@ -121,8 +164,87 @@ export function GestionLocalTable({ worksheets, selectedRows, setSelectedRows, o
      }
   }
   
+  const handleDownloadTemplate = (forBulkComplete = false) => {
+    let data;
+    if (forBulkComplete && selectedRows.length > 0) {
+        data = selectedRows.map(id => ({ NE: id, 'Declaracion Aduanera': '' }));
+    } else {
+        data = [{ NE: '', 'Declaracion Aduanera': '' }];
+    }
+    const ws = XLSX.utils.json_to_sheet(data);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Declaraciones");
+    XLSX.writeFile(wb, "plantilla_declaraciones.xlsx");
+  };
+
+  const handleFileImport = async (event: React.ChangeEvent<HTMLInputElement>, isForBulkComplete = false) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    setIsImporting(true);
+    toast({ title: "Importando...", description: "Procesando el archivo Excel." });
+    
+    const reader = new FileReader();
+    reader.onload = async (e) => {
+      try {
+        const data = new Uint8Array(e.target?.result as ArrayBuffer);
+        const workbook = XLSX.read(data, { type: 'array' });
+        const sheetName = workbook.SheetNames[0];
+        const worksheet = workbook.Sheets[sheetName];
+        const json: any[] = XLSX.utils.sheet_to_json(worksheet);
+
+        const batch = writeBatch(db);
+        let updatedCount = 0;
+        let neToUpdate = new Set(isForBulkComplete ? selectedRows : json.map(row => String(row['NE']).trim().toUpperCase()));
+
+        for (const row of json) {
+          const ne = String(row['NE']).trim().toUpperCase();
+          const declaracion = String(row['Declaracion Aduanera'] || '').trim();
+
+          if (ne && declaracion && neToUpdate.has(ne)) {
+            const worksheetRef = doc(db, 'worksheets', ne, 'aforo', 'metadata');
+            const updatePayload: any = { declaracionAduanera: declaracion };
+            if (isForBulkComplete) {
+                updatePayload.digitadorStatus = 'Trámite Completo';
+            }
+            batch.set(worksheetRef, updatePayload, { merge: true });
+            updatedCount++;
+          }
+        }
+        
+        if (updatedCount > 0) {
+            await batch.commit();
+            toast({ title: "Importación Completa", description: `${updatedCount} declaraciones han sido actualizadas.` });
+            onRefresh();
+            if(isForBulkComplete) {
+                setIsBulkCompleteModalOpen(false);
+                setSelectedRows([]);
+            }
+        } else {
+            toast({ title: "Sin Cambios", description: "No se encontraron NEs coincidentes en el archivo para actualizar." });
+        }
+
+      } catch (error: any) {
+        toast({ title: "Error de Importación", description: error.message || "Hubo un problema al leer el archivo Excel.", variant: "destructive" });
+      } finally {
+        setIsImporting(false);
+        if (fileInputRef.current) fileInputRef.current.value = "";
+      }
+    };
+    reader.readAsArrayBuffer(file);
+  };
+  
   return (
     <>
+    <div className="flex items-center gap-2 p-2">
+        <Button variant="outline" size="sm" onClick={() => fileInputRef.current?.click()} disabled={isImporting}>
+            {isImporting ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : <Upload className="mr-2 h-4 w-4" />} Importar Declaraciones
+        </Button>
+        <Button onClick={() => handleDownloadTemplate(false)} variant="outline" size="sm">
+            <Download className="mr-2 h-4 w-4" /> Plantilla
+        </Button>
+         <input type="file" ref={fileInputRef} onChange={handleFileImport} className="hidden" accept=".xlsx, .xls" />
+    </div>
     <div className="overflow-x-auto table-container rounded-lg border">
       <Table>
         <TableHeader>
@@ -197,7 +319,10 @@ export function GestionLocalTable({ worksheets, selectedRows, setSelectedRows, o
                  </div>
               </TableCell>
               <TableCell>
-                  <Badge variant="secondary">{aforoData?.revisor || 'N/A'}</Badge>
+                  <div className="flex items-center gap-1">
+                    <Badge variant="secondary">{aforoData?.revisor || 'N/A'}</Badge>
+                    <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => onAssign(ws, 'revisor')}><Edit className="h-3 w-3"/></Button>
+                  </div>
               </TableCell>
               <TableCell>
                  <div className="flex items-center gap-1">
@@ -276,13 +401,21 @@ export function GestionLocalTable({ worksheets, selectedRows, setSelectedRows, o
     <Dialog open={statusModal.isOpen} onOpenChange={() => setStatusModal({ isOpen: false })}>
         <DialogContent>
             <DialogHeader>
-                <DialogTitle>Cambiar Estado de {statusModal.type === 'aforador' ? 'Aforador' : 'Digitador'}</DialogTitle>
-                <DialogDescription>Seleccione el nuevo estado para el NE: {statusModal.worksheet?.ne}</DialogDescription>
+                <DialogTitle>Cambiar Estado de {statusModal.type?.includes('aforador') ? 'Aforador' : 'Digitador'} {statusModal.type?.includes('bulk') ? 'Masivo' : ''}</DialogTitle>
+                <DialogDescription>
+                    {statusModal.worksheet ? `Seleccione el nuevo estado para el NE: ${statusModal.worksheet.ne}` : `Seleccione el estatus a aplicar a los ${selectedRows.length} casos seleccionados.`}
+                </DialogDescription>
             </DialogHeader>
-            <Select onValueChange={(value) => handleStatusUpdate(statusModal.worksheet!.id, value, statusModal.type!)}>
+            <Select onValueChange={(value) => {
+                if (statusModal.worksheet) {
+                    handleStatusUpdate(statusModal.worksheet.id, value, statusModal.type as 'aforador' | 'digitador');
+                } else if (statusModal.type) {
+                    handleBulkAction(statusModal.type.split('-')[1] as 'aforadorStatus' | 'digitadorStatus', value);
+                }
+            }}>
                 <SelectTrigger><SelectValue placeholder="Seleccionar estado..." /></SelectTrigger>
                 <SelectContent>
-                    {statusModal.type === 'aforador' ? (
+                    {statusModal.type?.includes('aforador') ? (
                         <>
                             <SelectItem value="Pendiente">Pendiente</SelectItem>
                             <SelectItem value="En proceso">En proceso</SelectItem>
@@ -304,6 +437,31 @@ export function GestionLocalTable({ worksheets, selectedRows, setSelectedRows, o
             </DialogFooter>
         </DialogContent>
     </Dialog>
+     <Dialog open={isBulkCompleteModalOpen} onOpenChange={setIsBulkCompleteModalOpen}>
+        <DialogContent>
+            <DialogHeader>
+                <DialogTitle>Completar Trámite Masivo</DialogTitle>
+                <DialogDescription>
+                    Descargue la plantilla, llene los números de declaración para los {selectedRows.length} casos seleccionados y súbala para finalizar.
+                </DialogDescription>
+            </DialogHeader>
+            <div className="flex flex-col gap-4 py-4">
+                 <Button onClick={() => handleDownloadTemplate(true)} variant="secondary">
+                    <Download className="mr-2 h-4 w-4" /> Descargar Plantilla con NEs
+                </Button>
+                <Button onClick={() => fileInputRef.current?.click()} disabled={isImporting}>
+                    {isImporting ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : <FileUp className="mr-2 h-4 w-4" />}
+                    Subir Plantilla Completada
+                </Button>
+                 <input type="file" ref={fileInputRef} onChange={(e) => handleFileImport(e, true)} className="hidden" accept=".xlsx, .xls" />
+            </div>
+            <DialogFooter>
+                <Button variant="outline" onClick={() => setIsBulkCompleteModalOpen(false)}>Cancelar</Button>
+            </DialogFooter>
+        </DialogContent>
+    </Dialog>
     </>
   );
 }
+
+    
