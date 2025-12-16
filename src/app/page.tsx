@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardTitle, CardDescription } from '@/components/ui/card';
 import { roleConfig } from '@/lib/roles';
 import type { UserRole } from '@/types';
+import Image from 'next/image';
 
 export default function HomePage() {
   const { user, loading } = useAuth();
@@ -67,7 +68,7 @@ export default function HomePage() {
        <main className="flex flex-col md:flex-row items-center gap-x-4 gap-y-8">
         <Card className="w-80 h-96 bg-card text-card-foreground rounded-xl custom-shadow flex flex-col justify-center">
             <CardContent className="flex flex-col items-center justify-center text-center gap-6 p-8">
-                <FileText className="h-20 w-20 text-primary" strokeWidth={1.5} />
+                <Image src="/imagenes/LOGOAPP.svg" alt="App Logo" width={80} height={80} className="h-20 w-20 text-primary" />
                 <div className="space-y-1">
                     <CardTitle className="font-montserrat text-4xl">
                         <span className="font-semibold">EX'</span>
