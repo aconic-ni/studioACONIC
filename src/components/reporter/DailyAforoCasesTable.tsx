@@ -1,4 +1,3 @@
-
 "use client";
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { db } from '@/lib/firebase';
@@ -1033,7 +1032,7 @@ export function DailyAforoCasesTable({ cases, isLoading, error, onRefresh }: Dai
             description={assignmentModal.case ? `Seleccione un usuario para asignar al caso NE: ${assignmentModal.case.ne}` : `Seleccione un usuario para asignar a los ${selectedRows.length} casos seleccionados.`}
         />
     )}
-     <Dialog open={statusModal.isOpen} onOpenChange={() => setStatusModal({isOpen: false})}>
+     <Dialog open={statusModal.isOpen} onOpenChange={() => setStatusModal({isOpen: false, caseData: undefined})}>
           <DialogContent>
               <DialogHeader>
                   <DialogTitle>Asignar Estatus de Aforador Masivo</DialogTitle>
