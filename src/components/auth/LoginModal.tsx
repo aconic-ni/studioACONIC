@@ -1,3 +1,4 @@
+
 "use client";
 import { useState, type FormEvent } from 'react';
 import { signInWithEmailAndPassword, type Auth } from 'firebase/auth';
@@ -9,6 +10,7 @@ import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
 import { X, Mail, Lock, Eye, EyeOff } from 'lucide-react';
+import Image from 'next/image';
 
 interface LoginModalProps {
   isOpen: boolean;
@@ -95,9 +97,13 @@ export function LoginModal({ isOpen, onClose, onLoginSuccess, targetSystem }: Lo
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
       <DialogContent className="sm:max-w-md glass-effect text-foreground border-border/30">
         <DialogHeader>
-          <DialogTitle className="text-2xl font-bold text-foreground">
-            {targetSystem === 'reporter' ? 'Customs Reports' : 'CustomsEX-p'}
-          </DialogTitle>
+          <div className="flex items-center gap-3">
+            <Image src="/imagenes/LOGOAPP.svg" alt="App Logo" width={32} height={32} className="h-8 w-8" />
+            <h1 className="font-montserrat text-2xl md:text-3xl text-foreground leading-none">
+                <span className="font-semibold">EX'</span>
+                <span className="font-light">OS</span>
+            </h1>
+          </div>
           <button
             onClick={onClose}
             className="absolute right-4 top-4 rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none data-[state=open]:bg-accent data-[state=open]:text-muted-foreground"
