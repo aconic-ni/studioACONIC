@@ -25,6 +25,17 @@ import {
   DialogDescription,
   DialogFooter,
 } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import * as XLSX from 'xlsx';
 import { Label } from '../ui/label';
 import { Switch } from '../ui/switch';
@@ -542,7 +553,7 @@ export function GestionLocalTable({ worksheets, selectedRows, setSelectedRows, o
      <AlertDialog open={bulkActionResult.isOpen} onOpenChange={(isOpen) => setBulkActionResult(prev => ({...prev, isOpen}))}>
         <AlertDialogContent>
             <AlertDialogHeader>
-                <DialogTitle>Resultado de la Operación Masiva</DialogTitle>
+                <AlertDialogTitle>Resultado de la Operación Masiva</AlertDialogTitle>
                 <AlertDialogDescription>
                     <div className="space-y-4 max-h-60 overflow-y-auto">
                         {bulkActionResult.success.length > 0 && (
