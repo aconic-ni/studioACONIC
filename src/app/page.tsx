@@ -2,11 +2,10 @@
 "use client";
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { FileText, Loader2 } from 'lucide-react';
+import { Loader2 } from 'lucide-react';
 import { LoginModal } from '@/components/auth/LoginModal';
 import { useAuth } from '@/context/AuthContext';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardTitle, CardDescription } from '@/components/ui/card';
 import { roleConfig } from '@/lib/roles';
 import type { UserRole } from '@/types';
 import Image from 'next/image';
@@ -17,43 +16,37 @@ export default function HomePage() {
   const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
 
   useEffect(() => {
-    if (!loading) {
-      if (user) {
-        // User is logged in, redirect based on role
-        let roleToUse: UserRole;
+    // Only handle redirection for logged-in users.
+    // The modal opening is now handled by the button's onClick.
+    if (!loading && user) {
+      let roleToUse: UserRole;
 
-        if (user.role === 'supervisor') {
-            roleToUse = 'supervisor';
-        } else if (user.roleTitle === 'agente aduanero') {
-            roleToUse = 'agente';
-        } else {
-            roleToUse = user.role || 'gestor';
-        }
-        
-        const config = roleConfig[roleToUse];
-        if (config) {
-            router.push(config.home);
-        } else {
-            router.push('/examiner'); // Fallback
-        }
+      if (user.role === 'supervisor') {
+          roleToUse = 'supervisor';
+      } else if (user.roleTitle === 'agente aduanero') {
+          roleToUse = 'agente';
       } else {
-        // No user, open the login modal
-        setIsLoginModalOpen(true);
+          roleToUse = user.role || 'gestor';
+      }
+      
+      const config = roleConfig[roleToUse];
+      if (config) {
+          router.push(config.home);
+      } else {
+          router.push('/examiner'); // Fallback
       }
     }
   }, [user, loading, router]);
   
   const handleLoginSuccess = () => {
     setIsLoginModalOpen(false);
-    // Redirection is handled by the useEffect
+    // The useEffect will handle redirection after user state is updated.
   };
 
   const handleModalClose = () => {
-    // If the modal is closed without logging in, we keep it closed.
     setIsLoginModalOpen(false);
   };
 
-  // While loading, show a full-screen spinner
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center grid-bg">
@@ -61,8 +54,18 @@ export default function HomePage() {
       </div>
     );
   }
+  
+  // If user is logged in, show loader while redirecting.
+  if (user) {
+    return (
+      <div className="min-h-screen flex items-center justify-center grid-bg">
+        <Loader2 className="h-16 w-16 animate-spin text-white" />
+        <p className="ml-4 text-white">Redirigiendo...</p>
+      </div>
+    );
+  }
 
-  // Always render the main page content. The modal will appear on top.
+  // Render the main page for non-logged-in users
   return (
     <div className="min-h-screen flex flex-col justify-between grid-bg text-white p-4">
        <main className="flex flex-col items-center justify-center text-center gap-6 p-8 flex-grow">
@@ -76,9 +79,15 @@ export default function HomePage() {
                   Examiner Operative System
               </p>
           </div>
+           <Button 
+                onClick={() => setIsLoginModalOpen(true)} 
+                variant="secondary"
+                className="mt-8 px-8 py-6 text-lg"
+            >
+                Iniciar Sesión
+            </Button>
       </main>
       
-      {/* The LoginModal is now controlled by the state and will overlay the main content */}
       <LoginModal
         isOpen={isLoginModalOpen}
         onClose={handleModalClose}
