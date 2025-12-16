@@ -428,7 +428,7 @@ function WorksheetForm() {
       const batch = writeBatch(db);
 
       try {
-        const { createdBy, ...restOfData } = data;
+        const { createdBy, ...restOfData } = data; // Exclude createdBy from the update data
         const updatedWorksheetData = { 
             ...restOfData, 
             eta: data.eta ? Timestamp.fromDate(data.eta) : null,
@@ -455,7 +455,7 @@ function WorksheetForm() {
 
       } catch(serverError: any) {
          const permissionError = new FirestorePermissionError({
-          path: `batch update to worksheets/${editingWorksheetId} and AforoCases/${editingWorksheetId}`,
+          path: `batch update to worksheets/${editingWorksheetId}`,
           operation: 'update',
           requestResourceData: { worksheetData: data },
         }, serverError);
