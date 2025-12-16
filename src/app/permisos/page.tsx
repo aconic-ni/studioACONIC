@@ -75,6 +75,9 @@ export default function PermisosPage() {
   const [bulkTramiteDate, setBulkTramiteDate] = useState<Date | undefined>();
   const [bulkRetiroDate, setBulkRetiroDate] = useState<Date | undefined>();
 
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(30);
+
 
   const [groupMembers, setGroupMembers] = useState<AppUser[]>([]);
   const [selectedPermitForComment, setSelectedPermitForComment] = useState<{permit: RequiredPermit, index: number} | null>(null);
@@ -189,29 +192,19 @@ export default function PermisosPage() {
       );
     }
     
-    const statusOrder: { [key in DocumentStatus]: number } = { 'Pendiente': 1, 'En Trámite': 2, 'Rechazado': 3, 'Sometido de Nuevo': 4, 'Entregado': 5, 'Aprobado': 6 };
-    filtered.sort((a, b) => {
-        const aDueDate = a.estimatedDeliveryDate?.toDate() || new Date(8640000000000000);
-        const bDueDate = b.estimatedDeliveryDate?.toDate() || new Date(8640000000000000);
-        
-        if (a.status !== 'Entregado' && b.status === 'Entregado') return -1;
-        if (a.status === 'Entregado' && b.status !== 'Entregado') return 1;
-
-        const aDaysLeft = differenceInDays(aDueDate, new Date());
-        const bDaysLeft = differenceInDays(bDueDate, new Date());
-        
-        if (aDaysLeft <= 3 && bDaysLeft > 3) return -1;
-        if (aDaysLeft > 3 && bDaysLeft <= 3) return 1;
-
-        if (aDaysLeft < bDaysLeft) return -1;
-        if (aDaysLeft > bDaysLeft) return 1;
-        
-        return (statusOrder[a.status] || 99) - (statusOrder[b.status] || 99);
-    });
+    // Default sort by creation date
+    filtered.sort((a, b) => (b.worksheetCreatedAt?.toMillis() ?? 0) - (a.worksheetCreatedAt?.toMillis() ?? 0));
 
     return filtered;
   }, [allPermits, searchTerm, focusMode]);
   
+  const totalPages = Math.ceil(filteredPermits.length / itemsPerPage);
+  const paginatedPermits = useMemo(() => {
+    const startIndex = (currentPage - 1) * itemsPerPage;
+    const endIndex = startIndex + itemsPerPage;
+    return filteredPermits.slice(startIndex, endIndex);
+  }, [filteredPermits, currentPage, itemsPerPage]);
+
   const getStatusBadgeVariant = (status: RequiredPermit['status']) => {
     switch (status) {
         case 'Entregado': return 'default';
@@ -286,9 +279,9 @@ export default function PermisosPage() {
                         estimatedDeliveryDate: parseDate(row['FechaEntregaEstimada']),
                         assignedExecutive: row['AsignadoA'] || wsData.executive,
                         tipoTramite: row['Tipo'] || undefined,
+                        eta: parseDate(row['ETA']),
                     };
                     
-                    // Remove undefined properties before merging/pushing
                     Object.keys(permitData).forEach(key => permitData[key as keyof typeof permitData] === undefined && delete permitData[key as keyof typeof permitData]);
 
                     if (existingPermitIndex !== -1) {
@@ -297,7 +290,7 @@ export default function PermisosPage() {
                         permits.push({ id: uuidv4(), ...permitData } as RequiredPermit);
                     }
                     
-                    batch.update(wsRef, { requiredPermits: permits });
+                    batch.update(wsRef, { requiredPermits: permits, eta: permitData.eta || wsData.eta });
                     updatedCount++;
                 } else {
                     skippedCount++;
@@ -338,7 +331,6 @@ export default function PermisosPage() {
     const batch = writeBatch(db);
     const worksheetsToUpdate = new Map<string, RequiredPermit[]>();
 
-    // Prepare updates
     for (const permit of selectedPermits) {
         if (!worksheetsToUpdate.has(permit.worksheetId)) {
             const wsDoc = await getDoc(doc(db, 'worksheets', permit.worksheetId));
@@ -506,14 +498,14 @@ export default function PermisosPage() {
     if (isLoading) {
         return <div className="flex justify-center items-center py-10"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>;
     }
-    if (filteredPermits.length === 0) {
+    if (paginatedPermits.length === 0) {
         return <div className="text-center py-10 px-6 bg-secondary/30 rounded-lg"><p className="mt-1 text-muted-foreground">No se encontraron permisos con los filtros actuales.</p></div>;
     }
     
     if (isMobile) {
         return (
             <div className="space-y-4">
-                {filteredPermits.map(permit => (
+                {paginatedPermits.map(permit => (
                     <MobilePermitCard 
                         key={`${permit.worksheetId}-${permit.id}`} 
                         permit={permit} 
@@ -531,12 +523,12 @@ export default function PermisosPage() {
                 <TableRow>
                   <TableHead className="w-12">
                      <Checkbox
-                        checked={selectedRows.length > 0 && selectedRows.length === filteredPermits.length}
+                        checked={selectedRows.length > 0 && selectedRows.length === paginatedPermits.length}
                         onCheckedChange={() => {
-                            if (selectedRows.length === filteredPermits.length) {
+                            if (selectedRows.length === paginatedPermits.length) {
                                 setSelectedRows([]);
                             } else {
-                                setSelectedRows(filteredPermits.map(p => p.id));
+                                setSelectedRows(paginatedPermits.map(p => p.id));
                             }
                         }}
                      />
@@ -558,7 +550,7 @@ export default function PermisosPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredPermits.map(permit => {
+                {paginatedPermits.map(permit => {
                     const daysLeft = permit.estimatedDeliveryDate ? differenceInDays(permit.estimatedDeliveryDate.toDate(), new Date()) : null;
                     const rowClass = cn(
                         (permit.status !== 'Entregado' && daysLeft !== null && daysLeft <= 3) && 'bg-yellow-100 dark:bg-yellow-900/30'
@@ -664,13 +656,57 @@ export default function PermisosPage() {
                     <SlidersHorizontal className="mr-2 h-4 w-4"/>
                     {focusMode ? 'Pendientes de Entrega' : 'Viendo Todos'}
                 </Button>
-                <p className="text-sm text-muted-foreground w-full sm:w-auto text-center sm:text-left">
-                    Total de permisos: {filteredPermits.length}
-                </p>
             </div>
           </CardHeader>
           <CardContent>
             {content()}
+             <div className="flex items-center justify-between space-x-2 py-4">
+                <div className="flex items-center space-x-2">
+                    <p className="text-sm font-medium">Filas por página</p>
+                    <Select
+                    value={`${itemsPerPage}`}
+                    onValueChange={(value) => {
+                        setItemsPerPage(Number(value));
+                        setCurrentPage(1);
+                    }}
+                    >
+                    <SelectTrigger className="h-8 w-[70px]">
+                        <SelectValue placeholder={itemsPerPage} />
+                    </SelectTrigger>
+                    <SelectContent side="top">
+                        {[30, 40, 50].map((pageSize) => (
+                        <SelectItem key={pageSize} value={`${pageSize}`}>
+                            {pageSize}
+                        </SelectItem>
+                        ))}
+                    </SelectContent>
+                    </Select>
+                </div>
+                <div className="text-sm text-muted-foreground">
+                    Total de permisos: {filteredPermits.length}
+                </div>
+                <div className="flex items-center space-x-2">
+                    <span className="text-sm">
+                        Página {currentPage} de {totalPages}
+                    </span>
+                    <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                        disabled={currentPage === 1}
+                    >
+                        Anterior
+                    </Button>
+                    <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+                        disabled={currentPage === totalPages}
+                    >
+                        Siguiente
+                    </Button>
+                </div>
+             </div>
           </CardContent>
         </Card>
       </div>
@@ -680,8 +716,8 @@ export default function PermisosPage() {
             isOpen={!!selectedPermitForComment}
             onClose={() => setSelectedPermitForComment(null)}
             permit={selectedPermitForComment.permit}
-            worksheetId={selectedPermitForComment.permit.ne}
-            onCommentsUpdate={() => {}} // This is a read-only view, so no update logic needed here
+            worksheetId={selectedPermitForComment.permit.worksheetId}
+            onCommentsUpdate={() => {}} // Refresh will be handled by the main listener
         />
     )}
      <Dialog open={isDeliveryModalOpen} onOpenChange={setIsDeliveryModalOpen}>
@@ -754,7 +790,7 @@ export default function PermisosPage() {
         <DialogContent>
           <DialogHeader>
               <DialogTitle>Actualización Masiva de Estado</DialogTitle>
-              <DialogDescription>Seleccione el estado a aplicar a los {selectedRows.length} permisos seleccionados.</DialogDescription>
+              <DialogDescription>Seleccione el estatus a aplicar a los {selectedRows.length} permisos seleccionados.</DialogDescription>
           </DialogHeader>
           <div className="py-4">
             <Select onValueChange={(value) => handleBulkStatusUpdate(value as DocumentStatus)}>
