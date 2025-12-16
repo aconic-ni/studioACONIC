@@ -150,13 +150,14 @@ export default function DatabasePage() {
 
   const displayedSolicitudes = useMemo(() => {
     if (!fetchedSolicitudes) return null;
-    let accumulatedData = [...fetchedSolicitudes];
     
-    // Status Filter (moved before other filters)
+    let filteredData = [...fetchedSolicitudes];
+
+    // Status Filter
     if (statusFilter === 'pendientes') {
-      accumulatedData = accumulatedData.filter(s => s.paymentStatus !== 'Pagado');
+        filteredData = filteredData.filter(s => s.paymentStatus !== 'Pagado');
     } else if (statusFilter === 'pagadas') {
-      accumulatedData = accumulatedData.filter(s => s.paymentStatus === 'Pagado');
+        filteredData = filteredData.filter(s => s.paymentStatus === 'Pagado');
     }
 
     const applyFilter = (
@@ -169,50 +170,57 @@ export default function DatabasePage() {
         return data.filter(item => filterFn(item, searchTerm));
     };
     
-    accumulatedData = applyFilter(accumulatedData, filterRecpDocsInput, (s, term) => {
+    filteredData = applyFilter(filteredData, filterRecpDocsInput, (s, term) => {
       const statusText = s.recepcionDCStatus ? 'recibido' : 'pendiente';
       return statusText.includes(term);
     });
 
-    accumulatedData = applyFilter(accumulatedData, filterNotMinutaInput, (s, term) => {
+    filteredData = applyFilter(filteredData, filterNotMinutaInput, (s, term) => {
         const statusText = s.emailMinutaStatus ? 'notificado' : 'pendiente';
         return statusText.includes(term);
     });
 
-    accumulatedData = applyFilter(accumulatedData, filterSolicitudIdInput, (s, term) =>
+    filteredData = applyFilter(filteredData, filterSolicitudIdInput, (s, term) =>
         s.solicitudId.toLowerCase().includes(term)
     );
-    accumulatedData = applyFilter(accumulatedData, filterFechaSolicitudInput, (s, term) => {
+    filteredData = applyFilter(filteredData, filterFechaSolicitudInput, (s, term) => {
         const dateText = s.examDate && s.examDate instanceof Date ? format(s.examDate, "dd/MM/yy", { locale: es }) : 'N/A';
         return dateText.toLowerCase().includes(term);
     });
-    accumulatedData = applyFilter(accumulatedData, filterNEInput, (s, term) =>
+    filteredData = applyFilter(filteredData, filterNEInput, (s, term) =>
         (s.examNe || '').toLowerCase().includes(term)
     );
-    accumulatedData = applyFilter(accumulatedData, filterEstadoPagoInput, (s, term) =>
+    filteredData = applyFilter(filteredData, filterEstadoPagoInput, (s, term) =>
       (s.paymentStatus || 'pendiente').toLowerCase().includes(term)
     );
-    accumulatedData = applyFilter(accumulatedData, filterMontoInput, (s, term) => {
+    filteredData = applyFilter(filteredData, filterMontoInput, (s, term) => {
         const montoText = String(s.monto || '');
         return montoText.toLowerCase().includes(term);
     });
-    accumulatedData = applyFilter(accumulatedData, filterConsignatarioInput, (s, term) =>
+    filteredData = applyFilter(filteredData, filterConsignatarioInput, (s, term) =>
         (s.consignatario || '').toLowerCase().includes(term)
     );
-    accumulatedData = applyFilter(accumulatedData, filterDeclaracionInput, (s, term) =>
+    filteredData = applyFilter(filteredData, filterDeclaracionInput, (s, term) =>
         (s.declaracionNumero || '').toLowerCase().includes(term)
     );
-    accumulatedData = applyFilter(accumulatedData, filterReferenciaInput, (s, term) =>
+    filteredData = applyFilter(filteredData, filterReferenciaInput, (s, term) =>
         (s.examReference || '').toLowerCase().includes(term)
     );
 
     if (user?.role !== 'autorevisor' && user?.role !== 'autorevisor_plus') {
-      accumulatedData = applyFilter(accumulatedData, filterGuardadoPorInput, (s, term) =>
+      filteredData = applyFilter(filteredData, filterGuardadoPorInput, (s, term) =>
         (s.savedBy || '').toLowerCase().includes(term)
       );
     }
     
-    return accumulatedData;
+    // Client-side sorting
+    filteredData.sort((a, b) => {
+        const timeA = a.savedAt?.getTime() || 0;
+        const timeB = b.savedAt?.getTime() || 0;
+        return sortOrder === 'desc' ? timeB - timeA : timeA - timeB;
+    });
+
+    return filteredData;
   }, [
     fetchedSolicitudes,
     filterRecpDocsInput,
@@ -227,7 +235,8 @@ export default function DatabasePage() {
     filterReferenciaInput,
     filterGuardadoPorInput,
     user?.role,
-    statusFilter
+    statusFilter,
+    sortOrder // Add sortOrder as a dependency
   ]);
 
   const handleUpdatePaymentStatus = useCallback(async (solicitudId: string, newPaymentStatus: string | null) => {
@@ -670,7 +679,7 @@ export default function DatabasePage() {
         for (const collectionName of collectionsToQuery) {
             const queryConstraints: QueryConstraint[] = [
                 ...dateFilter,
-                orderBy("examDate", sortOrder)
+                orderBy("examDate", "desc") // Firestore requires the inequality field to be the first orderBy
             ];
             if (visibilityFilter) {
                 queryConstraints.unshift(visibilityFilter);
@@ -706,14 +715,6 @@ export default function DatabasePage() {
             allSolicitudes.push(...data);
         }
         
-        // Sorting in client after fetching, because Firestore can't order by a field that is also used in an inequality filter.
-        // We already order by date in the query, this is just a re-sort if needed.
-        allSolicitudes.sort((a, b) => {
-            const timeA = a.savedAt?.getTime() || 0;
-            const timeB = b.savedAt?.getTime() || 0;
-            return sortOrder === 'desc' ? timeB - timeA : timeA - timeB;
-        });
-
         if (allSolicitudes.length > 0) {
             setFetchedSolicitudes(allSolicitudes);
         } else { 
@@ -734,7 +735,7 @@ export default function DatabasePage() {
     } finally {
         setIsLoading(false);
     }
-  }, [user, searchType, selectedDate, datePickerStartDate, datePickerEndDate, toast, sortOrder]);
+  }, [user, searchType, selectedDate, datePickerStartDate, datePickerEndDate, toast, searchTermText]);
 
   const handleExport = async () => {
     const dataToUse = displayedSolicitudes || [];
@@ -950,9 +951,9 @@ export default function DatabasePage() {
                     {sortOrder === 'desc' ? 'Más Recientes' : 'Más Antiguos'}
                 </Button>
                 <div className="flex items-center space-x-1 rounded-lg bg-secondary p-1">
-                    <Button variant={statusFilter === 'pendientes' ? 'primary' : 'ghost'} onClick={() => setStatusFilter('pendientes')} size="sm">Pendientes</Button>
-                    <Button variant={statusFilter === 'pagadas' ? 'primary' : 'ghost'} onClick={() => setStatusFilter('pagadas')} size="sm">Pagadas</Button>
-                    <Button variant={statusFilter === 'todas' ? 'primary' : 'ghost'} onClick={() => setStatusFilter('todas')} size="sm">Todas</Button>
+                    <Button variant={statusFilter === 'pendientes' ? 'default' : 'ghost'} onClick={() => setStatusFilter('pendientes')} size="sm">Pendientes</Button>
+                    <Button variant={statusFilter === 'pagadas' ? 'default' : 'ghost'} onClick={() => setStatusFilter('pagadas')} size="sm">Pagadas</Button>
+                    <Button variant={statusFilter === 'todas' ? 'default' : 'ghost'} onClick={() => setStatusFilter('todas')} size="sm">Todas</Button>
                 </div>
               </div>
             </form>
