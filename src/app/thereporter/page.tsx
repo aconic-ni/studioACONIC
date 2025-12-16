@@ -26,7 +26,7 @@ import type { AforoCase, AppUser, AforoCaseUpdate, Worksheet, WorksheetWithCase 
 import { collection, getDocs, query, where, collectionGroup, orderBy, writeBatch, doc, getDoc, Timestamp, onSnapshot, documentId } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { downloadAforoReportAsExcel } from '@/lib/fileExporterAforo';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { startOfMonth, endOfMonth } from 'date-fns';
 import { useToast } from '@/hooks/use-toast';
 
