@@ -316,11 +316,12 @@ export function GestionLocalTable({ worksheets, setWorksheets, selectedRows, set
     if (!user || !user.displayName || selectedRows.length === 0) return;
     setIsLoading(true);
     const batch = writeBatch(db);
+    const comment = "Se reciben hojas fisicas de casos";
 
-    for (const wsId of selectedRows) {
+    selectedRows.forEach(wsId => {
         const worksheetRef = doc(db, 'worksheets', wsId);
         batch.update(worksheetRef, { entregadoAforoAt: Timestamp.now() });
-    }
+    });
     
     try {
       await batch.commit();
@@ -349,7 +350,7 @@ export function GestionLocalTable({ worksheets, setWorksheets, selectedRows, set
                 <Download className="mr-2 h-4 w-4" /> Plantilla
             </Button>
             <input type="file" ref={fileInputRef} onChange={(e) => handleFileImport(e, false)} className="hidden" accept=".xlsx, .xls" />
-            <Button variant="secondary" size="sm" onClick={() => handleBulkAction('digitadorStatus', 'Trámite Completo')} disabled={selectedRows.length === 0 || isImporting}>
+            <Button variant="secondary" size="sm" onClick={() => handleBulkCompleteDigitacion()} disabled={selectedRows.length === 0 || isImporting}>
                 Completar Digitación ({selectedRows.length})
             </Button>
             <Button variant="outline" size="sm" onClick={() => setStatusModal({isOpen: true, type: 'bulk-aforador'})} disabled={selectedRows.length === 0}>
@@ -561,7 +562,7 @@ export function GestionLocalTable({ worksheets, setWorksheets, selectedRows, set
                             <SelectItem value="Pendiente de Digitación">Pendiente de Digitación</SelectItem>
                             <SelectItem value="En Proceso">En Proceso</SelectItem>
                             <SelectItem value="Almacenado">Almacenado</SelectItem>
-                            <SelectItem value="Trámite Completo">Trámite Completo</SelectItem>
+                            <SelectItem value="Completar Trámite">Completar Trámite</SelectItem>
                         </>
                     )}
                 </SelectContent>
@@ -633,4 +634,5 @@ export function GestionLocalTable({ worksheets, setWorksheets, selectedRows, set
         </AlertDialogContent>
     </AlertDialog>
     </>
-  
+  );
+}
