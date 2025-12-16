@@ -38,7 +38,6 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import Link from 'next/link';
 import { PermitDetailsModal } from '@/components/executive/worksheet/PermitDetailsModal';
-import { calculateDueDate } from '@/lib/date-utils';
 
 
 // Zod Schema Definition
@@ -88,8 +87,6 @@ const worksheetSchema = z.object({
   entryCustoms: z.string().min(1, "Aduana de entrada es requerida."),
   dispatchCustoms: z.string().min(1, "Aduana de despacho es requerida."),
   resa: z.string().optional(),
-  resaNotificationDate: z.date().optional().nullable(),
-  resaDueDate: z.date().optional().nullable(),
   transportMode: z.enum(['aereo', 'maritimo', 'frontera', 'terrestre'], {
     required_error: "Debe seleccionar un modo de transporte."
   }),
@@ -125,10 +122,6 @@ const worksheetSchema = z.object({
 .refine(data => !data.operationType || (data.operationType && data.patternRegime && data.patternRegime.trim() !== ''), {
     message: "El Modelo (Patrón) es requerido si se especifica un Tipo de Operación.",
     path: ["patternRegime"],
-})
-.refine(data => !data.resa || !!data.resaNotificationDate, {
-    message: "La fecha de notificación es requerida si se ingresa un número de RESA.",
-    path: ["resaNotificationDate"],
 });
 
 
@@ -159,7 +152,6 @@ function WorksheetForm() {
       worksheetType: 'hoja_de_trabajo',
       ne: '', reference: '', executive: '', consignee: '', eta: null, facturaNumber: '', grossWeight: '', netWeight: '', description: '',
       packageNumber: '', entryCustoms: '', dispatchCustoms: '', resa: '', aforador: '',
-      resaNotificationDate: null, resaDueDate: null,
       inLocalWarehouse: false, inCustomsWarehouse: false, location: '', documents: [], requiredPermits: [], operationType: null,
       patternRegime: '', subRegime: '', isJointOperation: false, jointNe: '',
       jointReference: '', dcCorrespondiente: '', isSplit: false, observations: '',
@@ -168,16 +160,6 @@ function WorksheetForm() {
       precinto: '', precintoLateral: '', vin: '',
     },
   });
-
-  const watchResaNotificationDate = form.watch('resaNotificationDate');
-  useEffect(() => {
-    if (watchResaNotificationDate) {
-        const dueDate = calculateDueDate(watchResaNotificationDate, 15);
-        form.setValue('resaDueDate', dueDate);
-    } else {
-        form.setValue('resaDueDate', null);
-    }
-  }, [watchResaNotificationDate, form]);
 
   useEffect(() => {
     const id = searchParams.get('id');
@@ -205,10 +187,9 @@ function WorksheetForm() {
   
           const formData: Partial<WorksheetFormData> = {
             ...wsData,
-            eta: wsData.eta?.toDate(),
+            eta: wsData.eta?.toDate() ?? null,
             resa: resaNumber || '',
-            resaNotificationDate: resaNotificationDate || null,
-            resaDueDate: resaDueDate || null,
+            operationType: wsData.operationType ?? null, // Ensure null is passed if undefined
             requiredPermits: (wsData.requiredPermits || []).map((p: any) => ({
               ...p,
               tramiteDate: p.tramiteDate?.toDate(),
@@ -455,8 +436,6 @@ function WorksheetForm() {
         const updatedWorksheetData = { 
             ...data, 
             eta: data.eta ? Timestamp.fromDate(data.eta) : null,
-            resaNotificationDate: data.resaNotificationDate ? Timestamp.fromDate(data.resaNotificationDate) : null,
-            resaDueDate: data.resaDueDate ? Timestamp.fromDate(data.resaDueDate) : null,
             lastUpdatedAt: Timestamp.now(),
         };
         batch.update(worksheetDocRef, updatedWorksheetData);
@@ -522,8 +501,6 @@ function WorksheetForm() {
             id: neTrimmed, 
             ne: neTrimmed, 
             eta: data.eta ? Timestamp.fromDate(data.eta) : null,
-            resaNotificationDate: data.resaNotificationDate ? Timestamp.fromDate(data.resaNotificationDate) : null,
-            resaDueDate: data.resaDueDate ? Timestamp.fromDate(data.resaDueDate) : null,
             createdAt: creationTimestamp, 
             createdBy: user.email!, 
             requiredPermits: data.requiredPermits || [], 
@@ -903,17 +880,19 @@ function WorksheetForm() {
                    {(watchInWarehouse || watchInCustoms) && <FormField control={form.control} name="location" render={({ field }) => (<FormItem><FormControl><Input placeholder="Especifique localización..." {...field} /></FormControl><FormMessage /></FormItem>)}/>}
                 </div>
             </div>
-             
-             <div className="lg:col-span-3 pt-4 border-t">
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
-                    <FormField control={form.control} name="resa" render={({ field }) => (<FormItem><FormLabel>RESA No</FormLabel><FormControl><Input {...field} placeholder="Número de RESA" /></FormControl><FormMessage /></FormItem>)} />
-                    <FormField control={form.control} name="resaNotificationDate" render={({ field: dateField }) => (<FormItem className="flex flex-col"><FormLabel>Fecha Notificación RESA</FormLabel><FormControl><DatePicker date={dateField.value ?? undefined} onDateChange={dateField.onChange} /></FormControl><FormMessage /></FormItem>)} />
-                    <FormItem>
-                        <FormLabel>Fecha Vencimiento RESA</FormLabel>
-                        <Input value={form.getValues('resaDueDate')?.toLocaleDateString('es-NI') || 'N/A'} readOnly className="bg-muted/50" />
-                    </FormItem>
-                </div>
-             </div>
+             {(watchInWarehouse || watchInCustoms || watchTransportMode === 'aereo') && (
+                 <FormField
+                    control={form.control}
+                    name="resa"
+                    render={({ field }) => (
+                        <FormItem>
+                            <FormLabel>RESA</FormLabel>
+                            <FormControl><Input {...field} placeholder="Número de RESA" /></FormControl>
+                            <FormMessage />
+                        </FormItem>
+                    )}
+                />
+             )}
             
             <div className="lg:col-span-3 pt-4 border-t">
                 <FormField control={form.control} name="description" render={({ field }) => (
@@ -1053,7 +1032,7 @@ function WorksheetForm() {
                  </div>
                  {permitFields.length > 0 && (
                     <div className="rounded-md border mt-4"><Table>
-                        <TableHeader><TableRow><TableHead>Permiso</TableHead><TableHead>Factura Asociada</TableHead><TableHead>Asignado A</TableHead><TableHead>Estado</TableHead><TableHead className="text-right">Acción</TableHead></TableRow></TableHeader>
+                        <TableHeader><TableRow><TableHead>Permiso</TableHead><TableHead>Factura</TableHead><TableHead>Asignado A</TableHead><TableHead>Estado</TableHead><TableHead className="text-right">Acción</TableHead></TableRow></TableHeader>
                         <TableBody>{permitFields.map((field, index) => {
                             const needsDetails = ['Dictamen Tecnico INE', 'IPSA', 'MINSA', 'TELCOR'].includes(field.name);
                             return (
@@ -1248,4 +1227,3 @@ export default function WorksheetPage() {
         </AppShell>
     )
 }
-
