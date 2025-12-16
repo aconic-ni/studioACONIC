@@ -20,16 +20,14 @@ export default function HomePage() {
     if (!loading) {
       if (user) {
         // User is logged in, redirect based on role
-        const userRole = user.role || 'gestor';
         let roleToUse: UserRole;
 
-        if (user.roleTitle === 'agente aduanero') {
-            roleToUse = 'agente';
-        } else if (user.role === 'supervisor') {
+        if (user.role === 'supervisor') {
             roleToUse = 'supervisor';
-        }
-        else {
-            roleToUse = userRole;
+        } else if (user.roleTitle === 'agente aduanero') {
+            roleToUse = 'agente';
+        } else {
+            roleToUse = user.role || 'gestor';
         }
         
         const config = roleConfig[roleToUse];
@@ -66,8 +64,8 @@ export default function HomePage() {
 
   // Always render the main page content. The modal will appear on top.
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center grid-bg text-white p-4 gap-y-8">
-       <main className="flex flex-col items-center text-center gap-6 p-8">
+    <div className="min-h-screen flex flex-col justify-between grid-bg text-white p-4">
+       <main className="flex flex-col items-center justify-center text-center gap-6 p-8 flex-grow">
           <Image src="/imagenes/LOGOAPPwhite.svg" alt="App Logo" width={200} height={200} className="h-48 w-48 text-primary logo-pulse" />
           <div className="space-y-2">
               <h1 className="font-montserrat text-8xl text-white leading-none">
@@ -88,7 +86,7 @@ export default function HomePage() {
         targetSystem="examiner"
       />
 
-       <footer className="text-center text-sm text-blue-300 mt-auto md:mt-0">
+       <footer className="text-center text-sm text-blue-300 py-4">
         Stvaer © 2025 for ACONIC
       </footer>
     </div>
