@@ -8,9 +8,9 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Loader2, Search, Download, Eye, Calendar as CalendarIcon, MessageSquare, Info as InfoIcon, AlertCircle, CheckCircle2, FileText as FileTextIcon, ListCollapse, ArrowLeft, CheckSquare as CheckSquareIcon, MessageSquareText, RotateCw, AlertTriangle, ShieldCheck, Trash2, FileSignature, Briefcase, User as UserIcon } from 'lucide-react';
+import { Loader2, Search, Download, Eye, Calendar as CalendarIcon, MessageSquare, Info as InfoIcon, AlertCircle, CheckCircle2, FileText as FileTextIcon, ListCollapse, ArrowLeft, CheckSquare as CheckSquareIcon, MessageSquareText, RotateCw, AlertTriangle, ShieldCheck, Trash2, FileSignature, Briefcase, User as UserIcon, ArrowUpDown } from 'lucide-react';
 import { db } from '@/lib/firebase';
-import { collection, query, where, getDocs, Timestamp as FirestoreTimestamp, doc, getDoc, orderBy, updateDoc, serverTimestamp, addDoc, getCountFromServer, writeBatch, deleteDoc, type QueryConstraint, setDoc, documentId } from 'firebase/firestore';
+import { collection, query, where, getDocs, Timestamp as FirestoreTimestamp, doc, getDoc, orderBy, updateDoc, serverTimestamp, addDoc, getCountFromServer, writeBatch, deleteDoc, type QueryConstraint, setDoc, documentId, type OrderByDirection } from 'firebase/firestore';
 import type { SolicitudRecord, CommentRecord, ValidacionRecord, DeletionAuditEvent, AppUser } from '@/types';
 import { downloadExcelFileFromTable } from '@/lib/fileExporterdatabasePay';
 import { format, startOfDay, endOfDay, startOfMonth, endOfMonth } from 'date-fns';
@@ -38,6 +38,7 @@ import { DatabaseSolicitudDetailView } from '@/components/databasepay/DatabaseSo
 
 
 type SearchType = "dateToday" | "dateSpecific" | "dateRange" | "dateCurrentMonth";
+type StatusFilterType = "pendientes" | "pagadas" | "todas";
 
 
 export default function DatabasePage() {
@@ -84,6 +85,9 @@ export default function DatabasePage() {
 
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [solicitudToDeleteId, setSolicitudToDeleteId] = useState<string | null>(null);
+
+  const [statusFilter, setStatusFilter] = useState<StatusFilterType>('pendientes');
+  const [sortOrder, setSortOrder] = useState<OrderByDirection>('desc');
 
 
   const [filterRecpDocsInput, setFilterRecpDocsInput] = useState('');
@@ -147,6 +151,13 @@ export default function DatabasePage() {
   const displayedSolicitudes = useMemo(() => {
     if (!fetchedSolicitudes) return null;
     let accumulatedData = [...fetchedSolicitudes];
+    
+    // Status Filter (moved before other filters)
+    if (statusFilter === 'pendientes') {
+      accumulatedData = accumulatedData.filter(s => s.paymentStatus !== 'Pagado');
+    } else if (statusFilter === 'pagadas') {
+      accumulatedData = accumulatedData.filter(s => s.paymentStatus === 'Pagado');
+    }
 
     const applyFilter = (
         data: SolicitudRecord[],
@@ -216,6 +227,7 @@ export default function DatabasePage() {
     filterReferenciaInput,
     filterGuardadoPorInput,
     user?.role,
+    statusFilter
   ]);
 
   const handleUpdatePaymentStatus = useCallback(async (solicitudId: string, newPaymentStatus: string | null) => {
@@ -656,9 +668,9 @@ export default function DatabasePage() {
         setCurrentSearchTermForDisplay(termForDisplay);
         
         for (const collectionName of collectionsToQuery) {
-            const queryConstraints = [
+            const queryConstraints: QueryConstraint[] = [
                 ...dateFilter,
-                orderBy("examDate", "desc")
+                orderBy("examDate", sortOrder)
             ];
             if (visibilityFilter) {
                 queryConstraints.unshift(visibilityFilter);
@@ -694,7 +706,13 @@ export default function DatabasePage() {
             allSolicitudes.push(...data);
         }
         
-        allSolicitudes.sort((a, b) => (b.savedAt?.getTime() || 0) - (a.savedAt?.getTime() || 0));
+        // Sorting in client after fetching, because Firestore can't order by a field that is also used in an inequality filter.
+        // We already order by date in the query, this is just a re-sort if needed.
+        allSolicitudes.sort((a, b) => {
+            const timeA = a.savedAt?.getTime() || 0;
+            const timeB = b.savedAt?.getTime() || 0;
+            return sortOrder === 'desc' ? timeB - timeA : timeA - timeB;
+        });
 
         if (allSolicitudes.length > 0) {
             setFetchedSolicitudes(allSolicitudes);
@@ -716,7 +734,7 @@ export default function DatabasePage() {
     } finally {
         setIsLoading(false);
     }
-  }, [user, searchType, selectedDate, datePickerStartDate, datePickerEndDate, toast]);
+  }, [user, searchType, selectedDate, datePickerStartDate, datePickerEndDate, toast, sortOrder]);
 
   const handleExport = async () => {
     const dataToUse = displayedSolicitudes || [];
@@ -916,12 +934,26 @@ export default function DatabasePage() {
                 </Select>
                 {renderSearchInputs()}
               </div>
-              <div className="flex flex-col sm:flex-row items-center gap-3">
+              <div className="flex flex-wrap items-center gap-3">
                 <Button type="submit" className="btn-primary w-full sm:w-auto" disabled={isLoading}><Search className="mr-2 h-4 w-4" /> {isLoading ? 'Buscando...' : 'Ejecutar Búsqueda'}</Button>
                 <Button type="button" onClick={handleExport} variant="outline" className="w-full sm:w-auto" disabled={!displayedSolicitudes || isLoading || (displayedSolicitudes && displayedSolicitudes.length === 0) || isExporting}>
                     {isExporting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Download className="mr-2 h-4 w-4" />}
                     {isExporting ? 'Exportando...' : 'Exportar Tabla'}
                 </Button>
+                <Button
+                    type="button"
+                    onClick={() => setSortOrder(prev => prev === 'desc' ? 'asc' : 'desc')}
+                    variant="outline"
+                    className="w-full sm:w-auto"
+                >
+                    <ArrowUpDown className="mr-2 h-4 w-4" />
+                    {sortOrder === 'desc' ? 'Más Recientes' : 'Más Antiguos'}
+                </Button>
+                <div className="flex items-center space-x-1 rounded-lg bg-secondary p-1">
+                    <Button variant={statusFilter === 'pendientes' ? 'primary' : 'ghost'} onClick={() => setStatusFilter('pendientes')} size="sm">Pendientes</Button>
+                    <Button variant={statusFilter === 'pagadas' ? 'primary' : 'ghost'} onClick={() => setStatusFilter('pagadas')} size="sm">Pagadas</Button>
+                    <Button variant={statusFilter === 'todas' ? 'primary' : 'ghost'} onClick={() => setStatusFilter('todas')} size="sm">Todas</Button>
+                </div>
               </div>
             </form>
             
