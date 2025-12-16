@@ -25,7 +25,10 @@ export default function HomePage() {
 
         if (user.roleTitle === 'agente aduanero') {
             roleToUse = 'agente';
-        } else {
+        } else if (user.role === 'supervisor') {
+            roleToUse = 'supervisor';
+        }
+        else {
             roleToUse = userRole;
         }
         
@@ -49,7 +52,6 @@ export default function HomePage() {
 
   const handleModalClose = () => {
     // If the modal is closed without logging in, we keep it closed.
-    // The useEffect will reopen it if the user is still not logged in.
     setIsLoginModalOpen(false);
   };
 
@@ -65,21 +67,17 @@ export default function HomePage() {
   // Always render the main page content. The modal will appear on top.
   return (
     <div className="min-h-screen flex flex-col items-center justify-center grid-bg text-white p-4 gap-y-8">
-       <main className="flex flex-col md:flex-row items-center gap-x-4 gap-y-8">
-        <Card className="w-80 h-96 bg-card text-card-foreground rounded-xl custom-shadow flex flex-col justify-center">
-            <CardContent className="flex flex-col items-center justify-center text-center gap-6 p-8">
-                <Image src="/imagenes/LOGOAPP.svg" alt="App Logo" width={80} height={80} className="h-20 w-20 text-primary" />
-                <div className="space-y-1">
-                    <CardTitle className="font-montserrat text-4xl">
-                        <span className="font-semibold">EX'</span>
-                        <span className="font-light">OS</span>
-                    </CardTitle>
-                    <CardDescription className="text-xs text-muted-foreground pt-1">
-                        Examiner Operative System
-                    </CardDescription>
-                </div>
-            </CardContent>
-        </Card>
+       <main className="flex flex-col items-center text-center gap-6 p-8">
+          <Image src="/imagenes/LOGOAPPwhite.svg" alt="App Logo" width={200} height={200} className="h-48 w-48 text-primary logo-pulse" />
+          <div className="space-y-2">
+              <h1 className="font-montserrat text-8xl text-white leading-none">
+                <span className="font-bold">EX'</span>
+                <span className="font-light">OS</span>
+              </h1>
+              <p className="text-sm text-gray-300 tracking-wider">
+                  Examiner Operative System
+              </p>
+          </div>
       </main>
       
       {/* The LoginModal is now controlled by the state and will overlay the main content */}
