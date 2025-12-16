@@ -1002,7 +1002,7 @@ function ExecutivePageContent() {
                         <div className="flex flex-wrap items-center gap-4">
                         <div className="flex flex-wrap items-center gap-2">
                             <Button variant={dateFilterType === 'range' ? 'default' : 'ghost'} size="sm" onClick={() => setDateFilterType('range')}><CalendarRange className="mr-2 h-4 w-4"/> Rango</Button>
-                            <Button variant={dateFilterType === 'month' ? 'default' : 'ghost'} size="sm" onClick={()={() => setDateFilterType('month')}><Calendar className="mr-2 h-4 w-4"/> Mes</Button>
+                            <Button variant={dateFilterType === 'month' ? 'default' : 'ghost'} size="sm" onClick={() => setDateFilterType('month')}><Calendar className="mr-2 h-4 w-4"/> Mes</Button>
                             <Button variant={dateFilterType === 'today' ? 'default' : 'ghost'} size="sm" onClick={() => setDateFilterType('today')}><CalendarDays className="mr-2 h-4 w-4"/> Hoy</Button>
                         </div>
                         {dateFilterType === 'range' && <DatePickerWithRange date={dateRangeInput} onDateChange={setDateRangeInput} />}
@@ -1164,7 +1164,3 @@ export default function ExecutivePage() {
         </Suspense>
     )
 }
-
-  
-
-    
