@@ -1,5 +1,6 @@
 
-import React from 'react';
+"use client";
+import React, { useEffect, useState } from 'react';
 import Image from 'next/image';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardFooter } from '@/components/ui/card';
@@ -65,16 +66,24 @@ const SignatureSection: React.FC<{
   );
 };
 
-// This is now a Server Component
-export async function Anexo5Details({ worksheet, onClose }: { worksheet: Worksheet; onClose: () => void; }) {
-  let agente: AppUser | null = null;
-  if (worksheet.aforador && worksheet.aforador !== '-') {
-      const q = query(collection(db, 'users'), where('displayName', '==', worksheet.aforador));
-      const querySnapshot = await getDocs(q);
-      if (!querySnapshot.empty) {
-          agente = querySnapshot.docs[0].data() as AppUser;
-      }
-  }
+export function Anexo5Details({ worksheet, onClose }: { worksheet: Worksheet; onClose: () => void; }) {
+  const [agente, setAgente] = useState<AppUser | null>(null);
+
+  useEffect(() => {
+    const fetchAgent = async () => {
+        if (worksheet.aforador && worksheet.aforador !== '-') {
+            const q = query(collection(db, 'users'), where('displayName', '==', worksheet.aforador));
+            const querySnapshot = await getDocs(q);
+            if (!querySnapshot.empty) {
+                const agentData = querySnapshot.docs[0].data() as AppUser;
+                setAgente(agentData);
+            }
+        } else {
+            setAgente(null);
+        }
+    };
+    fetchAgent();
+  }, [worksheet.aforador]);
 
   const productHeaders = ["CANTIDAD", "ORIGEN", "UM", "SAC", "PESO", "DESCRIPCION", "LINEA AEREA", "N° DE GUIA AEREA", "BULTO", "TOTAL"];
   

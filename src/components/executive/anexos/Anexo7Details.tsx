@@ -1,18 +1,15 @@
 
-"use server";
-import React from 'react';
+"use client";
+import React, { useEffect, useState } from 'react';
 import Image from 'next/image';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
-import { X, Printer, FileText, User, Building, Weight, Truck, MapPin, Anchor, Plane, Globe, Package, ListChecks, FileSymlink, Link as LinkIcon, Eye, Shield, FileBadge, FileKey, Edit } from 'lucide-react';
+import { Card, CardContent, CardFooter } from '@/components/ui/card';
+import { Edit } from 'lucide-react';
 import type { Worksheet, AppUser } from '@/types';
 import { Timestamp, collection, query, where, getDocs } from 'firebase/firestore';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Badge } from '@/components/ui/badge';
 import { format as formatDateFns } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { aduanas } from '@/lib/formData';
-import { WorksheetDetails } from '../WorksheetDetails';
 import { cn } from "@/lib/utils";
 import { db } from '@/lib/firebase';
 import Link from 'next/link';
@@ -77,15 +74,23 @@ const SignatureSection: React.FC<{
 };
 
 
-export async function Anexo7Details({ worksheet, onClose }: { worksheet: Worksheet; onClose: () => void; }) {
-  let agente: AppUser | null = null;
-  if (worksheet.aforador && worksheet.aforador !== '-') {
-      const q = query(collection(db, 'users'), where('displayName', '==', worksheet.aforador));
-      const querySnapshot = await getDocs(q);
-      if (!querySnapshot.empty) {
-          agente = querySnapshot.docs[0].data() as AppUser;
+export function Anexo7Details({ worksheet, onClose }: { worksheet: Worksheet; onClose: () => void; }) {
+  const [agente, setAgente] = useState<AppUser | null>(null);
+
+  useEffect(() => {
+    const fetchAgent = async () => {
+      if (worksheet.aforador && worksheet.aforador !== '-') {
+          const q = query(collection(db, 'users'), where('displayName', '==', worksheet.aforador));
+          const querySnapshot = await getDocs(q);
+          if (!querySnapshot.empty) {
+              setAgente(querySnapshot.docs[0].data() as AppUser);
+          }
+      } else {
+        setAgente(null);
       }
-  }
+    };
+    fetchAgent();
+  }, [worksheet.aforador]);
   
   const productHeaders = ["CANTIDAD", "ORIGEN", "UM", "SAC", "PESO", "DESCRIPCIÓN", "BULTOS", "VALOR"];
   
@@ -96,10 +101,6 @@ export async function Anexo7Details({ worksheet, onClose }: { worksheet: Workshe
   const valorAduanero = (worksheet.valor || 0) + (worksheet.flete || 0) + (worksheet.seguro || 0) + (worksheet.otrosGastos || 0);
 
   const headerImageSrc = "/imagenes/HEADERANEX7DETAIL.svg";
-
-  if (worksheet.worksheetType === 'hoja_de_trabajo' || !worksheet.worksheetType) {
-    return <WorksheetDetails worksheet={worksheet} onClose={onClose} />;
-  }
 
   const MIN_ROWS = 9;
   const productRows = worksheet.documents && worksheet.documents.length > 0 ? worksheet.documents : [];
