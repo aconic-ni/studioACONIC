@@ -59,6 +59,7 @@ const requiredPermitSchema = z.object({
   comments: z.array(z.any()).optional(),
   tramiteDate: z.custom<Timestamp>().optional().nullable(),
   estimatedDeliveryDate: z.custom<Timestamp>().optional().nullable(),
+  recibo: z.string().optional(),
   // Unified field
   tipoTramite: z.string().optional(),
   // INE Specific fields

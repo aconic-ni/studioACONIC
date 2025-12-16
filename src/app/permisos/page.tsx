@@ -184,7 +184,7 @@ export default function PermisosPage() {
       filtered = filtered.filter(p =>
         p.ne.toLowerCase().includes(lowercasedTerm) ||
         p.reference?.toLowerCase().includes(lowercasedTerm) ||
-        String(p.facturaNumber)?.toLowerCase().includes(lowercasedTerm) ||
+        String(p.facturaNumber).toLowerCase().includes(lowercasedTerm) ||
         p.executive.toLowerCase().includes(lowercasedTerm) ||
         (p.assignedExecutive && p.assignedExecutive.toLowerCase().includes(lowercasedTerm)) ||
         p.name.toLowerCase().includes(lowercasedTerm) ||
@@ -219,7 +219,7 @@ export default function PermisosPage() {
   }
 
   const handleDownloadTemplate = () => {
-    const headers = ["NE", "Permiso", "Tipo", "Factura", "Estado", "FechaTramite", "FechaEntregaEstimada", "Recibo", "AsignadoA"];
+    const headers = ["NE", "Permiso", "Tipo", "Factura", "Estado", "FechaTramite", "FechaEntregaEstimada", "Recibo", "AsignadoA", "ETA"];
     const ws = XLSX.utils.aoa_to_sheet([headers]);
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "Plantilla Permisos");
@@ -277,9 +277,9 @@ export default function PermisosPage() {
                         status: row['Estado'] || 'Pendiente',
                         tramiteDate: parseDate(row['FechaTramite']),
                         estimatedDeliveryDate: parseDate(row['FechaEntregaEstimada']),
+                        recibo: row['Recibo'] || undefined,
                         assignedExecutive: row['AsignadoA'] || wsData.executive,
                         tipoTramite: row['Tipo'] || undefined,
-                        eta: parseDate(row['ETA']),
                     };
                     
                     Object.keys(permitData).forEach(key => permitData[key as keyof typeof permitData] === undefined && delete permitData[key as keyof typeof permitData]);
@@ -290,7 +290,13 @@ export default function PermisosPage() {
                         permits.push({ id: uuidv4(), ...permitData } as RequiredPermit);
                     }
                     
-                    batch.update(wsRef, { requiredPermits: permits, eta: permitData.eta || wsData.eta });
+                    const etaDate = parseDate(row['ETA']);
+                    const updatePayload: {requiredPermits: RequiredPermit[], eta?: Timestamp | null} = { requiredPermits: permits };
+                    if(etaDate) {
+                        updatePayload.eta = etaDate;
+                    }
+
+                    batch.update(wsRef, updatePayload);
                     updatedCount++;
                 } else {
                     skippedCount++;
