@@ -1099,6 +1099,7 @@ function WorksheetForm() {
                                                     <SelectItem value="En Trámite">En Trámite</SelectItem>
                                                     <SelectItem value="Entregado">Entregado</SelectItem>
                                                     <SelectItem value="Rechazado">Rechazado</SelectItem>
+                                                    <SelectItem value="Sometido de Nuevo">Sometido de Nuevo</SelectItem>
                                                 </SelectContent>
                                             </Select>
                                         )}

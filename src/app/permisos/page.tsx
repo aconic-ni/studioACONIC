@@ -219,7 +219,7 @@ export default function PermisosPage() {
   }
 
   const handleDownloadTemplate = () => {
-    const headers = ["NE", "Permiso", "Tipo", "Factura", "Estado", "FechaTramite", "FechaEntregaEstimada", "Recibo", "AsignadoA", "ETA"];
+    const headers = ["ETA", "NE", "Consignatario", "Factura Asociada", "Permiso", "Tipo de Trámite", "Estado", "Recibo", "Ejecutivo Asignado", "Fecha Sometido", "Fecha Retiro Estimada"];
     const ws = XLSX.utils.aoa_to_sheet([headers]);
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "Plantilla Permisos");
@@ -273,13 +273,13 @@ export default function PermisosPage() {
 
                     const permitData: Partial<RequiredPermit> = {
                         name: permitName,
-                        facturaNumber: row['Factura'] || undefined,
+                        facturaNumber: row['Factura Asociada'] || undefined,
                         status: row['Estado'] || 'Pendiente',
-                        tramiteDate: parseDate(row['FechaTramite']),
-                        estimatedDeliveryDate: parseDate(row['FechaEntregaEstimada']),
                         recibo: row['Recibo'] || undefined,
-                        assignedExecutive: row['AsignadoA'] || wsData.executive,
-                        tipoTramite: row['Tipo'] || undefined,
+                        tramiteDate: parseDate(row['Fecha Sometido']),
+                        estimatedDeliveryDate: parseDate(row['Fecha Retiro Estimada']),
+                        assignedExecutive: row['Ejecutivo Asignado'] || wsData.executive,
+                        tipoTramite: row['Tipo de Trámite'] || undefined,
                     };
                     
                     Object.keys(permitData).forEach(key => permitData[key as keyof typeof permitData] === undefined && delete permitData[key as keyof typeof permitData]);
@@ -291,9 +291,12 @@ export default function PermisosPage() {
                     }
                     
                     const etaDate = parseDate(row['ETA']);
-                    const updatePayload: {requiredPermits: RequiredPermit[], eta?: Timestamp | null} = { requiredPermits: permits };
+                    const updatePayload: {requiredPermits: RequiredPermit[], consignee?: string, eta?: Timestamp | null} = { requiredPermits: permits };
                     if(etaDate) {
                         updatePayload.eta = etaDate;
+                    }
+                    if(row['Consignatario']){
+                        updatePayload.consignee = row['Consignatario'];
                     }
 
                     batch.update(wsRef, updatePayload);
