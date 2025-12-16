@@ -31,6 +31,7 @@ function WorksheetTypeSynchronizer() {
             const querySnapshot = await getDocs(q);
             const allCases = querySnapshot.docs.map(doc => doc.data());
 
+            // This correctly counts docs where worksheetType is null, undefined, or doesn't exist.
             const missingTypeCount = allCases.filter(c => !c.worksheetType).length;
             setStats({ total: allCases.length, missingType: missingTypeCount });
         } catch (error) {
