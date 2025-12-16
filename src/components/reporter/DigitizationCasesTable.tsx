@@ -23,7 +23,6 @@ import { AssignUserModal } from './AssignUserModal';
 import { InvolvedUsersModal } from './InvolvedUsersModal';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { MobileDigitacionCard } from './MobileDigitacionCard';
-import { StatusBadges } from '../executive/StatusBadges';
 import { useRouter } from 'next/navigation';
 import { Checkbox } from '../ui/checkbox';
 import { Popover, PopoverContent, PopoverTrigger } from '../ui/popover';
@@ -92,13 +91,14 @@ export function DigitizationCasesTable({ filters, setAllFetchedCases, showPendin
   const [isLoading, setIsLoading] = useState(true);
   const [savingState, setSavingState] = useState<{ [key: string]: boolean }>({});
   const [displayCases, setDisplayCases] = useState<AforoCase[]>([]);
+  const [allCases, setInternalAllCases] = useState<AforoCase[]>([]);
   
   const [selectedCaseForHistory, setSelectedCaseForHistory] = useState<AforoCase | null>(null);
   const [selectedCaseForComment, setSelectedCaseForComment] = useState<AforoCase | null>(null);
   const [selectedCaseForCompletion, setSelectedCaseForCompletion] = useState<AforoCase | null>(null);
   const [selectedCaseForAssignment, setSelectedCaseForAssignment] = useState<AforoCase | null>(null);
   const [selectedRows, setSelectedRows] = useState<string[]>([]);
-  const [statusModal, setStatusModal] = useState<{isOpen: boolean}>({isOpen: false});
+  const [statusModal, setStatusModal] = useState<{isOpen: boolean; caseData?: AforoCase | null}>({isOpen: false, caseData: null});
   const [assignmentModal, setAssignmentModal] = useState<{ isOpen: boolean; case: AforoCase | null; type: 'aforador' | 'revisor' | 'bulk-aforador' | 'bulk-revisor' | 'bulk-digitador' }>({ isOpen: false, case: null, type: 'aforador' });
 
 
@@ -353,6 +353,17 @@ export function DigitizationCasesTable({ filters, setAllFetchedCases, showPendin
       </div>
     )
   }
+  
+  const getDigitacionBadgeVariant = (status: DigitacionStatus | undefined | null) => {
+    switch(status) {
+        case 'Trámite Completo': return 'default';
+        case 'En Proceso': return 'secondary';
+        case 'Almacenado': return 'outline';
+        case 'Pendiente de Digitación':
+        default:
+            return 'destructive';
+    }
+  }
 
   return (
     <>
@@ -426,21 +437,21 @@ export function DigitizationCasesTable({ filters, setAllFetchedCases, showPendin
                 </TableCell>
                 <TableCell>
                     <div className="flex items-center">
-                    <Select
-                        value={currentStatus ?? ''}
-                        onValueChange={(value: DigitacionStatus) => handleStatusChange(caseItem.id, value)}
+                    <Button
+                        variant="outline"
+                        className="w-[180px] justify-start"
+                        onClick={() => {
+                            if (isCompleted) return;
+                            if (currentStatus === 'Completar Trámite') {
+                                setSelectedCaseForCompletion(caseItem);
+                            } else {
+                                setStatusModal({ isOpen: true, caseData: caseItem });
+                            }
+                        }}
                         disabled={(!isDigitador && !canEdit) || isCompleted}
                     >
-                        <SelectTrigger className="w-[180px]">
-                            <SelectValue placeholder="Seleccionar estado..." />
-                        </SelectTrigger>
-                        <SelectContent>
-                            <SelectItem value="Pendiente de Digitación">Pendiente de Digitación</SelectItem>
-                            <SelectItem value="En Proceso">En Proceso</SelectItem>
-                            <SelectItem value="Almacenado">Almacenado</SelectItem>
-                            <SelectItem value="Completar Trámite">Completar Trámite</SelectItem>
-                        </SelectContent>
-                    </Select>
+                        <Badge variant={getDigitacionBadgeVariant(currentStatus)}>{currentStatus || 'N/A'}</Badge>
+                    </Button>
                     <LastUpdateTooltip lastUpdate={caseItem.digitacionStatusLastUpdate} caseCreation={caseItem.createdAt} />
                     </div>
                 </TableCell>
@@ -489,7 +500,7 @@ export function DigitizationCasesTable({ filters, setAllFetchedCases, showPendin
             isOpen={!!selectedCaseForAssignment}
             onClose={() => setSelectedCaseForAssignment(null)}
             caseData={selectedCaseForAssignment}
-            assignableUsers={assignableUsers.filter(u => u.role === 'digitador' || u.role === 'coordinadora' || u.role === 'supervisor' || u.role === 'aforador')}
+            assignableUsers={assignableUsers.filter(u => u.role === 'digitador' || u.role === 'coordinadora' || u.role === 'supervisor')}
             onAssign={handleAssignDigitador}
             title="Asignar Digitador"
             description={`Seleccione un usuario para asignar al caso NE: ${selectedCaseForAssignment.ne}`}
@@ -500,25 +511,36 @@ export function DigitizationCasesTable({ filters, setAllFetchedCases, showPendin
             isOpen={assignmentModal.isOpen}
             onClose={() => setAssignmentModal({ isOpen: false, case: null, type: 'aforador' })}
             caseData={assignmentModal.case}
-            assignableUsers={
-              assignmentModal.type === 'bulk-digitador'
-                  ? assignableUsers.filter(u => u.role === 'digitador' || u.role === 'coordinadora' || u.role === 'supervisor')
-                  : assignableUsers.filter(u => u.role === 'digitador' || u.role === 'coordinadora' || u.role === 'supervisor')
-            }
-            onAssign={(caseId, userName) => assignmentModal.type.includes('bulk') ? handleBulkAction('digitador', userName) : handleAssignDigitador(caseId, userName)}
-            title={`Asignar ${assignmentModal.type.includes('bulk') ? 'Digitador Masivo' : 'Digitador'}`}
-            description={assignmentModal.case ? `Seleccione un usuario para asignar al caso NE: ${assignmentModal.case.ne}` : `Seleccione un usuario para asignar a los ${selectedRows.length} casos seleccionados.`}
+            assignableUsers={assignableUsers.filter(u => u.role === 'digitador' || u.role === 'coordinadora' || u.role === 'supervisor')}
+            onAssign={(caseId, userName) => handleBulkAction('digitador', userName)}
+            title="Asignar Digitador Masivo"
+            description={`Seleccione un usuario para asignar a los ${selectedRows.length} casos seleccionados.`}
         />
     )}
-     <Dialog open={statusModal.isOpen} onOpenChange={() => setStatusModal({isOpen: false})}>
+     <Dialog open={statusModal.isOpen} onOpenChange={() => setStatusModal({isOpen: false, caseData: undefined})}>
         <DialogContent>
-            <DialogHeader><DialogTitle>Asignar Estatus de Digitación Masivo</DialogTitle><DialogDescription>Seleccione el estatus a aplicar a los {selectedRows.length} casos seleccionados.</DialogDescription></DialogHeader>
-            <Select onValueChange={(value) => { handleBulkAction('digitacionStatus', value); }}>
+            <DialogHeader>
+                  <DialogTitle>
+                    {statusModal.caseData ? `Cambiar Estatus para NE: ${statusModal.caseData.ne}` : `Asignar Estatus Masivo`}
+                  </DialogTitle>
+                  <DialogDescription>
+                    {statusModal.caseData ? 'Seleccione el nuevo estado para este caso.' : `Seleccione el estatus a aplicar a los ${selectedRows.length} casos seleccionados.`}
+                  </DialogDescription>
+            </DialogHeader>
+            <Select onValueChange={(value) => {
+                if (statusModal.caseData) {
+                    handleStatusChange(statusModal.caseData.id, value as DigitacionStatus);
+                    setStatusModal({isOpen: false});
+                } else {
+                    handleBulkAction('digitacionStatus', value);
+                }
+            }}>
                 <SelectTrigger><SelectValue placeholder="Seleccionar estatus..." /></SelectTrigger>
                 <SelectContent>
                     <SelectItem value="Pendiente de Digitación">Pendiente de Digitación</SelectItem>
                     <SelectItem value="En Proceso">En Proceso</SelectItem>
                     <SelectItem value="Almacenado">Almacenado</SelectItem>
+                    <SelectItem value="Completar Trámite">Completar Trámite</SelectItem>
                 </SelectContent>
             </Select>
         </DialogContent>
@@ -527,4 +549,4 @@ export function DigitizationCasesTable({ filters, setAllFetchedCases, showPendin
   );
 }
 
-    
+```
