@@ -11,7 +11,7 @@ import { Loader2, FilePlus, Search, Edit, Eye, History, PlusSquare, UserCheck, I
 import { db } from '@/lib/firebase';
 import { collection, query, where, onSnapshot, orderBy, Timestamp, doc, getDoc, updateDoc, writeBatch, addDoc, getDocs, collectionGroup, serverTimestamp } from 'firebase/firestore';
 import type { Worksheet, AforoCase, AforadorStatus, AforoCaseStatus, DigitacionStatus, WorksheetWithCase, AforoCaseUpdate, PreliquidationStatus, IncidentType, LastUpdateInfo, ExecutiveComment, InitialDataContext, AppUser, SolicitudRecord, ExamDocument, FacturacionStatus } from '@/types';
-import { format, toDate, isSameDay, startOfDay, endOfDay, startOfMonth, endOfMonth, differenceInDays } from 'date-fns';
+import { format, toDate, isSameDay, startOfDay, endOfDay, differenceInDays } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { Input } from '@/components/ui/input';
 import { AforoCaseHistoryModal } from '@/components/reporter/AforoCaseHistoryModal';
@@ -51,10 +51,9 @@ import { Textarea } from '@/components/ui/textarea';
 import { ExecutiveCasesTable } from '@/components/executive/ExecutiveCasesTable';
 import { MobileCasesList } from '@/components/executive/MobileCasesList';
 import { v4 as uuidv4 } from 'uuid';
-
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 
 type DateFilterType = 'range' | 'month' | 'today';
-type TabValue = 'worksheets' | 'anexos' | 'corporate';
 
 
 const months = [
