@@ -17,7 +17,7 @@ interface AssignUserModalProps {
   isOpen: boolean;
   onClose: () => void;
   worksheet?: Worksheet | null;
-  type: 'aforador' | 'revisor' | 'bulk-aforador' | 'bulk-revisor';
+  type: 'aforador' | 'revisor' | 'digitador' | 'bulk-aforador' | 'bulk-revisor' | 'bulk-digitador';
   selectedWorksheetIds?: string[];
 }
 
@@ -32,8 +32,16 @@ export function AssignUserModal({ isOpen, onClose, worksheet, type, selectedWork
     if (!isOpen) return;
     
     const fetchUsers = async () => {
-      const role = type.includes('aforador') ? 'aforador' : 'agente'; // Revisores are agents
-      const usersQuery = query(collection(db, 'users'), where('role', '==', role));
+      let role: string | string[];
+      if (type.includes('aforador')) {
+          role = 'aforador';
+      } else if (type.includes('revisor')) {
+          role = 'agente aduanero';
+      } else { // digitador
+          role = 'digitador';
+      }
+
+      const usersQuery = query(collection(db, 'users'), where('roleTitle', '==', role));
       const snapshot = await getDocs(usersQuery);
       const users = snapshot.docs.map(d => ({ uid: d.id, ...d.data() } as AppUser));
       setAssignableUsers(users);
@@ -46,7 +54,16 @@ export function AssignUserModal({ isOpen, onClose, worksheet, type, selectedWork
     setIsSubmitting(true);
     
     const batch = writeBatch(db);
-    const fieldToUpdate = type.includes('aforador') ? 'aforador' : 'revisor';
+    let fieldToUpdate: 'aforador' | 'revisor' | 'digitador';
+
+    if (type.includes('aforador')) {
+        fieldToUpdate = 'aforador';
+    } else if (type.includes('revisor')) {
+        fieldToUpdate = 'revisor';
+    } else {
+        fieldToUpdate = 'digitador';
+    }
+
     const now = Timestamp.now();
     const userDisplayName = selectedUser.displayName || selectedUser.email;
     const idsToUpdate = worksheet ? [worksheet.id] : selectedWorksheetIds || [];
@@ -82,7 +99,7 @@ export function AssignUserModal({ isOpen, onClose, worksheet, type, selectedWork
     }
   };
 
-  const title = `Asignar ${type.includes('aforador') ? 'Aforador' : 'Revisor'}${type.includes('bulk') ? ' Masivamente' : ''}`;
+  const title = `Asignar ${type.includes('aforador') ? 'Aforador' : type.includes('revisor') ? 'Revisor' : 'Digitador'}${type.includes('bulk') ? ' Masivamente' : ''}`;
   const description = worksheet ? `Seleccione un usuario para el NE: ${worksheet.ne}` : `Seleccione un usuario para ${selectedWorksheetIds?.length || 0} hoja(s) de trabajo.`;
 
   return (
@@ -92,7 +109,7 @@ export function AssignUserModal({ isOpen, onClose, worksheet, type, selectedWork
           <DialogTitle>{title}</DialogTitle>
           <DialogDescription>{description}</DialogDescription>
         </DialogHeader>
-        <Command className="rounded-lg border shadow-md">
+        <Command className="rounded-lg border shadow-sm">
           <CommandInput placeholder="Buscar usuario..." />
           <CommandList>
             <CommandEmpty>No se encontraron usuarios.</CommandEmpty>
