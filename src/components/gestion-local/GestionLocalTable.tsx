@@ -266,7 +266,7 @@ export function GestionLocalTable({ worksheets, selectedRows, setSelectedRows, o
             <Button
                 variant="outline"
                 size="sm"
-                onClick={()={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+                onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
                 disabled={currentPage === totalPages}
             >
                 Siguiente
@@ -307,5 +307,3 @@ export function GestionLocalTable({ worksheets, selectedRows, setSelectedRows, o
     </>
   );
 }
-
-    
