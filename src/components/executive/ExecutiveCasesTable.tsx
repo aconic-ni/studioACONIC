@@ -207,7 +207,9 @@ export function ExecutiveCasesTable({
                   <TableCell>
                     <div className="flex items-center group relative">
                       {getDigitacionBadge(c.digitacionStatus, c.declaracionAduanera)}
-                      <Button variant="ghost" size="icon" className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity" onClick={() => caseActions.setSelectedCaseForProcess(c)}><Eye className="h-4 w-4" /></Button>
+                      {caseActions.setSelectedCaseForProcess && (
+                        <Button variant="ghost" size="icon" className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity" onClick={() => caseActions.setSelectedCaseForProcess(c)}><Eye className="h-4 w-4" /></Button>
+                      )}
                     </div>
                   </TableCell>
                   <TableCell>
@@ -222,7 +224,9 @@ export function ExecutiveCasesTable({
                       </Select>
                       {c.selectividad === 'AMARILLO' && (
                         <Tooltip>
-                          <TooltipTrigger asChild><Badge variant="secondary" className="cursor-help"><Info className="h-4 w-4" /></Badge></TooltipTrigger>
+                          <TooltipTrigger>
+                            <Badge variant="secondary" className="cursor-help"><Info className="h-4 w-4" /></Badge>
+                          </TooltipTrigger>
                           <TooltipContent><p>CONSULTA DE VALORES</p></TooltipContent>
                         </Tooltip>
                       )}
@@ -252,3 +256,5 @@ export function ExecutiveCasesTable({
     </div>
   );
 }
+
+    
