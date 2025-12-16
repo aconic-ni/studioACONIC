@@ -18,7 +18,7 @@ import { format, differenceInDays } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { MobilePermitCard } from '@/components/permisos/MobilePermitCard';
-import { PermitCommentModal } from '../executive/PermitCommentModal';
+import { PermitCommentModal } from '@/components/executive/PermitCommentModal';
 import { useToast } from '@/hooks/use-toast';
 import * as XLSX from 'xlsx';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -26,7 +26,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 import { PermitDeliveryTicket } from '@/components/permisos/PermitDeliveryTicket';
 import { cn } from '@/lib/utils';
-import { PermitDetailsModal } from '../executive/worksheet/PermitDetailsModal';
+import { PermitDetailsModal } from '@/components/executive/worksheet/PermitDetailsModal';
 import { permitOptions } from '@/lib/formData';
 import { RadioGroup, RadioGroupItem } from '../ui/radio-group';
 import Link from 'next/link';
@@ -681,7 +681,15 @@ export default function PermisosPage() {
             onClose={() => setSelectedPermitForComment(null)}
             permit={selectedPermitForComment.permit}
             worksheetId={selectedPermitForComment.permit.ne}
-            onCommentsUpdate={() => {}}
+            onCommentsUpdate={(newComments) => {
+                const updatedPermits = allPermits.map(p => {
+                    if (p.id === selectedPermitForComment.permit.id) {
+                        return { ...p, comments: newComments };
+                    }
+                    return p;
+                });
+                setAllPermits(updatedPermits);
+            }}
         />
     )}
      <Dialog open={isDeliveryModalOpen} onOpenChange={setIsDeliveryModalOpen}>
@@ -777,5 +785,3 @@ export default function PermisosPage() {
     </>
   );
 }
-
-    
