@@ -262,7 +262,7 @@ export const Anexo5Details: React.FC<{ worksheet: Worksheet; onClose: () => void
                       <p className="text-xs font-semibold text-gray-700 print:text-[8pt] text-center">Firma y Sello</p>
                   </div>
               </div>
-
+          </div>
           <div className="grid grid-cols-2 gap-x-8 mt-2 print:mt-1">
                <SignatureSection title="ADUANA DESTINO" subtitle="Firma y Sello" align="left" className="w-full" />
               <div className="border border-black p-2 flex flex-col justify-between">
