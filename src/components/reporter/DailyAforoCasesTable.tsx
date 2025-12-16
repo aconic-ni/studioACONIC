@@ -324,9 +324,9 @@ export function DailyAforoCasesTable({ cases, isLoading, error, onRefresh }: Dai
         await batch.commit();
         toast({ title: "Revalidación Solicitada", description: "Se ha notificado al revisor para una nueva validación." });
         onRefresh();
-    } catch(e) {
+     } catch(e) {
         toast({ title: 'Error', description: 'No se pudo solicitar la revalidación.', variant: 'destructive'});
-    }
+     }
   };
 
   const handleAssignToDigitization = async (caseItem: AforoCase) => {
@@ -357,7 +357,7 @@ export function DailyAforoCasesTable({ cases, isLoading, error, onRefresh }: Dai
      }
   };
 
-  const handleBulkAction = async (type: 'aforador' | 'revisor', value: string) => {
+  const handleBulkAction = async (type: 'aforador' | 'revisor' | 'digitador' | 'aforadorStatus' | 'revisorStatus' | 'preliquidationStatus' | 'digitacionStatus', value: string) => {
     if (!user || !user.displayName || selectedRows.length === 0) return;
     
     setIsLoading(true);
@@ -369,17 +369,23 @@ export function DailyAforoCasesTable({ cases, isLoading, error, onRefresh }: Dai
       const originalCase = cases.find(c => c.id === caseId);
 
       if (originalCase) {
-        const field = type === 'aforador' ? 'aforador' : 'revisorAsignado';
+        const field = type === 'aforador' ? 'aforador' : type === 'revisor' ? 'revisorAsignado' : type;
         const updateData: {[key: string]: any} = { [field]: value };
         const now = Timestamp.now();
         const userInfo = { by: user.displayName, at: now };
 
-        if (field === 'aforador') updateData.assignmentDate = now;
         const statusFieldMap: {[key: string]: keyof AforoCase} = {
             'revisorAsignado': 'revisorAsignadoLastUpdate',
             'aforador': 'aforadorStatusLastUpdate',
+            'digitadorAsignado': 'digitadorAsignadoLastUpdate',
+            'aforadorStatus': 'aforadorStatusLastUpdate',
+            'revisorStatus': 'revisorStatusLastUpdate',
+            'preliquidationStatus': 'preliquidationStatusLastUpdate',
+            'digitacionStatus': 'digitacionStatusLastUpdate',
         };
         if (statusFieldMap[field]) updateData[statusFieldMap[field]] = userInfo;
+        if (field === 'aforador') updateData.assignmentDate = now;
+
 
         batch.update(caseDocRef, updateData);
 
@@ -410,6 +416,61 @@ export function DailyAforoCasesTable({ cases, isLoading, error, onRefresh }: Dai
     }
   };
 
+  const handleSendSelectedToDigitization = async () => {
+    if (!user || !user.displayName || selectedRows.length === 0) return;
+    setIsLoading(true);
+    const batch = writeBatch(db);
+    let successNEs: string[] = [];
+    let skippedNEs: string[] = [];
+    const newStatus = 'Pendiente de Digitación';
+
+    for(const caseId of selectedRows) {
+        const caseItem = cases.find(c => c.id === caseId);
+        if (caseItem && caseItem.revisorStatus === 'Aprobado' && caseItem.preliquidationStatus === 'Aprobada' && (!caseItem.digitacionStatus || caseItem.digitacionStatus === 'N/A' || caseItem.digitacionStatus === 'Pendiente')) {
+            const caseDocRef = doc(db, 'AforoCases', caseId);
+            const updatesSubcollectionRef = collection(caseDocRef, 'actualizaciones');
+            
+            batch.update(caseDocRef, { digitacionStatus: newStatus });
+            
+            const logEntry: AforoCaseUpdate = {
+                updatedAt: Timestamp.now(),
+                updatedBy: user.displayName,
+                field: 'digitacionStatus',
+                oldValue: caseItem.digitacionStatus || 'N/A',
+                newValue: newStatus,
+                comment: 'Envío masivo a digitación.'
+            };
+            batch.set(doc(updatesSubcollectionRef), logEntry);
+            successNEs.push(caseItem.ne);
+        } else if (caseItem) {
+            skippedNEs.push(caseItem.ne);
+        }
+    }
+
+    try {
+        if(successNEs.length > 0) {
+            await batch.commit();
+            toast({
+                title: "Envío a Digitación Procesado",
+                description: `${successNEs.length} caso(s) enviados. ${skippedNEs.length} omitidos.`
+            });
+        } else {
+             toast({
+                title: "No se enviaron casos",
+                description: "Ninguno de los casos seleccionados cumplía los requisitos para ser enviado a digitación.",
+                variant: 'default'
+            });
+        }
+        setBulkActionResult({ isOpen: true, success: successNEs, skipped: skippedNEs });
+        setSelectedRows([]);
+        onRefresh();
+    } catch (error) {
+        console.error("Error bulk sending to digitization:", error);
+        toast({ title: 'Error', description: 'No se pudieron enviar los casos a digitación.', variant: 'destructive'});
+    } finally {
+        setIsLoading(false);
+    }
+};
 
   const handleSearchPrevio = (ne: string) => {
     const url = `/database?ne=${encodeURIComponent(ne)}`;
@@ -978,7 +1039,7 @@ export function DailyAforoCasesTable({ cases, isLoading, error, onRefresh }: Dai
                   <DialogTitle>Asignar Estatus de Aforador Masivo</DialogTitle>
                   <DialogDescription>Seleccione el estatus a aplicar a los {selectedRows.length} casos seleccionados.</DialogDescription>
               </DialogHeader>
-              <Select onValueChange={(value) => { handleBulkAction('aforadorStatus' as any, value); }}>
+              <Select onValueChange={(value) => { handleBulkAction('aforadorStatus', value); }}>
                 <SelectTrigger><SelectValue placeholder="Seleccionar estatus..." /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="Pendiente ">Pendiente </SelectItem>
