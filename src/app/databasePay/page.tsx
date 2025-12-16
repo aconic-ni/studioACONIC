@@ -915,7 +915,7 @@ export default function DatabasePage() {
         <Card className="w-full custom-shadow">
           <CardHeader>
             <CardTitle className="text-2xl font-semibold text-foreground">Base de Datos de Pagos</CardTitle>
-            <CardDescription className="text-muted-foreground">Seleccione un tipo de búsqueda e ingrese los criterios.</CardDescription>
+            <CardDescription className="text-muted-foreground">Seleccione un tipo de búsqueda e ingrese los criterios. Ahora las operaciones pagadas si liberan de la vista general usa filtros para verificar entre estados pendientes, pagadas o todas, segun la busqueda inicial.</CardDescription>
           </CardHeader>
           <CardContent>
             <form onSubmit={(e) => handleSearch({ event: e })} className="space-y-4 mb-6">
