@@ -1,4 +1,3 @@
-
 "use client";
 import React, { useState, useMemo, useRef } from 'react';
 import type { Worksheet } from '@/types';
@@ -38,6 +37,7 @@ import {
 import * as XLSX from 'xlsx';
 import { Label } from '../ui/label';
 import { Switch } from '../ui/switch';
+import { CompleteDigitizationModal } from '../reporter/CompleteDigitizationModal';
 
 interface GestionLocalTableProps {
   worksheets: Worksheet[];
@@ -48,9 +48,10 @@ interface GestionLocalTableProps {
   onComment: (worksheet: Worksheet) => void;
   onView: (worksheet: Worksheet) => void;
   isLoading: boolean;
+  onRefresh: () => void;
 }
 
-export function GestionLocalTable({ worksheets, setWorksheets, selectedRows, setSelectedRows, onAssign, onComment, onView, isLoading }: GestionLocalTableProps) {
+export function GestionLocalTable({ worksheets, setWorksheets, selectedRows, setSelectedRows, onAssign, onComment, onView, isLoading, onRefresh }: GestionLocalTableProps) {
   const { toast } = useToast();
   const { user } = useAuth();
   const [currentPage, setCurrentPage] = useState(1);
@@ -61,6 +62,7 @@ export function GestionLocalTable({ worksheets, setWorksheets, selectedRows, set
   const [isBulkCompleteModalOpen, setIsBulkCompleteModalOpen] = useState(false);
   const [showOnlyPending, setShowOnlyPending] = useState(false);
   const [bulkActionResult, setBulkActionResult] = useState<{ isOpen: boolean, success: string[], skipped: string[] }>({ isOpen: false, success: [], skipped: [] });
+  const [selectedCaseForCompletion, setSelectedCaseForCompletion] = useState<Worksheet | null>(null);
 
 
   const filteredWorksheets = useMemo(() => {
@@ -125,14 +127,7 @@ export function GestionLocalTable({ worksheets, setWorksheets, selectedRows, set
     try {
         if (successNEs.length > 0) {
             await batch.commit();
-             // Optimistic update
-            setWorksheets(prev => prev.map(ws => {
-                if (successNEs.includes(ws.ne)) {
-                    const newAforo = { ...(ws as any).aforo, digitadorStatus: 'Trámite Completo' };
-                    return { ...ws, aforo: newAforo };
-                }
-                return ws;
-            }));
+            onRefresh();
         }
         setBulkActionResult({ isOpen: true, success: successNEs, skipped: skippedNEs });
         setSelectedRows([]);
@@ -165,14 +160,7 @@ export function GestionLocalTable({ worksheets, setWorksheets, selectedRows, set
     try {
         await batch.commit();
         toast({ title: 'Actualización Masiva Exitosa', description: `${selectedRows.length} registros actualizados.`});
-        // Optimistic update
-        setWorksheets(prev => prev.map(ws => {
-            if (selectedRows.includes(ws.id)) {
-                const newAforo = { ...(ws as any).aforo, [type]: value };
-                return { ...ws, aforo: newAforo };
-            }
-            return ws;
-        }));
+        onRefresh();
         setSelectedRows([]);
     } catch(e) {
         console.error("Bulk update error:", e);
@@ -189,7 +177,8 @@ export function GestionLocalTable({ worksheets, setWorksheets, selectedRows, set
 
     if (type === 'digitador' && newStatus === 'Trámite Completo') {
         const ws = worksheets.find(w => w.id === worksheetId);
-        setStatusModal({isOpen: true, worksheet: ws, type: 'digitador'});
+        setSelectedCaseForCompletion(ws || null);
+        setStatusModal({isOpen: false, type: 'aforador'});
         return;
     }
 
@@ -202,13 +191,7 @@ export function GestionLocalTable({ worksheets, setWorksheets, selectedRows, set
         };
         await writeBatch(db).set(worksheetRef, updateData, { merge: true }).commit();
         toast({ title: 'Estado Actualizado', description: `El estado del ${type} ha sido actualizado a "${newStatus}".` });
-        setWorksheets(prev => prev.map(ws => {
-            if (ws.id === worksheetId) {
-                const newAforo = { ...(ws as any).aforo, [fieldName]: newStatus };
-                return { ...ws, aforo: newAforo };
-            }
-            return ws;
-        }));
+        onRefresh();
         setStatusModal({isOpen: false, type: 'aforador'});
     } catch (e) {
         console.error(e);
@@ -226,13 +209,7 @@ export function GestionLocalTable({ worksheets, setWorksheets, selectedRows, set
         };
         await writeBatch(db).set(worksheetRef, updateData, { merge: true }).commit();
         toast({ title: 'Solicitud Enviada', description: 'Se ha solicitado la revalidación al revisor.' });
-        setWorksheets(prev => prev.map(ws => {
-            if (ws.id === worksheetId) {
-                const newAforo = { ...(ws as any).aforo, revisorStatus: 'Revalidación Solicitada' };
-                return { ...ws, aforo: newAforo };
-            }
-            return ws;
-        }));
+        onRefresh();
     } catch(e) {
         console.error(e);
         toast({ title: "Error", description: "No se pudo solicitar la revalidación.", variant: "destructive" });
@@ -241,12 +218,14 @@ export function GestionLocalTable({ worksheets, setWorksheets, selectedRows, set
   
  const handleDeclaracionSave = async (worksheetId: string, declaracion: string) => {
     if (!user || !user.displayName) return;
-    if (!declaracion || declaracion.trim() === '') return; // Don't save if empty
+    if (!declaracion || declaracion.trim() === '') {
+      toast({title: "Dato requerido", description: "El número de declaración no puede estar vacío.", variant: "destructive"});
+      return;
+    };
 
     const worksheetRef = doc(db, 'worksheets', worksheetId, 'aforo', 'metadata');
     const batch = writeBatch(db);
     try {
-      // Update both declaracion and status in one go
       batch.set(worksheetRef, { 
         declaracionAduanera: declaracion,
         digitadorStatus: 'Trámite Completo',
@@ -255,13 +234,7 @@ export function GestionLocalTable({ worksheets, setWorksheets, selectedRows, set
 
       await batch.commit();
       toast({ title: "Declaración y Estado Guardados", description: `Declaración guardada y estado actualizado a 'Trámite Completo'.` });
-      setWorksheets(prev => prev.map(ws => {
-            if (ws.id === worksheetId) {
-                const newAforo = { ...(ws as any).aforo, declaracionAduanera: declaracion, digitadorStatus: 'Trámite Completo' };
-                return { ...ws, aforo: newAforo };
-            }
-            return ws;
-        }));
+      onRefresh();
     } catch (e) {
       console.error(e);
       toast({ title: "Error", description: "No se pudo guardar el número de declaración.", variant: "destructive" });
@@ -319,18 +292,7 @@ export function GestionLocalTable({ worksheets, setWorksheets, selectedRows, set
         
         if (updatedCount > 0) {
             await batch.commit();
-            setWorksheets(prev => prev.map(ws => {
-                const row = json.find(r => String(r['NE']).trim().toUpperCase() === ws.id);
-                if (row && neToUpdate.has(ws.id)) {
-                    const declaracion = String(row['Declaracion Aduanera'] || '').trim();
-                    const newAforo = { ...(ws as any).aforo, declaracionAduanera: declaracion };
-                    if(isForBulkComplete) {
-                        newAforo.digitadorStatus = 'Trámite Completo';
-                    }
-                    return { ...ws, aforo: newAforo };
-                }
-                return ws;
-            }));
+            onRefresh();
             toast({ title: "Importación Completa", description: `${updatedCount} declaraciones han sido actualizadas.` });
             if(isForBulkComplete) {
                 setIsBulkCompleteModalOpen(false);
@@ -366,12 +328,7 @@ export function GestionLocalTable({ worksheets, setWorksheets, selectedRows, set
         title: "Acuse Masivo Exitoso",
         description: `${selectedRows.length} caso(s) han sido actualizados.`
       });
-      setWorksheets(prev => prev.map(ws => {
-          if (selectedRows.includes(ws.id)) {
-              return { ...ws, entregadoAforoAt: Timestamp.now() };
-          }
-          return ws;
-      }));
+      onRefresh();
       setSelectedRows([]);
     } catch (error) {
       console.error("Error with bulk acknowledge:", error);
@@ -392,7 +349,7 @@ export function GestionLocalTable({ worksheets, setWorksheets, selectedRows, set
                 <Download className="mr-2 h-4 w-4" /> Plantilla
             </Button>
             <input type="file" ref={fileInputRef} onChange={(e) => handleFileImport(e, false)} className="hidden" accept=".xlsx, .xls" />
-            <Button variant="secondary" size="sm" onClick={handleBulkCompleteDigitacion} disabled={selectedRows.length === 0 || isImporting}>
+            <Button variant="secondary" size="sm" onClick={() => handleBulkAction('digitadorStatus', 'Trámite Completo')} disabled={selectedRows.length === 0 || isImporting}>
                 Completar Digitación ({selectedRows.length})
             </Button>
             <Button variant="outline" size="sm" onClick={() => setStatusModal({isOpen: true, type: 'bulk-aforador'})} disabled={selectedRows.length === 0}>
@@ -518,12 +475,11 @@ export function GestionLocalTable({ worksheets, setWorksheets, selectedRows, set
                  </div>
               </TableCell>
               <TableCell>
-                  <Input 
-                    defaultValue={aforoData?.declaracionAduanera || ''} 
-                    onBlur={(e) => handleDeclaracionSave(ws.id, e.target.value)}
-                    className="h-8 text-xs"
-                    placeholder="No. Declaración"
-                  />
+                  {aforoData?.digitadorStatus === 'Trámite Completo' ? (
+                      <Badge variant="default">{aforoData.declaracionAduanera}</Badge>
+                  ) : (
+                      'N/A'
+                  )}
               </TableCell>
             </TableRow>
           )})}
@@ -602,7 +558,7 @@ export function GestionLocalTable({ worksheets, setWorksheets, selectedRows, set
                         </>
                     ) : (
                          <>
-                            <SelectItem value="Pendiente">Pendiente</SelectItem>
+                            <SelectItem value="Pendiente de Digitación">Pendiente de Digitación</SelectItem>
                             <SelectItem value="En Proceso">En Proceso</SelectItem>
                             <SelectItem value="Almacenado">Almacenado</SelectItem>
                             <SelectItem value="Trámite Completo">Trámite Completo</SelectItem>
@@ -615,6 +571,14 @@ export function GestionLocalTable({ worksheets, setWorksheets, selectedRows, set
             </DialogFooter>
         </DialogContent>
     </Dialog>
+    {selectedCaseForCompletion && (
+        <CompleteDigitizationModal
+            isOpen={!!selectedCaseForCompletion}
+            onClose={() => setSelectedCaseForCompletion(null)}
+            caseData={{id: selectedCaseForCompletion.id, ne: selectedCaseForCompletion.ne}}
+            onRefresh={onRefresh}
+        />
+    )}
      <Dialog open={isBulkCompleteModalOpen} onOpenChange={setIsBulkCompleteModalOpen}>
         <DialogContent>
             <DialogHeader>
@@ -669,5 +633,4 @@ export function GestionLocalTable({ worksheets, setWorksheets, selectedRows, set
         </AlertDialogContent>
     </AlertDialog>
     </>
-  );
-}
+  
