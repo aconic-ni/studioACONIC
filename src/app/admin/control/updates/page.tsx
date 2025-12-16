@@ -550,7 +550,7 @@ function BitacoraMigrator() {
             <CardHeader>
                 <CardTitle>Migrador de Bitácora de Aforo</CardTitle>
                 <CardDescription>
-                    Esta herramienta transfiere la subcolección `actualizaciones` desde `AforoCases` a `worksheets/{id}/aforo/actualizaciones`.
+                    Esta herramienta transfiere la subcolección `actualizaciones` desde `AforoCases` a `worksheets/{'{ID}'}/aforo/actualizaciones`.
                 </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
