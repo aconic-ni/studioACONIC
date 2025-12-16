@@ -1,3 +1,4 @@
+
 rules_version = '2';
 
 service cloud.firestore {
@@ -99,24 +100,6 @@ service cloud.firestore {
         allow read, list, update, delete: if isAdmin();
     }
 
-    match /AforoCases/{caseId} {
-      allow read: if isAuthenticated();
-      allow list: if isAuthenticated() && (hasRole('aforador') || hasRole('coordinadora') || isAdmin() || isAgenteAduanero() || hasRole('ejecutivo') || hasRole('digitador') || isSupervisor() || hasRole('facturador'));
-      allow create: if isAuthenticated() && (hasRole('aforador') || isAdmin() || hasRole('ejecutivo') || isSupervisor() || hasRole('coordinadora'));
-      allow update: if isAuthenticated() && (hasRole('coordinadora') || isAdmin() || isAgenteAduanero() || hasRole('aforador') || hasRole('digitador') || hasRole('ejecutivo') || isSupervisor() || hasRole('facturador'));
-      allow delete: if isAdmin();
-
-      match /actualizaciones/{updateId} {
-        allow create: if isAuthenticated();
-        allow read, list: if isAuthenticated();
-        allow update, delete: if isAdmin();
-      }
-      
-      match /pagos/{pagoId} {
-      	allow read, write: if isAuthenticated();
-      }
-    }
-
     match /worksheets/{worksheetId} {
         function isOwner() {
           return request.auth.token.email == resource.data.createdBy;
@@ -128,9 +111,13 @@ service cloud.firestore {
         allow update: if isAuthenticated() && (hasRole('ejecutivo') || isAdmin() || isAgenteAduanero() || isSupervisor() || hasRole('coordinadora') || hasRole('aforador'));
         allow delete: if isAdmin();
 
-        // Add rule for the 'aforo' subcollection
-        match /aforo/{document=**} {
-          allow read, write: if isAdmin() || isSupervisor();
+        // Rules for the 'aforo' subcollection
+        match /aforo/{document} {
+          allow read, write: if isAuthenticated();
+          
+          match /actualizaciones/{updateId} {
+             allow read, write: if isAuthenticated();
+          }
         }
     }
 
