@@ -6,7 +6,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Checkbox } from '@/components/ui/checkbox';
 import { Button } from '@/components/ui/button';
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from '@/components/ui/dropdown-menu';
-import { MoreHorizontal, UserCheck, MessageSquare, Eye, Edit, Repeat, Upload, Download, FileUp, Loader2 } from 'lucide-react';
+import { MoreHorizontal, UserCheck, MessageSquare, Eye, Edit, Repeat, Upload, Download, FileUp, Loader2, Filter } from 'lucide-react';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { Badge } from '@/components/ui/badge';
@@ -26,6 +26,8 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import * as XLSX from 'xlsx';
+import { Label } from '../ui/label';
+import { Switch } from '../ui/switch';
 
 interface GestionLocalTableProps {
   worksheets: Worksheet[];
@@ -46,13 +48,24 @@ export function GestionLocalTable({ worksheets, selectedRows, setSelectedRows, o
   const [isImporting, setIsImporting] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isBulkCompleteModalOpen, setIsBulkCompleteModalOpen] = useState(false);
+  const [showOnlyPending, setShowOnlyPending] = useState(false);
+
+  const filteredWorksheets = useMemo(() => {
+    if (showOnlyPending) {
+      return worksheets.filter(ws => {
+        const aforoData = (ws as any).aforo;
+        return !aforoData || aforoData.digitadorStatus !== 'Trámite Completo';
+      });
+    }
+    return worksheets;
+  }, [worksheets, showOnlyPending]);
 
 
-  const totalPages = Math.ceil(worksheets.length / itemsPerPage);
+  const totalPages = Math.ceil(filteredWorksheets.length / itemsPerPage);
   const paginatedWorksheets = useMemo(() => {
     const startIndex = (currentPage - 1) * itemsPerPage;
-    return worksheets.slice(startIndex, startIndex + itemsPerPage);
-  }, [worksheets, currentPage, itemsPerPage]);
+    return filteredWorksheets.slice(startIndex, startIndex + itemsPerPage);
+  }, [filteredWorksheets, currentPage, itemsPerPage]);
 
   const handleSelectAll = () => {
     if (selectedRows.length === paginatedWorksheets.length) {
@@ -150,18 +163,28 @@ export function GestionLocalTable({ worksheets, selectedRows, setSelectedRows, o
     }
   }
   
-  const handleDeclaracionSave = async (worksheetId: string, declaracion: string) => {
+ const handleDeclaracionSave = async (worksheetId: string, declaracion: string) => {
     if (!user || !user.displayName) return;
-     const worksheetRef = doc(db, 'worksheets', worksheetId, 'aforo', 'metadata');
-     try {
-        await writeBatch(db).set(worksheetRef, { declaracionAduanera: declaracion }, { merge: true }).commit();
-        toast({ title: "Declaración Guardada", description: "El número de declaración ha sido guardado." });
-        onRefresh();
-     } catch (e) {
-        console.error(e);
-        toast({ title: "Error", description: "No se pudo guardar el número de declaración.", variant: "destructive" });
-     }
-  }
+    if (!declaracion || declaracion.trim() === '') return; // Don't save if empty
+
+    const worksheetRef = doc(db, 'worksheets', worksheetId, 'aforo', 'metadata');
+    const batch = writeBatch(db);
+    try {
+      // Update both declaracion and status in one go
+      batch.set(worksheetRef, { 
+        declaracionAduanera: declaracion,
+        digitadorStatus: 'Trámite Completo',
+        digitadorStatusLastUpdate: { by: user.displayName, at: Timestamp.now() }
+      }, { merge: true });
+
+      await batch.commit();
+      toast({ title: "Declaración y Estado Guardados", description: `Declaración guardada y estado actualizado a 'Trámite Completo'.` });
+      onRefresh();
+    } catch (e) {
+      console.error(e);
+      toast({ title: "Error", description: "No se pudo guardar el número de declaración.", variant: "destructive" });
+    }
+  };
   
   const handleDownloadTemplate = (forBulkComplete = false) => {
     let data;
@@ -205,6 +228,7 @@ export function GestionLocalTable({ worksheets, selectedRows, setSelectedRows, o
             const updatePayload: any = { declaracionAduanera: declaracion };
             if (isForBulkComplete) {
                 updatePayload.digitadorStatus = 'Trámite Completo';
+                updatePayload.digitadorStatusLastUpdate = { by: user?.displayName, at: Timestamp.now() };
             }
             batch.set(worksheetRef, updatePayload, { merge: true });
             updatedCount++;
@@ -235,14 +259,24 @@ export function GestionLocalTable({ worksheets, selectedRows, setSelectedRows, o
   
   return (
     <>
-    <div className="flex items-center gap-2 p-2">
-        <Button variant="outline" size="sm" onClick={() => fileInputRef.current?.click()} disabled={isImporting}>
-            {isImporting ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : <Upload className="mr-2 h-4 w-4" />} Importar Declaraciones
-        </Button>
-        <Button onClick={() => handleDownloadTemplate(false)} variant="outline" size="sm">
-            <Download className="mr-2 h-4 w-4" /> Plantilla
-        </Button>
-         <input type="file" ref={fileInputRef} onChange={handleFileImport} className="hidden" accept=".xlsx, .xls" />
+    <div className="flex items-center justify-between gap-2 p-2">
+        <div className="flex items-center gap-2">
+            <Button variant="outline" size="sm" onClick={() => fileInputRef.current?.click()} disabled={isImporting}>
+                {isImporting ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : <Upload className="mr-2 h-4 w-4" />} Importar Declaraciones
+            </Button>
+            <Button onClick={() => handleDownloadTemplate(false)} variant="outline" size="sm">
+                <Download className="mr-2 h-4 w-4" /> Plantilla
+            </Button>
+             <input type="file" ref={fileInputRef} onChange={(e) => handleFileImport(e, false)} className="hidden" accept=".xlsx, .xls" />
+        </div>
+        <div className="flex items-center space-x-2">
+            <Switch
+                id="pending-filter"
+                checked={showOnlyPending}
+                onCheckedChange={setShowOnlyPending}
+            />
+            <Label htmlFor="pending-filter">Solo Pendientes</Label>
+        </div>
     </div>
     <div className="overflow-x-auto table-container rounded-lg border">
       <Table>
@@ -364,7 +398,7 @@ export function GestionLocalTable({ worksheets, selectedRows, setSelectedRows, o
     </div>
     <div className="flex items-center justify-between space-x-2 py-4">
         <div className="text-sm text-muted-foreground">
-            {selectedRows.length} de {worksheets.length} fila(s) seleccionadas.
+            {selectedRows.length} de {filteredWorksheets.length} fila(s) seleccionadas.
         </div>
         <div className="flex items-center gap-2">
             <span className="text-sm">Filas por página:</span>
