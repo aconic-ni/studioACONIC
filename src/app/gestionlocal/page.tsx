@@ -4,7 +4,7 @@
 import React, { useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { db } from '@/lib/firebase';
-import { collection, query, onSnapshot, orderBy, getDoc, doc, getDocs } from 'firebase/firestore';
+import { collection, query, onSnapshot, orderBy, getDoc, doc, getDocs, where } from 'firebase/firestore';
 import type { Worksheet, AforoCaseUpdate } from '@/types';
 import { AppShell } from '@/components/layout/AppShell';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
