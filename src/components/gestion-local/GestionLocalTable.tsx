@@ -5,7 +5,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Checkbox } from '@/components/ui/checkbox';
 import { Button } from '@/components/ui/button';
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from '@/components/ui/dropdown-menu';
-import { MoreHorizontal, UserCheck, MessageSquare, Eye, Edit, Repeat, Upload, Download, FileUp, Loader2, Filter, FileSignature } from 'lucide-react';
+import { MoreHorizontal, UserCheck, MessageSquare, Eye, Edit, Repeat, Upload, Download, FileUp, Loader2, Filter, FileSignature, Hash } from 'lucide-react';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { Badge } from '@/components/ui/badge';
@@ -63,6 +63,8 @@ export function GestionLocalTable({ worksheets, setWorksheets, selectedRows, set
   const [showOnlyPending, setShowOnlyPending] = useState(false);
   const [bulkActionResult, setBulkActionResult] = useState<{ isOpen: boolean, success: string[], skipped: string[] }>({ isOpen: false, success: [], skipped: [] });
   const [selectedCaseForCompletion, setSelectedCaseForCompletion] = useState<Worksheet | null>(null);
+  const [positionsModal, setPositionsModal] = useState<{isOpen: boolean, worksheet?: Worksheet | null, newStatus?: string}>({isOpen: false});
+  const [positionsInput, setPositionsInput] = useState<number | string>('');
 
 
   const filteredWorksheets = useMemo(() => {
@@ -175,7 +177,13 @@ export function GestionLocalTable({ worksheets, setWorksheets, selectedRows, set
         return;
     }
 
-    if (type === 'digitador' && newStatus === 'Trámite Completo') {
+    if (type === 'aforador' && newStatus === 'En revisión') {
+        const ws = worksheets.find(w => w.id === worksheetId);
+        setPositionsModal({ isOpen: true, worksheet: ws, newStatus: newStatus });
+        setStatusModal({isOpen: false, type: 'aforador'});
+        return;
+    }
+    if (type === 'digitador' && newStatus === 'Completar Trámite') {
         const ws = worksheets.find(w => w.id === worksheetId);
         setSelectedCaseForCompletion(ws || null);
         setStatusModal({isOpen: false, type: 'aforador'});
@@ -339,6 +347,33 @@ export function GestionLocalTable({ worksheets, setWorksheets, selectedRows, set
     }
   };
 
+  const handleSavePositions = async () => {
+    if (!positionsModal.worksheet || !user?.displayName) return;
+    
+    const batch = writeBatch(db);
+    const metadataRef = doc(db, 'worksheets', positionsModal.worksheet.id, 'aforo', 'metadata');
+    
+    const updatePayload: any = {
+        totalPosiciones: Number(positionsInput)
+    };
+    if (positionsModal.newStatus) {
+        updatePayload.aforadorStatus = positionsModal.newStatus;
+        updatePayload.aforadorStatusLastUpdate = { by: user.displayName, at: Timestamp.now() };
+    }
+    
+    batch.set(metadataRef, updatePayload, { merge: true });
+
+    try {
+        await batch.commit();
+        toast({title: 'Éxito', description: 'Las posiciones y el estado han sido guardados.'});
+        setPositionsModal({isOpen: false});
+        setPositionsInput('');
+        onRefresh();
+    } catch(e) {
+        toast({title: 'Error', description: 'No se pudieron guardar los datos.', variant: 'destructive'});
+    }
+  };
+
   return (
     <>
     <div className="flex items-center justify-between gap-2 p-2">
@@ -381,18 +416,16 @@ export function GestionLocalTable({ worksheets, setWorksheets, selectedRows, set
               />
             </TableHead>
             <TableHead>Acciones</TableHead>
-            <TableHead>Insignias</TableHead>
             <TableHead>NE</TableHead>
             <TableHead>Consignatario</TableHead>
-            <TableHead>Modelo (Patrón)</TableHead>
-            <TableHead>Fecha Creación</TableHead>
-            <TableHead>Aforador Asignado</TableHead>
+            <TableHead>Aforador</TableHead>
             <TableHead>Estado Aforador</TableHead>
-            <TableHead>Revisor Asignado</TableHead>
+            <TableHead>Revisor</TableHead>
             <TableHead>Estado Revisor</TableHead>
-            <TableHead>Digitador Asignado</TableHead>
+            <TableHead>Digitador</TableHead>
             <TableHead>Estado Digitador</TableHead>
-            <TableHead>Declaración Aduanera</TableHead>
+            <TableHead>Declaración</TableHead>
+            <TableHead>Posiciones</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -422,21 +455,13 @@ export function GestionLocalTable({ worksheets, setWorksheets, selectedRows, set
                   </DropdownMenuContent>
                 </DropdownMenu>
               </TableCell>
-              <TableCell>
-                <StatusBadges caseData={{...ws, ...aforoData}} />
-              </TableCell>
               <TableCell>{ws.ne}</TableCell>
               <TableCell>{ws.consignee}</TableCell>
-              <TableCell>{ws.patternRegime || 'N/A'}</TableCell>
-              <TableCell>{formatDate(ws.createdAt)}</TableCell>
               <TableCell>
-                <div className="flex items-center gap-1">
-                  <Badge variant="secondary">{aforoData?.aforador || 'N/A'}</Badge>
-                  <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => onAssign(ws, 'aforador')}><Edit className="h-3 w-3"/></Button>
-                </div>
+                <Badge variant="secondary">{aforoData?.aforador || 'N/A'}</Badge>
               </TableCell>
               <TableCell>
-                 <div className="flex items-center gap-1">
+                <div className="flex items-center gap-1">
                     <Badge variant={aforoData?.aforadorStatus === 'En revisión' ? 'default' : 'outline'}>
                         {aforoData?.aforadorStatus || 'Pendiente'}
                     </Badge>
@@ -444,31 +469,18 @@ export function GestionLocalTable({ worksheets, setWorksheets, selectedRows, set
                  </div>
               </TableCell>
               <TableCell>
-                  <div className="flex items-center gap-1">
-                    <Badge variant="secondary">{aforoData?.revisor || 'N/A'}</Badge>
-                    <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => onAssign(ws, 'revisor')}><Edit className="h-3 w-3"/></Button>
-                  </div>
+                <Badge variant="secondary">{aforoData?.revisor || 'N/A'}</Badge>
+              </TableCell>
+              <TableCell>
+                 <Badge variant={aforoData?.revisorStatus === 'Aprobado' ? 'default' : aforoData?.revisorStatus === 'Rechazado' ? 'destructive' : 'outline'}>
+                    {aforoData?.revisorStatus || 'Pendiente'}
+                </Badge>
+              </TableCell>
+              <TableCell>
+                  <Badge variant="secondary">{aforoData?.digitador || 'N/A'}</Badge>
               </TableCell>
               <TableCell>
                  <div className="flex items-center gap-1">
-                    <Badge variant={aforoData?.revisorStatus === 'Aprobado' ? 'default' : aforoData?.revisorStatus === 'Rechazado' ? 'destructive' : 'outline'}>
-                        {aforoData?.revisorStatus || 'Pendiente'}
-                    </Badge>
-                    {aforoData?.revisorStatus === 'Rechazado' && (
-                        <Button variant="secondary" size="sm" className="h-6 px-2 text-xs" onClick={() => handleRevalidationRequest(ws.id)}>
-                            <Repeat className="mr-1 h-3 w-3" /> Revalidar
-                        </Button>
-                    )}
-                 </div>
-              </TableCell>
-               <TableCell>
-                  <div className="flex items-center gap-1">
-                      <Badge variant="secondary">{aforoData?.digitador || 'N/A'}</Badge>
-                      <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => onAssign(ws, 'digitador')}><Edit className="h-3 w-3"/></Button>
-                  </div>
-              </TableCell>
-               <TableCell>
-                <div className="flex items-center gap-1">
                     <Badge variant={aforoData?.digitadorStatus === 'Trámite Completo' ? 'default' : 'outline'}>
                         {aforoData?.digitadorStatus || 'Pendiente'}
                     </Badge>
@@ -476,11 +488,13 @@ export function GestionLocalTable({ worksheets, setWorksheets, selectedRows, set
                  </div>
               </TableCell>
               <TableCell>
-                  {aforoData?.digitadorStatus === 'Trámite Completo' ? (
-                      <Badge variant="default">{aforoData.declaracionAduanera}</Badge>
-                  ) : (
-                      'N/A'
-                  )}
+                  {aforoData?.declaracionAduanera ? <Badge variant="default">{aforoData.declaracionAduanera}</Badge> : 'N/A'}
+              </TableCell>
+               <TableCell>
+                  <div className="flex items-center gap-1">
+                    <Badge variant="outline">{aforoData?.totalPosiciones || 0}</Badge>
+                    <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => { setPositionsInput(aforoData?.totalPosiciones || ''); setPositionsModal({isOpen: true, worksheet: ws})}}><Edit className="h-3 w-3"/></Button>
+                  </div>
               </TableCell>
             </TableRow>
           )})}
@@ -533,7 +547,7 @@ export function GestionLocalTable({ worksheets, setWorksheets, selectedRows, set
             </Button>
         </div>
     </div>
-    <Dialog open={statusModal.isOpen} onOpenChange={() => setStatusModal({ isOpen: false, type: 'aforador'})}>
+    <Dialog open={statusModal.isOpen} onOpenChange={() => setStatusModal({isOpen: false})}>
         <DialogContent>
             <DialogHeader>
                 <DialogTitle>Cambiar Estado de {statusModal.type?.includes('aforador') ? 'Aforador' : 'Digitador'} {statusModal.type?.includes('bulk') ? 'Masivo' : ''}</DialogTitle>
@@ -568,7 +582,31 @@ export function GestionLocalTable({ worksheets, setWorksheets, selectedRows, set
                 </SelectContent>
             </Select>
             <DialogFooter>
-                <Button variant="outline" onClick={() => setStatusModal({ isOpen: false, type: 'aforador' })}>Cancelar</Button>
+                <Button variant="outline" onClick={() => setStatusModal({isOpen: false})}>Cancelar</Button>
+            </DialogFooter>
+        </DialogContent>
+    </Dialog>
+     <Dialog open={positionsModal.isOpen} onOpenChange={() => setPositionsModal({isOpen: false})}>
+        <DialogContent>
+            <DialogHeader>
+                <DialogTitle>Ingresar Total de Posiciones</DialogTitle>
+                <DialogDescription>
+                    Para marcar el caso NE: <span className="font-bold">{positionsModal.worksheet?.ne}</span> como "En revisión", debe ingresar el total de posiciones.
+                </DialogDescription>
+            </DialogHeader>
+             <div className="py-4 space-y-2">
+                <Label htmlFor="positions-input">Total de Posiciones</Label>
+                <Input
+                    id="positions-input"
+                    type="number"
+                    value={positionsInput}
+                    onChange={(e) => setPositionsInput(e.target.value)}
+                    placeholder="Ingrese el número de posiciones"
+                />
+            </div>
+            <DialogFooter>
+                <Button variant="outline" onClick={() => setPositionsModal({isOpen: false})}>Cancelar</Button>
+                <Button onClick={handleSavePositions} disabled={!positionsInput}>Guardar y Actualizar Estado</Button>
             </DialogFooter>
         </DialogContent>
     </Dialog>
