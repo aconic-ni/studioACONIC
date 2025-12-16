@@ -54,6 +54,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 
 type DateFilterType = 'range' | 'month' | 'today';
+type TabValue = 'worksheets' | 'anexos' | 'corporate';
 
 
 const months = [
@@ -124,7 +125,7 @@ function ExecutivePageContent() {
     noFacturado: true,
     dateFilterType: 'range' as DateFilterType,
     dateRange: undefined as DateRange | undefined,
-    isSearchActive: false, // New flag to track if a search has been performed
+    isSearchActive: false, 
   });
   
   const [neFilter, setNeFilter] = useState('');
@@ -901,7 +902,7 @@ function ExecutivePageContent() {
                     <TabsContent value="anexos" className="mt-6">{renderTable()}</TabsContent>
                     <TabsContent value="corporate" className="mt-6">{renderTable()}</TabsContent>
 
-                    {appliedFilters.isSearchActive && (
+                    {appliedFilters.isSearchActive && totalPages > 1 && (
                         <div className="flex items-center justify-end space-x-2 py-4">
                             <Button
                                 variant="outline"
