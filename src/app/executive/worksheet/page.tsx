@@ -428,7 +428,6 @@ function WorksheetForm() {
       const batch = writeBatch(db);
 
       try {
-        // Exclude createdBy from the update payload
         const { createdBy, ...restOfData } = data;
         const updatedWorksheetData = { 
             ...restOfData, 
@@ -438,14 +437,7 @@ function WorksheetForm() {
 
         batch.update(worksheetDocRef, updatedWorksheetData);
         
-        batch.update(aforoCaseDocRef, {
-            executive: data.executive,
-            consignee: data.consignee,
-            facturaNumber: data.facturaNumber,
-            merchandise: data.description,
-            aforador: data.aforador || '',
-        });
-
+        // Log a change to trigger security rules update if needed
         const logRef = doc(collection(aforoCaseDocRef, 'actualizaciones'));
         const updateLog: AforoCaseUpdate = {
           updatedAt: Timestamp.now(),
@@ -1223,7 +1215,7 @@ function WorksheetForm() {
             onSave={(updatedDetails) => handleSavePermitDetails(editingPermit.index, updatedDetails)}
         />
     )}
-    {/* This is a comment to ensure file changes are detected */}
+    {/* Este es un comentario para asegurar que los cambios se detecten. */}
     </>
   )
 }
