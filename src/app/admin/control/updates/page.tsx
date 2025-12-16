@@ -465,29 +465,23 @@ function BitacoraMigrator() {
     const fetchStats = useCallback(async () => {
         setIsLoading(true);
         try {
-            const aforoCasesSnapshot = await getDocs(query(collection(db, 'AforoCases')));
-            let casesWithLogsCount = 0;
-            let totalLogsToMigrate = 0;
-
-            for (const caseDoc of aforoCasesSnapshot.docs) {
-                const caseData = caseDoc.data() as AforoCase;
-                if (caseData.worksheetId) {
-                    const sourceUpdatesRef = collection(db, 'AforoCases', caseDoc.id, 'actualizaciones');
-                    const sourceUpdatesSnapshot = await getDocs(sourceUpdatesRef);
-
-                    if (!sourceUpdatesSnapshot.empty) {
-                        casesWithLogsCount++;
-                        
-                        const targetUpdatesRef = collection(db, 'worksheets', caseData.worksheetId, 'aforo', 'actualizaciones');
-                        const targetUpdatesSnapshot = await getDocs(targetUpdatesRef);
-                        
-                        if (targetUpdatesSnapshot.empty) { // Only count if target is empty
-                            totalLogsToMigrate += sourceUpdatesSnapshot.size;
-                        }
-                    }
+            // Efficiently get all 'actualizaciones' documents across all 'AforoCases'
+            const sourceUpdatesQuery = query(collectionGroup(db, 'actualizaciones'));
+            const sourceUpdatesSnapshot = await getDocs(sourceUpdatesQuery);
+            
+            const caseIdsWithLogs = new Set<string>();
+            sourceUpdatesSnapshot.forEach(doc => {
+                const pathParts = doc.ref.path.split('/');
+                if (pathParts.length >= 3 && pathParts[0] === 'AforoCases') {
+                    caseIdsWithLogs.add(pathParts[1]);
                 }
-            }
-            setStats({ casesWithLogs: casesWithLogsCount, logsToMigrate: totalLogsToMigrate });
+            });
+
+            setStats({
+                casesWithLogs: caseIdsWithLogs.size,
+                logsToMigrate: sourceUpdatesSnapshot.size, // This is a raw count, will be refined during migration
+            });
+
         } catch (error) {
             console.error("Error fetching bitácora stats:", error);
             toast({ title: 'Error', description: 'No se pudieron cargar las estadísticas de migración de bitácora.', variant: 'destructive' });
@@ -495,6 +489,7 @@ function BitacoraMigrator() {
             setIsLoading(false);
         }
     }, [toast]);
+
 
     useEffect(() => {
         fetchStats();
@@ -506,25 +501,36 @@ function BitacoraMigrator() {
         
         let migratedCount = 0;
         try {
-            const aforoCasesSnapshot = await getDocs(collection(db, 'AforoCases'));
-            
-            for (const caseDoc of aforoCasesSnapshot.docs) {
-                const caseData = caseDoc.data() as AforoCase;
-                if (caseData.worksheetId) {
-                    const sourceUpdatesRef = collection(db, 'AforoCases', caseDoc.id, 'actualizaciones');
-                    const targetUpdatesRef = collection(db, 'worksheets', caseData.worksheetId, 'aforo', 'actualizaciones');
+            // Get all cases that have a worksheetId to know where to migrate to
+            const aforoCasesSnapshot = await getDocs(query(collection(db, 'AforoCases'), where('worksheetId', '!=', null)));
+            const caseIdToWorksheetIdMap = new Map<string, string>();
+            aforoCasesSnapshot.forEach(doc => {
+                const data = doc.data();
+                if(data.worksheetId) {
+                    caseIdToWorksheetIdMap.set(doc.id, data.worksheetId);
+                }
+            });
+
+            const sourceUpdatesQuery = query(collectionGroup(db, 'actualizaciones'));
+            const sourceSnapshot = await getDocs(sourceUpdatesQuery);
+
+            for (const logDoc of sourceSnapshot.docs) {
+                const pathParts = logDoc.ref.path.split('/');
+                const caseId = pathParts[1];
+                const worksheetId = caseIdToWorksheetIdMap.get(caseId);
+
+                if (pathParts[0] === 'AforoCases' && worksheetId) {
+                    const targetUpdatesRef = collection(db, 'worksheets', worksheetId, 'aforo', 'actualizaciones');
                     
-                    const sourceSnapshot = await getDocs(sourceUpdatesRef);
-                    const targetSnapshot = await getDocs(targetUpdatesRef);
-                    
-                    if (!sourceSnapshot.empty && targetSnapshot.empty) {
+                    // Check if target subcollection is empty before migrating.
+                    // This is less efficient but safer. A better approach is to check once per case.
+                    const targetSnapshot = await getDocs(query(targetUpdatesRef));
+                    if (targetSnapshot.empty) {
+                        const newLogRef = doc(targetUpdatesRef, logDoc.id);
                         const batch = writeBatch(db);
-                        sourceSnapshot.forEach(logDoc => {
-                            const newLogRef = doc(targetUpdatesRef, logDoc.id);
-                            batch.set(newLogRef, logDoc.data());
-                        });
-                        await batch.commit();
-                        migratedCount += sourceSnapshot.size;
+                        batch.set(newLogRef, logDoc.data());
+                        await batch.commit(); // Commit individually or in smaller batches
+                        migratedCount++;
                     }
                 }
             }
@@ -532,14 +538,14 @@ function BitacoraMigrator() {
             if (migratedCount > 0) {
                 toast({ title: 'Migración Completa', description: `${migratedCount} registros de bitácora han sido migrados.` });
             } else {
-                toast({ title: 'Sin cambios necesarios', description: 'Todas las bitácoras aplicables ya estaban migradas.' });
+                toast({ title: 'Sin cambios necesarios', description: 'Todas las bitácoras aplicables ya estaban migradas o no se encontraron casos para migrar.' });
             }
         } catch (error) {
             console.error("Error during bitácora migration:", error);
             toast({ title: 'Error en Migración', description: 'Ocurrió un error al migrar las bitácoras.', variant: 'destructive' });
         } finally {
             setIsMigrating(false);
-            fetchStats();
+            fetchStats(); // Refresh stats after migration
         }
     };
 
@@ -606,5 +612,3 @@ export default function UpdatesAdminPage() {
     </AppShell>
   );
 }
-
-    
