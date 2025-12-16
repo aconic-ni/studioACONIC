@@ -99,6 +99,7 @@ export function DigitizationCasesTable({ filters, setAllFetchedCases, showPendin
   const [selectedCaseForAssignment, setSelectedCaseForAssignment] = useState<AforoCase | null>(null);
   const [selectedRows, setSelectedRows] = useState<string[]>([]);
   const [statusModal, setStatusModal] = useState<{isOpen: boolean}>({isOpen: false});
+  const [assignmentModal, setAssignmentModal] = useState<{ isOpen: boolean; case: AforoCase | null; type: 'aforador' | 'revisor' | 'bulk-aforador' | 'bulk-revisor' | 'bulk-digitador' }>({ isOpen: false, case: null, type: 'aforador' });
 
 
   const handleAutoSave = useCallback(async (caseId: string, field: keyof AforoCase, value: any, isTriggerFromFieldUpdate: boolean = false) => {
@@ -245,49 +246,49 @@ export function DigitizationCasesTable({ filters, setAllFetchedCases, showPendin
 
   const handleBulkAction = async (type: 'digitador' | 'digitacionStatus', value: string) => {
     if (!user || !user.displayName || selectedRows.length === 0) return;
-
+    
     setIsLoading(true);
     const batch = writeBatch(db);
-
+    
     selectedRows.forEach(caseId => {
-        const caseDocRef = doc(db, 'AforoCases', caseId);
-        const updatesSubcollectionRef = collection(caseDocRef, 'actualizaciones');
-        const originalCase = displayCases.find(c => c.id === caseId);
+      const caseDocRef = doc(db, 'AforoCases', caseId);
+      const updatesSubcollectionRef = collection(caseDocRef, 'actualizaciones');
+      const originalCase = displayCases.find(c => c.id === caseId);
 
-        if (originalCase) {
-            const field = type === 'digitador' ? 'digitadorAsignado' : 'digitacionStatus';
-            const updateData: {[key: string]: any} = { [field]: value };
-            const now = Timestamp.now();
-            const userInfo = { by: user.displayName, at: now };
+      if (originalCase) {
+        const field = type === 'digitador' ? 'digitadorAsignado' : 'digitacionStatus';
+        const updateData: {[key: string]: any} = { [field]: value };
+        const now = Timestamp.now();
+        const userInfo = { by: user.displayName, at: now };
 
-            if (field === 'digitadorAsignado') updateData.digitadorAsignadoLastUpdate = userInfo;
-            if (field === 'digitacionStatus') updateData.digitacionStatusLastUpdate = userInfo;
-            
-            batch.update(caseDocRef, updateData);
+        if (field === 'digitadorAsignado') updateData.digitadorAsignadoLastUpdate = userInfo;
+        if (field === 'digitacionStatus') updateData.digitacionStatusLastUpdate = userInfo;
+        
+        batch.update(caseDocRef, updateData);
 
-            const logEntry: AforoCaseUpdate = {
-                updatedAt: now,
-                updatedBy: user.displayName,
-                field: field as keyof AforoCase,
-                oldValue: originalCase[field as keyof AforoCase] || null,
-                newValue: value,
-                comment: `Acción masiva: ${field} actualizado a ${value}.`
-            };
-            batch.set(doc(updatesSubcollectionRef), logEntry);
-        }
+        const logEntry: AforoCaseUpdate = {
+          updatedAt: now,
+          updatedBy: user.displayName,
+          field: field as keyof AforoCase,
+          oldValue: originalCase[field as keyof AforoCase] || null,
+          newValue: value,
+          comment: `Acción masiva: ${field} actualizado a ${value}.`
+        };
+        batch.set(doc(updatesSubcollectionRef), logEntry);
+      }
     });
 
     try {
-        await batch.commit();
-        toast({ title: "Acción Masiva Exitosa", description: `${selectedRows.length} casos han sido actualizados.` });
-        setSelectedRows([]);
+      await batch.commit();
+      toast({ title: "Acción Masiva Exitosa", description: `${selectedRows.length} casos han sido actualizados.` });
+      setSelectedRows([]);
     } catch (error) {
-        console.error("Error with bulk action:", error);
-        toast({ title: "Error", description: "No se pudo completar la acción masiva.", variant: "destructive" });
+      console.error("Error with bulk action:", error);
+      toast({ title: "Error", description: "No se pudo completar la acción masiva.", variant: "destructive" });
     } finally {
-        setIsLoading(false);
-        setAssignmentModal({ isOpen: false, case: null, type: 'aforador' });
-        setStatusModal({ isOpen: false });
+      setIsLoading(false);
+      setAssignmentModal({ isOpen: false, case: null, type: 'aforador' });
+      setStatusModal({ isOpen: false });
     }
   };
   
@@ -360,7 +361,7 @@ export function DigitizationCasesTable({ filters, setAllFetchedCases, showPendin
       <div className="flex items-center gap-2 p-2">
           {canEdit && (
             <>
-              <Button variant="outline" size="sm" onClick={() => setAssignmentModal({isOpen: true, case: null, type: 'revisor'})} disabled={selectedRows.length === 0}>Asignar Digitador ({selectedRows.length})</Button>
+              <Button variant="outline" size="sm" onClick={() => setAssignmentModal({isOpen: true, case: null, type: 'bulk-digitador'})} disabled={selectedRows.length === 0}>Asignar Digitador ({selectedRows.length})</Button>
               <Button variant="outline" size="sm" onClick={() => setStatusModal({isOpen: true})} disabled={selectedRows.length === 0}>Asignar Estatus ({selectedRows.length})</Button>
             </>
           )}
@@ -525,3 +526,5 @@ export function DigitizationCasesTable({ filters, setAllFetchedCases, showPendin
     </>
   );
 }
+
+    
