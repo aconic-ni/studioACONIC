@@ -32,16 +32,21 @@ export function AssignUserModal({ isOpen, onClose, worksheet, type, selectedWork
     if (!isOpen) return;
     
     const fetchUsers = async () => {
-      let role: string | string[];
-      if (type.includes('aforador')) {
-          role = 'aforador';
+      let roles: string[];
+      if (type.includes('aforador') || type.includes('digitador')) {
+          roles = ['aforador', 'supervisor', 'coordinadora'];
       } else if (type.includes('revisor')) {
-          role = 'agente aduanero';
-      } else { // digitador
-          role = 'digitador';
+          roles = ['agente aduanero'];
+      } else {
+          roles = [];
       }
 
-      const usersQuery = query(collection(db, 'users'), where('roleTitle', '==', role));
+      if(roles.length === 0) {
+        setAssignableUsers([]);
+        return;
+      }
+      
+      const usersQuery = query(collection(db, 'users'), where('role', 'in', roles));
       const snapshot = await getDocs(usersQuery);
       const users = snapshot.docs.map(d => ({ uid: d.id, ...d.data() } as AppUser));
       setAssignableUsers(users);

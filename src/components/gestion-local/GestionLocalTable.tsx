@@ -459,12 +459,20 @@ export function GestionLocalTable({ worksheets, selectedRows, setSelectedRows, o
         </div>
         <div className="flex items-center gap-2">
             <span className="text-sm">Filas por página:</span>
-            <Select value={String(itemsPerPage)} onValueChange={(value) => setItemsPerPage(Number(value))}>
-                <SelectTrigger className="w-20 h-8"><SelectValue /></SelectTrigger>
+            <Select
+                value={String(itemsPerPage)}
+                onValueChange={(value) => {
+                    const numValue = Number(value);
+                    setItemsPerPage(numValue === filteredWorksheets.length ? filteredWorksheets.length : numValue);
+                    setCurrentPage(1);
+                }}
+            >
+                <SelectTrigger className="w-24 h-8"><SelectValue /></SelectTrigger>
                 <SelectContent>
                     <SelectItem value="30">30</SelectItem>
                     <SelectItem value="40">40</SelectItem>
                     <SelectItem value="50">50</SelectItem>
+                    <SelectItem value={String(filteredWorksheets.length)}>Todos</SelectItem>
                 </SelectContent>
             </Select>
         </div>
@@ -553,7 +561,7 @@ export function GestionLocalTable({ worksheets, selectedRows, setSelectedRows, o
      <AlertDialog open={bulkActionResult.isOpen} onOpenChange={(isOpen) => setBulkActionResult(prev => ({...prev, isOpen}))}>
         <AlertDialogContent>
             <AlertDialogHeader>
-                <AlertDialogTitle>Resultado de la Operación Masiva</AlertDialogTitle>
+                <DialogTitle>Resultado de la Operación Masiva</DialogTitle>
                 <AlertDialogDescription>
                     <div className="space-y-4 max-h-60 overflow-y-auto">
                         {bulkActionResult.success.length > 0 && (
@@ -583,5 +591,3 @@ export function GestionLocalTable({ worksheets, selectedRows, setSelectedRows, o
     </>
   );
 }
-
-    
