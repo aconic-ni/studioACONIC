@@ -181,7 +181,7 @@ export default function PermisosPage() {
       filtered = filtered.filter(p =>
         p.ne.toLowerCase().includes(lowercasedTerm) ||
         p.reference?.toLowerCase().includes(lowercasedTerm) ||
-        p.facturaNumber?.toLowerCase().includes(lowercasedTerm) ||
+        String(p.facturaNumber)?.toLowerCase().includes(lowercasedTerm) ||
         p.executive.toLowerCase().includes(lowercasedTerm) ||
         (p.assignedExecutive && p.assignedExecutive.toLowerCase().includes(lowercasedTerm)) ||
         p.name.toLowerCase().includes(lowercasedTerm) ||
@@ -681,15 +681,7 @@ export default function PermisosPage() {
             onClose={() => setSelectedPermitForComment(null)}
             permit={selectedPermitForComment.permit}
             worksheetId={selectedPermitForComment.permit.ne}
-            onCommentsUpdate={(newComments) => {
-                const updatedPermits = allPermits.map(p => {
-                    if (p.id === selectedPermitForComment.permit.id) {
-                        return { ...p, comments: newComments };
-                    }
-                    return p;
-                });
-                setAllPermits(updatedPermits);
-            }}
+            onCommentsUpdate={() => {}} // This is a read-only view, so no update logic needed here
         />
     )}
      <Dialog open={isDeliveryModalOpen} onOpenChange={setIsDeliveryModalOpen}>
