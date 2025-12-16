@@ -547,6 +547,7 @@ export default function PermisosPage() {
                   <TableHead>Permiso</TableHead>
                   <TableHead>Tipo de Trámite</TableHead>
                   <TableHead>Estado</TableHead>
+                  <TableHead>Recibo</TableHead>
                   <TableHead>Ejecutivo Asignado</TableHead>
                   <TableHead>Fecha Sometido</TableHead>
                   <TableHead>Fecha Retiro Estimada</TableHead>
@@ -583,6 +584,7 @@ export default function PermisosPage() {
                         <TableCell>{permit.name}</TableCell>
                         <TableCell>{permit.tipoTramite || 'N/A'}</TableCell>
                         <TableCell><Badge variant={getStatusBadgeVariant(permit.status)}>{permit.status}</Badge></TableCell>
+                        <TableCell>{permit.recibo || 'N/A'}</TableCell>
                         <TableCell>{permit.assignedExecutive || permit.executive}</TableCell>
                         <TableCell>{formatDate(permit.tramiteDate, false)}</TableCell>
                         <TableCell>{formatDate(permit.estimatedDeliveryDate, false)}</TableCell>

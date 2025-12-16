@@ -21,7 +21,7 @@ export const downloadPermisosAsExcel = (permits: PermitRow[]) => {
 
   const headers = [
     "NE", "Consignatario", "ETA", "Referencia", "Factura Asociada", "Permiso", "Tipo de Trámite",
-    "Estado", "Ejecutivo Asignado", "Fecha Sometido", "Fecha Retiro Estimada", 
+    "Estado", "Recibo", "Ejecutivo Asignado", "Fecha Sometido", "Fecha Retiro Estimada", 
     "Entregado a", "Fecha de Remisión"
   ];
 
@@ -34,6 +34,7 @@ export const downloadPermisosAsExcel = (permits: PermitRow[]) => {
     p.name,
     p.tipoTramite || 'N/A',
     p.status,
+    p.recibo || 'N/A',
     p.assignedExecutive || p.executive,
     formatTimestampForExcel(p.tramiteDate, false),
     formatTimestampForExcel(p.estimatedDeliveryDate, false),
@@ -60,5 +61,3 @@ export const downloadPermisosAsExcel = (permits: PermitRow[]) => {
   XLSX.utils.book_append_sheet(wb, ws, "Reporte Permisos");
   XLSX.writeFile(wb, `Reporte_Permisos_${now.toISOString().split('T')[0]}.xlsx`);
 };
-
-    
