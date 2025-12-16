@@ -1,20 +1,23 @@
 
 "use client";
-import React, { useEffect, useState, useCallback, useMemo } from 'react';
+
+import React, { useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { db } from '@/lib/firebase';
-import { collection, query, onSnapshot, orderBy, getDoc, doc, where } from 'firebase/firestore';
-import type { Worksheet } from '@/types';
+import { collection, query, onSnapshot, orderBy, getDoc, doc, getDocs } from 'firebase/firestore';
+import type { Worksheet, AforoCaseUpdate } from '@/types';
 import { AppShell } from '@/components/layout/AppShell';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Loader2, Search, Inbox, Users, ChevronsUpDown } from 'lucide-react';
+import { Loader2, Search, Inbox, Users, ChevronsUpDown, Download } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { GestionLocalTable } from '@/components/gestion-local/GestionLocalTable';
 import { useToast } from '@/hooks/use-toast';
 import { AssignUserModal } from '@/components/gestion-local/AssignUserModal';
 import { AforoCommentModal } from '@/components/gestion-local/AforoCommentModal';
 import { WorksheetDetailModal } from '@/components/reporter/WorksheetDetailModal';
+import { downloadAforoReportAsExcel } from '@/lib/fileExporterAforo';
+
 
 export default function GestionLocalPage() {
   const { user, loading: authLoading } = useAuth();
@@ -28,7 +31,9 @@ export default function GestionLocalPage() {
   const [commentModal, setCommentModal] = useState<{ isOpen: boolean; worksheet: Worksheet } | null>(null);
   const [viewModal, setViewModal] = useState<{ isOpen: boolean; worksheet: Worksheet } | null>(null);
   const [selectedRows, setSelectedRows] = useState<string[]>([]);
-  
+  const [isExporting, setIsExporting] = useState(false);
+
+
   const fetchWorksheets = useCallback(() => {
     if (!user) return;
     setIsLoading(true);
@@ -71,6 +76,46 @@ export default function GestionLocalPage() {
     };
   }, [fetchWorksheets]);
 
+  const handleExport = async () => {
+    if (filteredWorksheets.length === 0) {
+      toast({ title: "No hay datos", description: "No hay casos en la tabla para exportar.", variant: "secondary" });
+      return;
+    }
+    setIsExporting(true);
+    
+    // Adapt worksheet data to what downloadAforoReportAsExcel expects
+    const casesToExport = filteredWorksheets.map(ws => ({
+        id: ws.id,
+        ne: ws.ne,
+        consignee: ws.consignee,
+        merchandise: ws.description,
+        declarationPattern: ws.patternRegime,
+        ...((ws as any).aforo || {}) // Spread aforo data
+    }));
+
+    const auditLogs: (AforoCaseUpdate & { caseNe: string })[] = [];
+    for (const ws of filteredWorksheets) {
+        const logsQuery = query(collection(db, 'worksheets', ws.id, 'actualizaciones'), orderBy('updatedAt', 'asc'));
+        const logSnapshot = await getDocs(logsQuery);
+        logSnapshot.forEach(logDoc => {
+            auditLogs.push({
+                ...(logDoc.data() as AforoCaseUpdate),
+                caseNe: ws.ne
+            });
+        });
+    }
+
+    try {
+      await downloadAforoReportAsExcel(casesToExport, auditLogs);
+    } catch(e) {
+      console.error("Error exporting:", e);
+      toast({ title: "Error de Exportación", description: "No se pudo generar el archivo Excel.", variant: "destructive" });
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
+
   const filteredWorksheets = useMemo(() => {
     return worksheets.filter(ws => {
       const neMatch = neFilter ? ws.ne.toLowerCase().includes(neFilter.toLowerCase()) : true;
@@ -93,6 +138,10 @@ export default function GestionLocalPage() {
                  <Button variant="outline" onClick={() => setAssignmentModal({ isOpen: true, type: 'bulk-aforador' })} disabled={selectedRows.length === 0}>Asignar Aforador ({selectedRows.length})</Button>
                  <Button variant="outline" onClick={() => setAssignmentModal({ isOpen: true, type: 'bulk-revisor' })} disabled={selectedRows.length === 0}>Asignar Revisor ({selectedRows.length})</Button>
                  <Button variant="outline" onClick={() => setAssignmentModal({ isOpen: true, type: 'bulk-digitador' })} disabled={selectedRows.length === 0}>Asignar Digitador ({selectedRows.length})</Button>
+                 <Button onClick={handleExport} variant="outline" disabled={isExporting}>
+                    {isExporting ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : <Download className="mr-2 h-4 w-4" />}
+                    Exportar
+                 </Button>
               </div>
             </div>
           </CardHeader>

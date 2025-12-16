@@ -39,7 +39,7 @@ const generateSheet = (headers: string[], rows: (string|number|null|undefined)[]
     return ws;
 };
 
-export async function downloadAforoReportAsExcel(cases: AforoCase[], auditLogs: (AforoCaseUpdate & { caseNe: string })[]) {
+export async function downloadAforoReportAsExcel(cases: Partial<AforoCase>[], auditLogs: (AforoCaseUpdate & { caseNe: string })[]) {
     const now = new Date();
     const fechaHoraExportacion = format(now, 'dd/MM/yy HH:mm', { locale: es });
 
