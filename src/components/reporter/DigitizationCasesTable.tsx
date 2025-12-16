@@ -86,8 +86,6 @@ const LastUpdateTooltip = ({ lastUpdate, caseCreation }: { lastUpdate?: LastUpda
 export function DigitizationCasesTable({ filters, setAllFetchedCases, showPendingOnly }: DigitizationCasesTableProps) {
   const { user } = useAuth();
   const { toast } = useToast();
-  const router = useRouter();
-  const isMobile = useIsMobile();
   const [assignableUsers, setAssignableUsers] = useState<AppUser[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [savingState, setSavingState] = useState<{ [key: string]: boolean }>({});
@@ -99,6 +97,8 @@ export function DigitizationCasesTable({ filters, setAllFetchedCases, showPendin
   const [selectedCaseForAssignment, setSelectedCaseForAssignment] = useState<AforoCase | null>(null);
   const [selectedRows, setSelectedRows] = useState<string[]>([]);
   const [statusModal, setStatusModal] = useState<{isOpen: boolean; caseData?: AforoCase | null}>({isOpen: false, caseData: null});
+  const [assignmentModal, setAssignmentModal] = useState<{ isOpen: boolean; case: AforoCase | null; type: 'aforador' | 'revisor' | 'bulk-aforador' | 'bulk-revisor' | 'bulk-digitador' }>({ isOpen: false, case: null, type: 'aforador' });
+  const isMobile = useIsMobile();
 
 
   const handleAutoSave = useCallback(async (caseId: string, field: keyof AforoCase, value: any, isTriggerFromFieldUpdate: boolean = false) => {
@@ -195,8 +195,8 @@ export function DigitizationCasesTable({ filters, setAllFetchedCases, showPendin
     const statuses = ['Pendiente de Digitación', 'En Proceso', 'Almacenado', 'Trámite Completo'];
 
     let queryConstraints: any[] = [
-      where('digitacionStatus', 'in', statuses),
       where('worksheetType', '==', 'hoja_de_trabajo'),
+      where('digitacionStatus', 'in', statuses),
       orderBy('revisorStatus', 'desc'), 
       orderBy('createdAt', 'desc')
     ];
@@ -313,7 +313,6 @@ export function DigitizationCasesTable({ filters, setAllFetchedCases, showPendin
 
   const openHistoryModal = (caseItem: AforoCase) => setSelectedCaseForHistory(caseItem);
   const openCommentModal = (caseItem: AforoCase) => setSelectedCaseForComment(caseItem);
-  const [assignmentModal, setAssignmentModal] = useState<{ isOpen: boolean; case: AforoCase | null; type: 'aforador' | 'revisor' | 'bulk-aforador' | 'bulk-revisor' | 'bulk-digitador' }>({ isOpen: false, case: null, type: 'aforador' });
     
   if (isLoading) {
     return (
@@ -337,25 +336,25 @@ export function DigitizationCasesTable({ filters, setAllFetchedCases, showPendin
   const canEdit = user?.role === 'admin' || user?.role === 'coordinadora' || user?.role === 'supervisor';
   const isDigitador = user?.role === 'digitador';
   
-  if (useIsMobile()) {
-    return (
-      <div className="space-y-4">
-        {displayCases.map((caseItem) => (
-            <MobileDigitacionCard
-                key={caseItem.id}
-                caseItem={caseItem}
-                canEdit={canEdit}
-                isDigitador={isDigitador}
-                savingState={savingState}
-                handleStatusChange={handleStatusChange}
-                handleAutoSave={handleAutoSave}
-                openCommentModal={openCommentModal}
-                openHistoryModal={openHistoryModal}
-                setSelectedCaseForAssignment={setSelectedCaseForAssignment}
-            />
-        ))}
-      </div>
-    )
+  if (isMobile) {
+      return (
+        <div className="space-y-4">
+            {displayCases.map((caseItem) => (
+                <MobileDigitacionCard
+                    key={caseItem.id}
+                    caseItem={caseItem}
+                    canEdit={canEdit}
+                    isDigitador={isDigitador}
+                    savingState={savingState}
+                    handleStatusChange={handleStatusChange}
+                    handleAutoSave={handleAutoSave}
+                    openCommentModal={openCommentModal}
+                    openHistoryModal={openHistoryModal}
+                    setSelectedCaseForAssignment={setSelectedCaseForAssignment}
+                />
+            ))}
+        </div>
+      )
   }
   
   const getDigitacionBadgeVariant = (status: DigitacionStatus | undefined | null) => {
