@@ -1,4 +1,3 @@
-
 "use client";
 import React, { useState, useEffect, useCallback } from 'react';
 import { db } from '@/lib/firebase';
@@ -97,6 +96,7 @@ export function DailyAforoCasesTable({ filters, setAllFetchedCases, showPendingO
   const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
   const [selectedRows, setSelectedRows] = useState<string[]>([]);
   const [displayCases, setDisplayCases] = useState<WorksheetWithCase[]>([]);
+  const [allFetchedCases, setInternalAllFetchedCases] = useState<WorksheetWithCase[]>([]);
   
   const [selectedCaseForHistory, setSelectedCaseForHistory] = useState<AforoCase | null>(null);
   const [selectedCaseForAforadorComment, setSelectedCaseForAforadorComment] = useState<AforoCase | null>(null);
@@ -289,54 +289,66 @@ export function DailyAforoCasesTable({ filters, setAllFetchedCases, showPendingO
     setError(null);
   
     const fetchAssignableUsers = async () => {
-      // ... (rest of the function, no changes needed)
+        const usersMap = new Map<string, AppUser>();
+        const rolesToFetch = ['aforador', 'coordinadora', 'supervisor', 'digitador'];
+        rolesToFetch.push('agente aduanero'); // Also fetch agents for 'revisor' role
+        
+        try {
+            const usersQuery = query(collection(db, 'users'), where('roleTitle', 'in', rolesToFetch));
+            const querySnapshot = await getDocs(usersQuery);
+            querySnapshot.forEach(doc => {
+                const userData = { uid: doc.id, ...doc.data() } as AppUser;
+                if (!usersMap.has(userData.uid) && userData.displayName) {
+                    usersMap.set(userData.uid, userData);
+                }
+            });
+            setAssignableUsers(Array.from(usersMap.values()));
+        } catch(e) {
+            console.error("Error fetching users for digitization table", e);
+        }
     };
     fetchAssignableUsers();
     
-    let q;
-    let mainQuery = query(collection(db, 'worksheets'), orderBy('createdAt', 'desc'));
+    let qCases;
+    const mainQuery = collection(db, 'AforoCases');
 
     if (filters.ne?.trim()) {
-        mainQuery = query(collection(db, 'worksheets'), where('ne', '>=', filters.ne.trim().toUpperCase()), where('ne', '<=', filters.ne.trim().toUpperCase() + '\uf8ff'));
-    } else if (filters.consignee?.trim()) {
-        mainQuery = query(collection(db, 'worksheets'), where('consignee', '>=', filters.consignee.trim()), where('consignee', '<=', filters.consignee.trim() + '\uf8ff'));
+        qCases = query(mainQuery, where('ne', '==', filters.ne.trim().toUpperCase()));
+    } else if (filters.consignee?.trim()){
+        qCases = query(mainQuery, where('consignee', '>=', filters.consignee.trim()), where('consignee', '<=', filters.consignee.trim() + '\uf8ff'));
+    } else {
+        qCases = query(mainQuery, orderBy('createdAt', 'desc'));
     }
   
-    const unsubscribe = onSnapshot(mainQuery, 
+    const unsubscribe = onSnapshot(qCases, 
       async (snapshot) => {
-        const allWorksheets = snapshot.docs
-          .map(doc => ({ id: doc.id, ...doc.data() } as Worksheet))
-          .filter(ws => ws.worksheetType === 'hoja_de_trabajo' || ws.worksheetType === undefined);
+        const aforoCasesData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as AforoCase));
+        const worksheetIds = aforoCasesData.map(c => c.worksheetId).filter(Boolean) as string[];
 
-        if (allWorksheets.length === 0) {
-            setAllFetchedCases([]);
-            setDisplayCases([]);
+        if (worksheetIds.length === 0) {
+            setInternalAllFetchedCases(aforoCasesData.map(c => ({...c, worksheet: null})));
             setIsLoading(false);
             return;
         }
-
-        const worksheetIds = allWorksheets.map(doc => doc.id);
-        const worksheetsMap = new Map<string, Worksheet>(allWorksheets.map(ws => [ws.id, ws]));
-
-        const casePromises = [];
+        
+        const worksheetPromises = [];
         for (let i = 0; i < worksheetIds.length; i += 30) {
             const chunk = worksheetIds.slice(i, i + 30);
-            if (chunk.length > 0) {
-              casePromises.push(
-                  getDocs(query(collection(db, 'AforoCases'), where(documentId(), 'in', chunk)))
-              );
+            if(chunk.length > 0) {
+                worksheetPromises.push(getDocs(query(collection(db, 'worksheets'), where(documentId(), 'in', chunk))));
             }
         }
         
         try {
-            const caseSnapshots = await Promise.all(casePromises);
-            const aforoCasesData = caseSnapshots.flatMap(snap => snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as AforoCase)));
+            const worksheetSnapshots = await Promise.all(worksheetPromises);
+            const worksheetsMap = new Map<string, Worksheet>();
+            worksheetSnapshots.forEach(snap => snap.forEach(doc => worksheetsMap.set(doc.id, { id: doc.id, ...doc.data()} as Worksheet)));
 
             const combinedData = aforoCasesData.map(caseItem => ({
                 ...caseItem,
-                worksheet: worksheetsMap.get(caseItem.id) || null,
+                worksheet: worksheetsMap.get(caseItem.worksheetId || '') || null,
             }));
-
+            
             let filtered = combinedData;
             
             if (filters.dateRange?.from) {
@@ -347,54 +359,180 @@ export function DailyAforoCasesTable({ filters, setAllFetchedCases, showPendingO
                     return caseDate && caseDate >= start && caseDate <= end;
                 });
             }
-
+            
             const sorted = filtered.sort((a, b) => (b.createdAt?.toMillis() ?? 0) - (a.createdAt?.toMillis() ?? 0));
-            setAllFetchedCases(sorted);
-
-            if (showPendingOnly) {
-                setDisplayCases(sorted.filter(c => !c.declaracionAduanera));
-            } else {
-                setDisplayCases(sorted);
-            }
+            setInternalAllFetchedCases(sorted);
 
         } catch (error) {
-            console.error("Error fetching AforoCases for worksheets:", error);
-            setError("No se pudieron cargar los casos de aforo correspondientes.");
+            console.error("Error fetching worksheets for cases:", error);
+            setError("No se pudieron cargar los detalles de las hojas de trabajo.");
         } finally {
           setIsLoading(false);
         }
       },
       (error: any) => {
-        // ... (error handling remains the same)
+        console.error("Error fetching main aforo cases:", error);
+        setError("Error al cargar los casos de aforo.");
+        setIsLoading(false);
       }
     );
   
     return () => unsubscribe();
-  }, [user, filters, setAllFetchedCases, toast, showPendingOnly]);
+  }, [user, filters, toast]);
   
   useEffect(() => {
     let filtered = allFetchedCases;
     if(showPendingOnly) {
-        filtered = filtered.filter(c => !c.declaracionAduanera);
+        const pendingStatuses = ['Pendiente ', 'En proceso', 'Incompleto', 'En revisión'];
+        filtered = filtered.filter(c => !c.declaracionAduanera && pendingStatuses.includes(c.aforadorStatus || ''));
     }
     setDisplayCases(filtered);
-  }, [showPendingOnly, allFetchedCases]);
+    setAllFetchedCases(filtered);
+  }, [showPendingOnly, allFetchedCases, setAllFetchedCases]);
 
   const handleRequestRevalidation = async (caseItem: AforoCase) => {
-     // ... (function body remains the same)
+    if (!user || !user.displayName) return;
+    const caseDocRef = doc(db, 'AforoCases', caseItem.id);
+    const updatesSubcollectionRef = collection(caseDocRef, 'actualizaciones');
+    const batch = writeBatch(db);
+
+    try {
+        batch.update(caseDocRef, { revisorStatus: 'Revalidación Solicitada' });
+        
+        const logEntry: AforoCaseUpdate = {
+            updatedAt: Timestamp.now(),
+            updatedBy: user.displayName,
+            field: 'status_change',
+            oldValue: caseItem.revisorStatus,
+            newValue: 'Revalidación Solicitada',
+            comment: `El aforador ${user.displayName} ha solicitado una revalidación del caso.`
+        };
+        batch.set(doc(updatesSubcollectionRef), logEntry);
+        
+        await batch.commit();
+        toast({ title: "Revalidación Solicitada", description: "Se ha notificado al revisor para una nueva validación." });
+    } catch(e) {
+        toast({ title: 'Error', description: 'No se pudo solicitar la revalidación.', variant: 'destructive'});
+    }
   };
 
   const handleAssignToDigitization = async (caseItem: AforoCase) => {
-    // ... (function body remains the same)
+     if (!user || !user.displayName) return;
+     const caseDocRef = doc(db, 'AforoCases', caseItem.id);
+     const updatesSubcollectionRef = collection(caseDocRef, 'actualizaciones');
+     const batch = writeBatch(db);
+
+     try {
+        batch.update(caseDocRef, { digitacionStatus: 'Pendiente de Digitación' });
+
+        const logEntry: AforoCaseUpdate = {
+            updatedAt: Timestamp.now(),
+            updatedBy: user.displayName,
+            field: 'status_change',
+            oldValue: caseItem.digitacionStatus,
+            newValue: 'Pendiente de Digitación',
+            comment: 'Caso listo y enviado a digitación.'
+        };
+        batch.set(doc(updatesSubcollectionRef), logEntry);
+        
+        await batch.commit();
+
+        toast({ title: 'Enviado a Digitación', description: 'El caso está listo para que el digitador lo procese.' });
+     } catch(e) {
+        toast({ title: 'Error', description: 'No se pudo enviar a digitación.', variant: 'destructive'});
+     }
   };
 
   const handleBulkAction = async (type: 'aforador' | 'revisor' | 'aforadorStatus', value: string) => {
-    // ... (function body remains the same)
+    if (!user || !user.displayName || selectedRows.length === 0) return;
+    
+    setIsLoading(true);
+    const batch = writeBatch(db);
+    
+    selectedRows.forEach(caseId => {
+      const caseDocRef = doc(db, 'AforoCases', caseId);
+      const updatesSubcollectionRef = collection(caseDocRef, 'actualizaciones');
+      const originalCase = displayCases.find(c => c.id === caseId);
+
+      if (originalCase) {
+        const field = type === 'aforadorStatus' ? 'aforadorStatus' : (type === 'aforador' ? 'aforador' : 'revisorAsignado');
+        const updateData: {[key: string]: any} = { [field]: value };
+        const now = Timestamp.now();
+        const userInfo = { by: user.displayName, at: now };
+
+        if (field === 'aforador') updateData.assignmentDate = now;
+        if (statusFieldMap[field]) updateData[statusFieldMap[field]] = userInfo;
+
+        batch.update(caseDocRef, updateData);
+
+        const logEntry: AforoCaseUpdate = {
+          updatedAt: now,
+          updatedBy: user.displayName,
+          field: field as keyof AforoCase,
+          oldValue: originalCase[field as keyof AforoCase] || null,
+          newValue: value,
+          comment: `Acción masiva: ${field} actualizado a ${value}.`
+        };
+        batch.set(doc(updatesSubcollectionRef), logEntry);
+      }
+    });
+
+    try {
+      await batch.commit();
+      toast({ title: "Acción Masiva Exitosa", description: `${selectedRows.length} casos han sido actualizados.` });
+      setSelectedRows([]);
+    } catch (error) {
+      console.error("Error with bulk action:", error);
+      toast({ title: "Error", description: "No se pudo completar la acción masiva.", variant: "destructive" });
+    } finally {
+      setIsLoading(false);
+      setAssignmentModal({ isOpen: false, case: null, type: 'aforador' });
+      setStatusModal({ isOpen: false });
+    }
   };
 
-
   const handleSendSelectedToDigitization = async () => {
-    // ... (function body remains the same)
+    if (!user || !user.displayName || selectedRows.length === 0) return;
+
+    setIsLoading(true);
+    let successCases: string[] = [];
+    let skippedCases: string[] = [];
+    const batch = writeBatch(db);
+    const newStatus = 'Pendiente de Digitación';
+
+    selectedRows.forEach(caseId => {
+      const caseItem = displayCases.find(c => c.id === caseId);
+      if (caseItem && caseItem.revisorStatus === 'Aprobado' && caseItem.preliquidationStatus === 'Aprobada' && caseItem.digitacionStatus !== 'Trámite Completo') {
+        const caseDocRef = doc(db, 'AforoCases', caseId);
+        batch.update(caseDocRef, { digitacionStatus: newStatus });
+        const logRef = doc(collection(caseDocRef, 'actualizaciones'));
+        const logEntry: AforoCaseUpdate = {
+          updatedAt: Timestamp.now(),
+          updatedBy: user.displayName,
+          field: 'digitacionStatus',
+          oldValue: caseItem.digitacionStatus || 'N/A',
+          newValue: newStatus,
+          comment: 'Envío masivo a digitación.'
+        };
+        batch.set(logRef, logEntry);
+        successCases.push(caseItem.ne);
+      } else {
+        if(caseItem) skippedCases.push(caseItem.ne);
+      }
+    });
+
+    if (successCases.length > 0) {
+        try {
+          await batch.commit();
+          toast({ title: "Envío Exitoso", description: `${successCases.length} caso(s) enviados a digitación.` });
+        } catch(e) {
+          toast({ title: "Error", description: "Error al enviar casos a digitación.", variant: "destructive" });
+        }
+    }
+    
+    setBulkActionResult({ isOpen: true, success: successCases, skipped: skippedCases });
+    setSelectedRows([]);
+    setIsLoading(false);
   };
 
 
@@ -403,7 +541,15 @@ export function DailyAforoCasesTable({ filters, setAllFetchedCases, showPendingO
   };
 
   const toggleRowExpansion = (caseId: string) => {
-    // ... (function body remains the same)
+    setExpandedRows(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(caseId)) {
+        newSet.delete(caseId);
+      } else {
+        newSet.add(caseId);
+      }
+      return newSet;
+    });
   };
 
   const collapseAllRows = () => {
@@ -411,17 +557,65 @@ export function DailyAforoCasesTable({ filters, setAllFetchedCases, showPendingO
   };
 
   const toggleSelectAll = () => {
-    // ... (function body remains the same)
+    if (selectedRows.length === displayCases.length) {
+      setSelectedRows([]);
+    } else {
+      setSelectedRows(displayCases.map(c => c.id));
+    }
   };
 
   const toggleRowSelection = (caseId: string) => {
-    // ... (function body remains the same)
+    setSelectedRows(prev => 
+        prev.includes(caseId) 
+            ? prev.filter(id => id !== caseId)
+            : [...prev, caseId]
+    );
   };
   
     const [pinInput, setPinInput] = useState('');
 
     const handleDeathkey = async () => {
-        // ... (function body remains the same)
+        if (pinInput !== "192438") {
+            toast({ title: "PIN Incorrecto", variant: "destructive" });
+            return;
+        }
+        if (selectedRows.length === 0) return;
+
+        setIsLoading(true);
+        const batch = writeBatch(db);
+
+        for (const caseId of selectedRows) {
+            const caseItem = displayCases.find(c => c.id === caseId);
+            if (caseItem && caseItem.worksheetId) {
+                const worksheetRef = doc(db, 'worksheets', caseItem.worksheetId);
+                batch.update(worksheetRef, { worksheetType: 'corporate_report' });
+
+                const caseRef = doc(db, 'AforoCases', caseId);
+                const updatesSubcollectionRef = collection(caseRef, 'actualizaciones');
+                const updateLog: AforoCaseUpdate = {
+                    updatedAt: Timestamp.now(),
+                    updatedBy: user?.displayName || 'Sistema',
+                    field: 'worksheetType',
+                    oldValue: 'hoja_de_trabajo',
+                    newValue: 'corporate_report',
+                    comment: 'Caso reclasificado a Reporte Corporativo via Deathkey.'
+                };
+                batch.set(doc(updatesSubcollectionRef), updateLog);
+            }
+        }
+
+        try {
+            await batch.commit();
+            toast({ title: "Éxito", description: `${selectedRows.length} casos han sido reclasificados.` });
+            setSelectedRows([]);
+            setIsDeathkeyModalOpen(false);
+            setPinInput('');
+        } catch (error) {
+            console.error("Error with Deathkey action:", error);
+            toast({ title: "Error", description: "No se pudieron reclasificar los casos.", variant: "destructive" });
+        } finally {
+            setIsLoading(false);
+        }
     };
 
 
@@ -430,19 +624,30 @@ export function DailyAforoCasesTable({ filters, setAllFetchedCases, showPendingO
   const openAforadorCommentModal = (caseItem: AforoCase) => setSelectedCaseForAforadorComment(caseItem);
   const openIncidentModal = (caseItem: AforoCase) => setSelectedCaseForIncident(caseItem);
   const openObservationModal = (caseItem: AforoCase) => {
-    // ... (function body remains the same)
+    // This function seems to be missing from the original component, likely meant for `setSelectedCaseForAforadorComment`. Re-routing for now.
+    setSelectedCaseForAforadorComment(caseItem);
   };
   const openAssignmentModal = (caseItem: AforoCase, type: 'aforador' | 'revisor') => setAssignmentModal({ isOpen: true, case: caseItem, type });
   
   const handleViewWorksheet = async (caseItem: AforoCase) => {
-    // ... (function body remains the same)
+    if (!caseItem.worksheetId) {
+        toast({ title: "Error", description: "Este caso no tiene una hoja de trabajo asociada.", variant: "destructive" });
+        return;
+    }
+    const worksheetDocRef = doc(db, 'worksheets', caseItem.worksheetId);
+    const docSnap = await getDoc(worksheetDocRef);
+    if (docSnap.exists()) {
+        setSelectedWorksheet({ id: docSnap.id, ...docSnap.data() } as Worksheet);
+    } else {
+        toast({ title: "Error", description: "No se pudo encontrar la hoja de trabajo.", variant: "destructive" });
+    }
   };
   
   const getRevisorStatusBadgeVariant = (status?: AforoCase['revisorStatus']) => {
-    // ... (function body remains the same)
+    switch (status) { case 'Aprobado': return 'default'; case 'Rechazado': return 'destructive'; case 'Revalidación Solicitada': return 'secondary'; default: return 'outline'; }
   };
   const getAforadorStatusBadgeVariant = (status?: AforadorStatus) => {
-    // ... (function body remains the same)
+    switch(status) { case 'En revisión': return 'default'; case 'Incompleto': return 'destructive'; case 'En proceso': return 'secondary'; case 'Pendiente': return 'destructive'; default: return 'outline'; }
   };
   
   if (isLoading) {
@@ -478,7 +683,29 @@ export function DailyAforoCasesTable({ filters, setAllFetchedCases, showPendingO
   const isDigitador = user?.role === 'aforador';
   
   if (isMobile) {
-    // ... (mobile rendering logic remains the same)
+      return (
+        <div className="space-y-4">
+            {displayCases.map(c => (
+                 <MobileAforoCard
+                    key={c.id}
+                    caseItem={c}
+                    savingState={savingState}
+                    canEditFields={canEdit}
+                    handleAutoSave={handleAutoSave}
+                    handleValidatePattern={handleValidatePattern}
+                    openAssignmentModal={openAssignmentModal}
+                    openHistoryModal={openHistoryModal}
+                    openIncidentModal={openIncidentModal}
+                    openAforadorCommentModal={openAforadorCommentModal}
+                    openObservationModal={openObservationModal}
+                    handleRequestRevalidation={handleRequestRevalidation}
+                    handleAssignToDigitization={handleAssignToDigitization}
+                    handleViewWorksheet={handleViewWorksheet}
+                    setSelectedIncidentForDetails={setSelectedIncidentForDetails}
+                 />
+            ))}
+        </div>
+      )
   }
 
   return (
@@ -955,3 +1182,4 @@ export function DailyAforoCasesTable({ filters, setAllFetchedCases, showPendingO
     </>
   );
 }
+```
