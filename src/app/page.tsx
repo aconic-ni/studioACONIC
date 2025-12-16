@@ -73,9 +73,9 @@ export default function HomePage() {
             <CardContent className="flex flex-col items-center justify-center text-center gap-6 p-8">
                 <FileText className="h-20 w-20 text-primary" strokeWidth={1.5} />
                 <div className="space-y-1">
-                    <CardTitle className="text-4xl font-montserrat">
-                      <span className="font-bold">EX</span>
-                      <span className="font-normal">'OS</span>
+                    <CardTitle className="font-montserrat text-4xl">
+                        <span className="font-semibold">EX'</span>
+                        <span className="font-light">OS</span>
                     </CardTitle>
                     <CardDescription className="text-xs text-muted-foreground pt-1">
                         Examiner Operative System

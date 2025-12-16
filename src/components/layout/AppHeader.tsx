@@ -55,9 +55,9 @@ const renderAppIdentity = (user: any) => {
         <Link href={homePath} className="flex items-center gap-3">
           <LogoIcon className="h-8 w-8 text-primary" />
           <div className="flex flex-col">
-            <h1 className="font-montserrat text-2xl md:text-3xl font-bold text-foreground leading-none">
-              <span className="font-extrabold">EX</span>
-              <span className="font-medium">'OS</span>
+            <h1 className="font-montserrat text-2xl md:text-3xl text-foreground leading-none">
+                <span className="font-semibold">EX'</span>
+                <span className="font-light">OS</span>
             </h1>
             <p className="text-[8px] text-muted-foreground tracking-wider -mt-1">Examiner Operative System</p>
           </div>
@@ -266,9 +266,9 @@ export function AppHeader() {
                        <div className="flex flex-col items-center gap-4 p-4 pt-0 border-b">
                          <div className="flex items-center justify-center gap-2">
                            <div className="flex flex-col items-center">
-                              <h1 className="font-montserrat text-3xl font-bold text-foreground leading-none">
-                                <span className="font-extrabold">EX</span>
-                                <span className="font-medium">'OS</span>
+                              <h1 className="font-montserrat text-3xl text-foreground leading-none">
+                                <span className="font-semibold">EX'</span>
+                                <span className="font-light">OS</span>
                               </h1>
                               <p className="text-[9px] text-muted-foreground tracking-wider">Examiner Operative System</p>
                             </div>
