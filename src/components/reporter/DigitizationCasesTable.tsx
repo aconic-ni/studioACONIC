@@ -88,15 +88,15 @@ export function DigitizationCasesTable({ filters, setAllFetchedCases, showPendin
   const { toast } = useToast();
   const [assignableUsers, setAssignableUsers] = useState<AppUser[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [savingState, setSavingState = useState<{ [key: string]: boolean }>({});
-  const [displayCases, setDisplayCases = useState<AforoCase[]>([]);
+  const [savingState, setSavingState] = useState<{ [key: string]: boolean }>({});
+  const [displayCases, setDisplayCases] = useState<AforoCase[]>([]);
   
-  const [selectedCaseForHistory, setSelectedCaseForHistory = useState<AforoCase | null>(null);
-  const [selectedCaseForComment, setSelectedCaseForComment = useState<AforoCase | null>(null);
-  const [selectedCaseForCompletion, setSelectedCaseForCompletion = useState<AforoCase | null>(null);
-  const [selectedCaseForAssignment, setSelectedCaseForAssignment = useState<AforoCase | null>(null);
-  const [selectedRows, setSelectedRows = useState<string[]>([]);
-  const [statusModal, setStatusModal = useState<{isOpen: boolean}>({isOpen: false});
+  const [selectedCaseForHistory, setSelectedCaseForHistory] = useState<AforoCase | null>(null);
+  const [selectedCaseForComment, setSelectedCaseForComment] = useState<AforoCase | null>(null);
+  const [selectedCaseForCompletion, setSelectedCaseForCompletion] = useState<AforoCase | null>(null);
+  const [selectedCaseForAssignment, setSelectedCaseForAssignment] = useState<AforoCase | null>(null);
+  const [selectedRows, setSelectedRows] = useState<string[]>([]);
+  const [statusModal, setStatusModal] = useState<{isOpen: boolean}>({isOpen: false});
 
 
   const handleAutoSave = useCallback(async (caseId: string, field: keyof AforoCase, value: any, isTriggerFromFieldUpdate: boolean = false) => {
@@ -509,7 +509,7 @@ export function DigitizationCasesTable({ filters, setAllFetchedCases, showPendin
     )}
      <Dialog open={statusModal.isOpen} onOpenChange={() => setStatusModal({isOpen: false})}>
         <DialogContent>
-            <DialogHeader><DialogTitle>Asignar Estatus de Digitación Masivo</DialogTitle><DialogDescription>Seleccione el estatus a aplicar a los {selectedRows.length} casos seleccionados.</DialogDescription></DialogHeader>
+            <DialogHeader><DialogTitle>Asignar Estatus de Digitación Masivo</DialogTitle><DialogDescription>Seleccione el estatus a aplicar a los ${selectedRows.length} casos seleccionados.</DialogDescription></DialogHeader>
             <Select onValueChange={(value) => { handleBulkAction('digitacionStatus', value); }}>
                 <SelectTrigger><SelectValue placeholder="Seleccionar estatus..." /></SelectTrigger>
                 <SelectContent>
@@ -523,5 +523,3 @@ export function DigitizationCasesTable({ filters, setAllFetchedCases, showPendin
     </>
   );
 }
-
-    
