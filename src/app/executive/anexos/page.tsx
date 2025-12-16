@@ -237,6 +237,25 @@ function AnexoForm() {
     setEditingDocument(null);
   };
 
+  // Helper to sanitize undefined values to null for Firestore
+  const sanitizeForFirestore = (obj: any) => {
+    if (obj === null || obj === undefined) return obj;
+    if (Array.isArray(obj)) {
+        return obj.map(item => sanitizeForFirestore(item));
+    }
+    if (typeof obj === 'object') {
+        const newObj: { [key: string]: any } = {};
+        for (const key in obj) {
+            if (Object.prototype.hasOwnProperty.call(obj, key)) {
+                const value = obj[key];
+                newObj[key] = value === undefined ? null : sanitizeForFirestore(value);
+            }
+        }
+        return newObj;
+    }
+    return obj;
+  };
+
 
   const onSubmit = async (data: AnexoFormData) => {
     if (!user || !user.displayName) {
@@ -272,6 +291,7 @@ function AnexoForm() {
             merchandise: data.observations,
             aforador: data.aforador || '',
             revisorAsignado: data.revisorAsignado || '',
+            worksheetType: data.worksheetType
         });
 
         const logRef = doc(collection(aforoCaseDocRef, 'actualizaciones'));
@@ -279,8 +299,8 @@ function AnexoForm() {
           updatedAt: Timestamp.now(),
           updatedBy: user.displayName,
           field: 'document_update',
-          oldValue: `Anexo ${worksheetType === 'anexo_5' ? '5' : '7'}`,
-          newValue: `Anexo ${worksheetType === 'anexo_5' ? '5' : '7'} actualizado`,
+          oldValue: sanitizeForFirestore(`Anexo ${worksheetType === 'anexo_5' ? '5' : '7'}`),
+          newValue: sanitizeForFirestore(`Anexo ${worksheetType === 'anexo_5' ? '5' : '7'} actualizado`),
           comment: `Anexo fue modificado por ${user.displayName}.`,
         };
         batch.set(logRef, updateLog);
@@ -347,6 +367,7 @@ function AnexoForm() {
           digitadorAsignado: '',
           digitadorAsignadoLastUpdate: createdByInfo,
           worksheetId: neTrimmed,
+          worksheetType: data.worksheetType,
           entregadoAforoAt: creationTimestamp,
         };
         batch.set(aforoCaseDocRef, aforoCaseData);
@@ -357,7 +378,7 @@ function AnexoForm() {
           updatedBy: user.displayName,
           field: 'creation',
           oldValue: null,
-          newValue: `case_created_from_${worksheetType}`,
+          newValue: sanitizeForFirestore(`case_created_from_${worksheetType}`),
           comment: `${worksheetType === 'hoja_de_trabajo' ? 'Hoja de Trabajo' : worksheetType === 'anexo_5' ? 'Anexo 5' : 'Anexo 7'} ingresado por ${user.displayName}.`,
         };
         batch.set(initialLogRef, initialLog);
