@@ -1,4 +1,3 @@
-
 "use client";
 import React, { useEffect, useState, useMemo, useCallback, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
@@ -8,7 +7,7 @@ import { AppShell } from '@/components/layout/AppShell';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Loader2, FilePlus, Search, Edit, Eye, History, PlusSquare, UserCheck, Inbox, AlertTriangle, Download, ChevronsUpDown, Info, CheckCircle, CalendarRange, Calendar, CalendarDays, ShieldAlert, BookOpen, FileCheck2, MessageSquare, View, Banknote, Bell as BellIcon, RefreshCw, Send, StickyNote, Scale, Briefcase, KeyRound, Copy, Archive } from 'lucide-react';
-import { db } from '@/lib/firebase';
+import { useFirestore } from '@/firebase/hooks';
 import { collection, query, where, onSnapshot, orderBy, Timestamp, doc, getDoc, updateDoc, writeBatch, addDoc, getDocs, collectionGroup, serverTimestamp, setDoc } from 'firebase/firestore';
 import type { Worksheet, AforoCase, AforadorStatus, AforoCaseStatus, DigitacionStatus, WorksheetWithCase, AforoCaseUpdate, PreliquidationStatus, IncidentType, LastUpdateInfo, ExecutiveComment, InitialDataContext, AppUser, SolicitudRecord, ExamDocument, FacturacionStatus } from '@/types';
 import { format, toDate, isSameDay, startOfDay, endOfDay, differenceInDays, startOfMonth, endOfMonth } from 'date-fns';
@@ -70,6 +69,7 @@ type TabValue = 'worksheets' | 'anexos' | 'corporate';
 
 function ExecutivePageContent() {
   const { user, loading: authLoading } = useAuth();
+  const db = useFirestore();
   const router = useRouter();
   const searchParams = useSearchParams();
   const { toast } = useToast();
@@ -157,7 +157,7 @@ function ExecutivePageContent() {
   }, [user, authLoading, router]);
 
    const fetchCases = useCallback(async () => {
-    if (!user) return () => {};
+    if (!user || !db) return () => {};
     setIsLoading(true);
     
     let aforoQuery;
@@ -208,7 +208,7 @@ function ExecutivePageContent() {
         });
         
         const combinedDataPromises = aforoCasesData.map(async (caseItem) => {
-            if (!caseItem.worksheetId) {
+            if (!caseItem.worksheetId || !db) {
                 return { ...caseItem, worksheet: null, acuseLog: null };
             }
             const updatesRef = collection(db, 'worksheets', caseItem.worksheetId, 'actualizaciones');
@@ -236,7 +236,7 @@ function ExecutivePageContent() {
     });
 
     return () => unsubscribe();
-}, [user, toast]);
+}, [user, toast, db]);
   
 
   useEffect(() => {
@@ -246,6 +246,7 @@ function ExecutivePageContent() {
     });
 
     const fetchAssignableUsers = async () => {
+        if (!db) return;
         const usersQuery = query(collection(db, 'users'), where('role', 'in', ['aforador', 'coordinadora']));
         const querySnapshot = await getDocs(usersQuery);
         const users = querySnapshot.docs.map(doc => ({ uid: doc.id, ...doc.data() } as AppUser));
@@ -256,10 +257,10 @@ function ExecutivePageContent() {
     return () => {
         if(unsubscribe) unsubscribe();
     };
-  }, [fetchCases]);
+  }, [fetchCases, db]);
   
   const handleAssignAforador = async (caseId: string, aforadorName: string) => {
-    if (!user || !user.displayName) {
+    if (!user || !user.displayName || !db) {
         toast({ title: 'Error', description: 'Debe estar autenticado.', variant: 'destructive' });
         return;
     }
@@ -279,7 +280,7 @@ function ExecutivePageContent() {
   };
 
   const handleArchiveCase = async () => {
-    if (!user || user.role !== 'admin' || !user.email || !caseToArchive) {
+    if (!user || user.role !== 'admin' || !user.email || !caseToArchive || !db) {
       toast({ title: "Acción no permitida", variant: "destructive" });
       setCaseToArchive(null);
       return;
@@ -321,7 +322,7 @@ function ExecutivePageContent() {
 
 
   const handleAutoSave = useCallback(async (caseId: string, field: keyof AforoCase, value: any, isTriggerFromFieldUpdate: boolean = false) => {
-    if (!user || !user.displayName) { toast({ title: "No autenticado", variant: 'destructive' }); return; }
+    if (!user || !user.displayName || !db) { toast({ title: "No autenticado", variant: 'destructive' }); return; }
     
     const originalCase = allCases.find(c => c.id === caseId);
     if (!originalCase || !originalCase.worksheetId) return;
@@ -365,7 +366,7 @@ function ExecutivePageContent() {
     } finally {
         setSavingState(prev => ({ ...prev, [caseId]: false }));
     }
-}, [user, allCases, toast]);
+}, [user, allCases, toast, db]);
 
  const handleSearch = () => {
     let dateRange: DateRange | undefined = undefined;
@@ -396,6 +397,7 @@ function ExecutivePageContent() {
       toast({ title: "No hay datos", description: "No hay casos en la tabla para exportar.", variant: "secondary"});
       return;
     };
+    if (!db) return;
     setIsExporting(true);
 
     try {
@@ -427,7 +429,7 @@ function ExecutivePageContent() {
 };
 
   const handleViewWorksheet = async (caseItem: AforoCase) => {
-    if (!caseItem.worksheetId) {
+    if (!caseItem.worksheetId || !db) {
         toast({ title: "Error", description: "Este caso no tiene una hoja de trabajo asociada.", variant: "destructive" });
         return;
     }
@@ -478,7 +480,7 @@ function ExecutivePageContent() {
   };
   
   const handleSendToFacturacion = async (caseId: string) => {
-    if (!user || !user.displayName) return;
+    if (!user || !user.displayName || !db) return;
 
     setSavingState(prev => ({...prev, [caseId]: true}));
     
@@ -608,7 +610,7 @@ function ExecutivePageContent() {
   };
   
   const handleBulkApprovePreliquidation = async () => {
-    if (!user || selectedRows.length === 0) return;
+    if (!user || selectedRows.length === 0 || !db) return;
     const batch = writeBatch(db);
     selectedRows.forEach(id => {
       const caseItem = allCases.find(c => c.id === id);
@@ -644,7 +646,7 @@ function ExecutivePageContent() {
   };
   
   const handleDeathkey = async () => {
-    if (pinInput !== "192438") {
+    if (pinInput !== "192438" || !db) {
         toast({ title: "PIN Incorrecto", variant: "destructive" });
         return;
     }
@@ -687,7 +689,7 @@ function ExecutivePageContent() {
   };
 
   const handleDuplicateAndRetire = async () => {
-    if (!user || !user.displayName || !caseToDuplicate || !caseToDuplicate.worksheet) {
+    if (!user || !user.displayName || !caseToDuplicate || !caseToDuplicate.worksheet || !db) {
         toast({title: 'Error', description: 'No se puede procesar la solicitud. Faltan datos.', variant: 'destructive'});
         return;
     }

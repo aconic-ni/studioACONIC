@@ -41,3 +41,19 @@ export const productSchema = z.object({
 });
 
 export type ProductFormData = z.infer<typeof productSchema>;
+
+export const anexoDocumentSchema = z.object({
+    id: z.string(),
+    cantidad: z.coerce.number().optional(),
+    origen: z.string().optional(),
+    um: z.string().optional(),
+    sac: z.string().optional(),
+    peso: z.coerce.number().optional(),
+    descripcion: z.string().min(1, "Descripción es requerida."),
+    linea: z.string().optional(),
+    guia: z.string().optional(),
+    bulto: z.coerce.number().optional(),
+    total: z.coerce.number().optional(),
+});
+
+export type AnexoDocumentFormData = z.infer<typeof anexoDocumentSchema>;

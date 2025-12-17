@@ -4,6 +4,7 @@ import './globals.css';
 import { Toaster } from '@/components/ui/toaster';
 import { FirebaseAppProvider } from '@/context/FirebaseAppContext';
 import { ClientProviders } from '@/context/ClientProviders';
+import { FirebaseClientProvider } from '@/firebase/client-provider';
 
 const inter = Inter({
   variable: '--font-inter',

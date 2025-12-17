@@ -1,8 +1,9 @@
 "use client";
 import type React from 'react';
 import { createContext, useContext, useEffect, useState, useCallback } from 'react';
-import { onAuthStateChanged, signOut as firebaseSignOut, type User as FirebaseUser, type Auth } from 'firebase/auth';
-import { auth, db } from '@/lib/firebase'; // Firebase auth instance and db
+import { onAuthStateChanged, signOut as firebaseSignOut, type User as FirebaseUser } from 'firebase/auth';
+import { useFirebaseAuth } from '@/firebase/hooks'; // Use the new hook
+import { db } from '@/lib/firebase'; // Keep for firestore access
 import { doc, getDoc, setDoc, serverTimestamp, collection, getDocs, query, where, documentId } from 'firebase/firestore';
 import type { AppUser, UserRole } from '@/types';
 import { useFirebaseApp } from './FirebaseAppContext';
@@ -22,6 +23,7 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }
   const [loading, setLoading] = useState(true);
   const [isProfileComplete, setIsProfileComplete] = useState(false);
   const { isFirebaseInitialized } = useFirebaseApp();
+  const auth = useFirebaseAuth(); // Get auth instance via hook
 
   const checkUserProfile = useCallback(async (firebaseUser: FirebaseUser) => {
     if (firebaseUser.isAnonymous) {
@@ -119,12 +121,12 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }
 
 
   useEffect(() => {
-    if (!isFirebaseInitialized) {
+    if (!isFirebaseInitialized || !auth) { // Also check if auth instance is ready
       setLoading(true);
       return;
     }
 
-    const unsubscribe = onAuthStateChanged(auth as Auth, async (firebaseUser: FirebaseUser | null) => {
+    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser: FirebaseUser | null) => {
       setLoading(true);
       if (firebaseUser) {
         await checkUserProfile(firebaseUser);
@@ -136,12 +138,13 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }
     });
 
     return () => unsubscribe();
-  }, [isFirebaseInitialized, checkUserProfile]);
+  }, [isFirebaseInitialized, checkUserProfile, auth]);
 
   const logout = async () => {
+    if (!auth) return;
     setLoading(true);
     try {
-      await firebaseSignOut(auth as Auth);
+      await firebaseSignOut(auth);
       setUser(null);
       setIsProfileComplete(false);
     } catch (error) {

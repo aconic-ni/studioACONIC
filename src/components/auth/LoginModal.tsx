@@ -1,8 +1,7 @@
-
 "use client";
 import { useState, type FormEvent } from 'react';
 import { signInWithEmailAndPassword, type Auth } from 'firebase/auth';
-import { auth, db } from '@/lib/firebase';
+import { db } from '@/lib/firebase';
 import { doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -11,6 +10,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { useToast } from '@/hooks/use-toast';
 import { X, Mail, Lock, Eye, EyeOff } from 'lucide-react';
 import Image from 'next/image';
+import { useFirebaseAuth } from '@/firebase/hooks'; // Import the hook
 
 interface LoginModalProps {
   isOpen: boolean;
@@ -26,9 +26,14 @@ export function LoginModal({ isOpen, onClose, onLoginSuccess, targetSystem }: Lo
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const { toast } = useToast();
+  const auth = useFirebaseAuth(); // Use the hook to get auth instance
 
   const handleLogin = async () => {
-    const userCredential = await signInWithEmailAndPassword(auth as Auth, email, password);
+    if (!auth) {
+        setError("Servicio de autenticación no disponible.");
+        return;
+    }
+    const userCredential = await signInWithEmailAndPassword(auth, email, password);
     const firebaseUser = userCredential.user;
 
     if (targetSystem === 'reporter') {
@@ -36,10 +41,8 @@ export function LoginModal({ isOpen, onClose, onLoginSuccess, targetSystem }: Lo
       const userDocSnap = await getDoc(userDocRef);
 
       if (userDocSnap.exists() && userDocSnap.data()?.hasReportsAccess) {
-        // User has access, proceed with login success
         onLoginSuccess();
       } else {
-        // User does not have access, create a request if it doesn't exist
         const requestDocRef = doc(db, 'reportAccessRequests', firebaseUser.uid);
         const requestDocSnap = await getDoc(requestDocRef);
 
@@ -52,11 +55,9 @@ export function LoginModal({ isOpen, onClose, onLoginSuccess, targetSystem }: Lo
           });
           toast({ title: 'Solicitud Enviada', description: 'Tu solicitud de acceso ha sido enviada al administrador.' });
         }
-        // Still proceed to login success, the app will route to the pending page
         onLoginSuccess();
       }
     } else {
-      // For 'examiner', just succeed
       onLoginSuccess();
     }
   };
@@ -158,7 +159,7 @@ export function LoginModal({ isOpen, onClose, onLoginSuccess, targetSystem }: Lo
           </div>
            {error && <p className="text-sm text-destructive">{error}</p>}
           <DialogFooter>
-            <Button type="submit" className="btn-primary text-primary-foreground px-8 py-3 rounded-md font-medium w-full" disabled={loading}>
+            <Button type="submit" className="btn-primary text-primary-foreground px-8 py-3 rounded-md font-medium w-full" disabled={loading || !auth}>
               {loading ? 'Ingresando...' : 'Ingresar'}
             </Button>
           </DialogFooter>

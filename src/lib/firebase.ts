@@ -1,5 +1,3 @@
-
-
 // Import the functions you need from the SDKs you need
 import { initializeApp, getApp, getApps, type FirebaseApp } from "firebase/app";
 import { getAuth, type Auth } from "firebase/auth";
@@ -19,15 +17,18 @@ const firebaseConfig = {
 };
 
 // Initialize Firebase
-let app: FirebaseApp;
-if (!getApps().length) {
-  app = initializeApp(firebaseConfig);
-} else {
-  app = getApp(); // Use existing app if already initialized
+// This function is now the single source of truth for the app instance.
+function getFirebaseApp() {
+    if (!getApps().length) {
+      return initializeApp(firebaseConfig);
+    }
+    return getApp();
 }
 
-const authInstance: Auth = getAuth(app);
-const firestoreInstance: Firestore = getFirestore(app);
+const app = getFirebaseApp();
+const db = getFirestore(app);
+const auth = getAuth(app);
+
 
 let analytics: Analytics | undefined;
 // Initialize Analytics only on the client side
@@ -43,5 +44,4 @@ if (typeof window !== 'undefined') {
   }
 }
 
-export { app, authInstance as auth, firestoreInstance as db, analytics };
-
+export { app, auth, db, analytics };
