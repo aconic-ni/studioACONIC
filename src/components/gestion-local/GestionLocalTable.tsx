@@ -1,3 +1,4 @@
+
 "use client";
 import React, { useState, useMemo, useRef } from 'react';
 import type { Worksheet, AforoCaseUpdate, LastUpdateInfo } from '@/types';
@@ -5,7 +6,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Checkbox } from '@/components/ui/checkbox';
 import { Button } from '@/components/ui/button';
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from '@/components/ui/dropdown-menu';
-import { MoreHorizontal, UserCheck, MessageSquare, Eye, Edit, Repeat, Upload, Download, FileUp, Loader2, Filter, FileSignature, Hash, Info, ChevronDown, ChevronRight } from 'lucide-react';
+import { MoreHorizontal, UserCheck, MessageSquare, Eye, Edit, Repeat, Upload, Download, FileUp, Loader2, Filter, FileSignature, Hash, Info, ChevronDown, ChevronRight, KeyRound } from 'lucide-react';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { Badge } from '@/components/ui/badge';
@@ -38,6 +39,8 @@ import { Label } from '../ui/label';
 import { Switch } from '../ui/switch';
 import { CompleteDigitizationModal } from '../reporter/CompleteDigitizationModal';
 import { Tooltip, TooltipProvider, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
+import { AssignmentTypeBadge } from './AssignmentTypeBadge';
+
 
 interface GestionLocalTableProps {
   worksheets: Worksheet[];
@@ -48,6 +51,12 @@ interface GestionLocalTableProps {
   onComment: (worksheet: Worksheet) => void;
   onView: (worksheet: Worksheet) => void;
   isLoading: boolean;
+  onRefresh: () => void;
+  isDeathkeyModalOpen: boolean;
+  setIsDeathkeyModalOpen: (isOpen: boolean) => void;
+  pinInput: string;
+  setPinInput: (value: string) => void;
+  handleDeathkey: () => void;
 }
 
 const formatDate = (timestamp: any): string => {
@@ -80,7 +89,7 @@ const LastUpdateTooltip: React.FC<{ lastUpdate?: LastUpdateInfo | null; defaultU
 };
 
 
-export function GestionLocalTable({ worksheets, setWorksheets, selectedRows, setSelectedRows, onAssign, onComment, onView, isLoading }: GestionLocalTableProps) {
+export function GestionLocalTable({ worksheets, setWorksheets, selectedRows, setSelectedRows, onAssign, onComment, onView, isLoading, onRefresh, isDeathkeyModalOpen, setIsDeathkeyModalOpen, pinInput, setPinInput, handleDeathkey }: GestionLocalTableProps) {
   const { toast } = useToast();
   const { user } = useAuth();
   const [currentPage, setCurrentPage] = useState(1);

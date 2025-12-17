@@ -18,6 +18,7 @@ import { AforoCommentModal } from '@/components/gestion-local/AforoCommentModal'
 import { WorksheetDetailModal } from '@/components/reporter/WorksheetDetailModal';
 import { downloadAforoReportAsExcel } from '@/lib/fileExporterAforo';
 import { ClaimCaseModal } from '@/components/gestion-local/ClaimCaseModal';
+import { Timestamp } from 'firebase/firestore';
 
 export default function GestionLocalPage() {
   const { user, loading: authLoading } = useAuth();
@@ -33,6 +34,8 @@ export default function GestionLocalPage() {
   const [selectedRows, setSelectedRows] = useState<string[]>([]);
   const [isExporting, setIsExporting] = useState(false);
   const [isClaimModalOpen, setIsClaimModalOpen] = useState(false);
+  const [isDeathkeyModalOpen, setIsDeathkeyModalOpen] = useState(false);
+  const [pinInput, setPinInput] = useState('');
 
 
   const fetchWorksheets = useCallback(() => {
@@ -115,6 +118,49 @@ export default function GestionLocalPage() {
     }
   };
 
+  const handleDeathkey = async () => {
+    if (pinInput !== "192438") {
+        toast({ title: "PIN Incorrecto", variant: "destructive" });
+        return;
+    }
+    if (selectedRows.length === 0 || !user || !user.displayName) return;
+
+    setIsLoading(true);
+    const batch = writeBatch(db);
+
+    for (const caseId of selectedRows) {
+        const caseItem = worksheets.find(c => c.id === caseId);
+        if (caseItem && caseItem.id) {
+            const worksheetRef = doc(db, 'worksheets', caseItem.id);
+            batch.update(worksheetRef, { worksheetType: 'corporate_report' });
+
+            const updatesSubcollectionRef = collection(worksheetRef, 'actualizaciones');
+            const updateLog: AforoCaseUpdate = {
+                updatedAt: Timestamp.now(),
+                updatedBy: user.displayName,
+                field: 'worksheetType',
+                oldValue: 'hoja_de_trabajo',
+                newValue: 'corporate_report',
+                comment: 'Caso reclasificado a Reporte Corporativo via Deathkey.'
+            };
+            batch.set(doc(updatesSubcollectionRef), updateLog);
+        }
+    }
+
+    try {
+        await batch.commit();
+        toast({ title: "Éxito", description: `${selectedRows.length} casos han sido reclasificados.` });
+        setSelectedRows([]);
+        setIsDeathkeyModalOpen(false);
+        setPinInput('');
+        fetchWorksheets();
+    } catch (error) {
+        console.error("Error with Deathkey action:", error);
+        toast({ title: "Error", description: "No se pudieron reclasificar los casos.", variant: "destructive" });
+    } finally {
+        setIsLoading(false);
+    }
+  };
 
   const filteredWorksheets = useMemo(() => {
     return worksheets.filter(ws => {
@@ -168,6 +214,11 @@ export default function GestionLocalPage() {
                 onView={(worksheet) => setViewModal({ isOpen: true, worksheet })}
                 isLoading={isLoading}
                 onRefresh={fetchWorksheets}
+                isDeathkeyModalOpen={isDeathkeyModalOpen}
+                setIsDeathkeyModalOpen={setIsDeathkeyModalOpen}
+                pinInput={pinInput}
+                setPinInput={setPinInput}
+                handleDeathkey={handleDeathkey}
               />
             )}
           </CardContent>
@@ -181,7 +232,11 @@ export default function GestionLocalPage() {
           worksheet={assignmentModal.worksheet}
           type={assignmentModal.type}
           selectedWorksheetIds={selectedRows}
-          setWorksheets={setWorksheets}
+          onAssignSuccess={() => {
+            if (assignmentModal.worksheet || selectedRows.length > 0) {
+              setWorksheets(prev => [...prev]); // Trigger re-render by creating a new array reference
+            }
+          }}
         />
       )}
 
