@@ -465,24 +465,33 @@ function BitacoraMigrator() {
     const fetchStats = useCallback(async () => {
         setIsLoading(true);
         try {
-            const allCasesSnapshot = await getDocs(query(collection(db, 'AforoCases'), where('worksheetId', '!=', null)));
+            const allCasesSnapshot = await getDocs(query(collection(db, 'AforoCases')));
             const casesWithWorksheet = allCasesSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as AforoCase));
 
             let casesWithLogsCount = 0;
             let totalLogsToMigrate = 0;
 
             for (const caseData of casesWithWorksheet) {
-                const sourceUpdatesRef = collection(db, 'AforoCases', caseData.id, 'actualizaciones');
-                const sourceSnapshot = await getDocs(sourceUpdatesRef);
-                
-                if (!sourceSnapshot.empty) {
-                    casesWithLogsCount++;
-                    
-                    const targetUpdatesRef = collection(db, 'worksheets', caseData.worksheetId, 'aforo', 'actualizaciones');
-                    const targetSnapshot = await getDocs(query(targetUpdatesRef));
-                    if (targetSnapshot.empty) {
-                       totalLogsToMigrate += sourceSnapshot.size;
+                try {
+                    if (!caseData.id || !caseData.worksheetId) {
+                        continue; // Skip if essential IDs are missing
                     }
+
+                    const sourceUpdatesRef = collection(db, 'AforoCases', caseData.id, 'actualizaciones');
+                    const sourceSnapshot = await getDocs(sourceUpdatesRef);
+                    
+                    if (!sourceSnapshot.empty) {
+                        casesWithLogsCount++;
+                        
+                        const targetUpdatesRef = collection(db, 'worksheets', caseData.worksheetId, 'aforo', 'actualizaciones');
+                        const targetSnapshot = await getDocs(targetUpdatesRef);
+                        
+                        if (targetSnapshot.empty) {
+                           totalLogsToMigrate += sourceSnapshot.size;
+                        }
+                    }
+                } catch(e) {
+                    console.warn(`Could not process case ${caseData.id} for stats:`, e);
                 }
             }
 
@@ -510,29 +519,33 @@ function BitacoraMigrator() {
         
         let migratedCount = 0;
         try {
-            const aforoCasesSnapshot = await getDocs(query(collection(db, 'AforoCases'), where('worksheetId', '!=', null)));
+            const aforoCasesSnapshot = await getDocs(query(collection(db, 'AforoCases')));
             
             for (const caseDoc of aforoCasesSnapshot.docs) {
-                const caseData = caseDoc.data();
-                const worksheetId = caseData.worksheetId;
-
-                if (worksheetId) {
-                    const sourceUpdatesRef = collection(db, 'AforoCases', caseDoc.id, 'actualizaciones');
-                    const targetUpdatesRef = collection(db, 'worksheets', worksheetId, 'aforo', 'actualizaciones');
-
-                    const targetSnapshot = await getDocs(query(targetUpdatesRef));
-                    if (targetSnapshot.empty) { // Only migrate if target is empty
-                        const sourceSnapshot = await getDocs(query(sourceUpdatesRef));
-                        if (!sourceSnapshot.empty) {
-                            const batch = writeBatch(db);
-                            sourceSnapshot.forEach(logDoc => {
-                                const newLogRef = doc(targetUpdatesRef, logDoc.id);
-                                batch.set(newLogRef, logDoc.data());
-                                migratedCount++;
-                            });
-                            await batch.commit();
+                try {
+                    const caseData = caseDoc.data();
+                    const worksheetId = caseData.worksheetId;
+    
+                    if (worksheetId) {
+                        const sourceUpdatesRef = collection(db, 'AforoCases', caseDoc.id, 'actualizaciones');
+                        const targetUpdatesRef = collection(db, 'worksheets', worksheetId, 'aforo', 'actualizaciones');
+    
+                        const targetSnapshot = await getDocs(query(targetUpdatesRef));
+                        if (targetSnapshot.empty) { // Only migrate if target is empty
+                            const sourceSnapshot = await getDocs(query(sourceUpdatesRef));
+                            if (!sourceSnapshot.empty) {
+                                const batch = writeBatch(db);
+                                sourceSnapshot.forEach(logDoc => {
+                                    const newLogRef = doc(targetUpdatesRef, logDoc.id);
+                                    batch.set(newLogRef, logDoc.data());
+                                    migratedCount++;
+                                });
+                                await batch.commit();
+                            }
                         }
                     }
+                } catch (e) {
+                    console.warn(`Could not migrate logs for case ${caseDoc.id}:`, e);
                 }
             }
 
