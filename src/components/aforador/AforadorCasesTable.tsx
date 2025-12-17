@@ -10,7 +10,7 @@ import { Eye } from 'lucide-react';
 import { WorksheetDetailModal } from '../reporter/WorksheetDetailModal';
 
 interface AforadorCasesTableProps {
-  cases: WorksheetWithCase[];
+  cases: Worksheet[];
   onRefresh: () => void;
 }
 
@@ -36,7 +36,7 @@ export function AforadorCasesTable({ cases, onRefresh }: AforadorCasesTableProps
         </TableHeader>
         <TableBody>
           {cases.map((c) => {
-            const aforoData = c.aforo;
+            const aforoData = (c as any).aforo;
             return (
             <TableRow key={c.id}>
               <TableCell>
@@ -46,7 +46,7 @@ export function AforadorCasesTable({ cases, onRefresh }: AforadorCasesTableProps
               </TableCell>
               <TableCell className="font-medium">{c.ne}</TableCell>
               <TableCell>{c.consignee}</TableCell>
-              <TableCell>{c.declarationPattern || 'N/A'}</TableCell>
+              <TableCell>{c.patternRegime || 'N/A'}</TableCell>
               <TableCell>{aforoData?.aforadorAssignedAt ? format(aforoData.aforadorAssignedAt.toDate(), 'dd/MM/yyyy HH:mm', { locale: es }) : 'N/A'}</TableCell>
             </TableRow>
           )})}

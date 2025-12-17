@@ -20,7 +20,7 @@ export default function AforadorPage() {
   const { user, loading: authLoading } = useAuth();
   const router = useRouter();
   const { toast } = useToast();
-  const [cases, setCases] = useState<WorksheetWithCase[]>([]);
+  const [cases, setCases] = useState<Worksheet[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isSummaryModalOpen, setIsSummaryModalOpen] = useState(false);
 
@@ -34,7 +34,6 @@ export default function AforadorPage() {
     if (!user?.uid) return;
     setIsLoading(true);
 
-    // This is a collection group query. It looks at all `aforo` subcollections.
     const aforoMetadataQuery = query(
       collectionGroup(db, 'aforo'),
       where('aforadorId', '==', user.uid),
@@ -48,16 +47,15 @@ export default function AforadorPage() {
         return;
       }
       
-      // For each `aforo` metadata doc found, get its parent `worksheet` doc.
       const worksheetPromises = snapshot.docs.map(docSnapshot => {
         const parentRef = docSnapshot.ref.parent.parent;
-        if (!parentRef) return null;
+        if (!parentRef) return Promise.resolve(null);
         return getDoc(parentRef);
       });
       
       const worksheetDocs = await Promise.all(worksheetPromises);
       
-      const casesData: WorksheetWithCase[] = [];
+      const casesData: Worksheet[] = [];
       for (let i = 0; i < worksheetDocs.length; i++) {
         const wsDoc = worksheetDocs[i];
         if (wsDoc && wsDoc.exists()) {
@@ -65,13 +63,9 @@ export default function AforadorPage() {
             const aforoData = snapshot.docs[i].data();
             
             // Combine worksheet data with its aforo metadata
-            // We use a type assertion here for simplicity in this context.
-            // A more robust solution might involve fetching the `AforoCase` doc
-            // if there's still a separate one, but based on the new architecture,
-            // all relevant data should be on `Worksheet` and its `aforo` subcollection.
-            const combinedData: WorksheetWithCase = {
-                ...(wsData as any), // Treat worksheet as the base
-                aforo: aforoData, // Add the aforo metadata
+            const combinedData = {
+                ...wsData,
+                aforo: aforoData,
             };
             
             casesData.push(combinedData);
@@ -109,7 +103,7 @@ export default function AforadorPage() {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     return cases.filter(c => {
-        const aforoData = c.aforo as any;
+        const aforoData = (c as any).aforo as any;
         const lastUpdateDate = aforoData?.aforadorStatusLastUpdate?.at?.toDate();
         return aforoData?.aforadorStatus === 'En revisión' && 
                lastUpdateDate && lastUpdateDate >= today;
@@ -182,7 +176,7 @@ export default function AforadorPage() {
       <DailySummaryModal 
         isOpen={isSummaryModalOpen} 
         onClose={() => setIsSummaryModalOpen(false)} 
-        completedCases={completedToday} 
+        completedCases={completedToday as WorksheetWithCase[]} 
         aforadorName={user.displayName || 'N/A'}
       />
     </>
