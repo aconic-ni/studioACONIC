@@ -465,7 +465,8 @@ function BitacoraMigrator() {
     const fetchStats = useCallback(async () => {
         setIsLoading(true);
         try {
-            const aforoCasesSnapshot = await getDocs(collection(db, 'AforoCases'));
+            const aforoCasesQuery = query(collection(db, 'AforoCases'));
+            const aforoCasesSnapshot = await getDocs(aforoCasesQuery);
             let totalLogs = 0;
             const caseIdsWithLogs = new Set<string>();
 
