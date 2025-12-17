@@ -424,7 +424,8 @@ function WorksheetForm() {
     
     if (editingWorksheetId) {
         const worksheetDocRef = doc(db, 'worksheets', editingWorksheetId);
-
+        const logRef = doc(collection(db, 'worksheets', editingWorksheetId, 'actualizaciones'));
+        
         try {
             const { createdBy, createdAt, ...restOfData } = data;
             const updatedWorksheetData = { 
@@ -436,8 +437,6 @@ function WorksheetForm() {
     
             await updateDoc(worksheetDocRef, updatedWorksheetData);
 
-            const aforoCaseDocRef = doc(db, 'AforoCases', editingWorksheetId);
-            const logRef = doc(collection(aforoCaseDocRef, 'actualizaciones'));
             const updateLog: AforoCaseUpdate = {
               updatedAt: Timestamp.now(),
               updatedBy: user.displayName,
@@ -462,7 +461,7 @@ function WorksheetForm() {
             setIsSubmitting(false);
         }
     } else {
-        if (data.consignee.toUpperCase().trim() === "PSMT NICARAGUA, SOCIEDAD ANONIMA" && (!data.aforador || data.aforador.trim() === '')) {
+        if (data.consignee.toUpperCase().trim() === "PSMT NICARAGUA, SOCIEDAD ANONIMA" && (!data.aforador || data.aforador === '-')) {
             toast({ title: "Campo Requerido", description: "Debe seleccionar un aforador para el consignatario PSMT.", variant: "destructive" });
             setIsSubmitting(false);
             return;
@@ -587,8 +586,8 @@ function WorksheetForm() {
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Ejecutivo</FormLabel>
-                      {['admin', 'supervisor', 'coordinadora'].includes(user?.role || '') ? (
-                         <Select onValueChange={field.onChange} defaultValue={field.value}>
+                      {['admin', 'supervisor', 'coordinadora'].includes(user?.role || '') && !editingWorksheetId ? (
+                         <Select onValueChange={field.onChange} value={field.value}>
                            <FormControl>
                              <SelectTrigger>
                                <SelectValue placeholder="Seleccionar ejecutivo..." />
@@ -636,7 +635,7 @@ function WorksheetForm() {
                             render={({ field }) => (
                             <FormItem>
                                 <FormLabel>Asignar Aforador (para PSMT)</FormLabel>
-                                <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                <Select onValueChange={field.onChange} value={field.value}>
                                 <FormControl>
                                     <SelectTrigger>
                                     <SelectValue placeholder="Seleccionar aforador..." />
@@ -1086,12 +1085,15 @@ function WorksheetForm() {
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-4 border-t">
                 <FormField control={form.control} name="operationType" render={({ field }) => (
-                     <FormItem className="space-y-3"><FormLabel>Tipo de Operación</FormLabel><FormControl>
-                        <RadioGroup onValueChange={field.onChange} defaultValue={field.value ?? ""} className="flex gap-4">
-                            <FormItem className="flex items-center space-x-2"><FormControl><RadioGroupItem value="importacion" /></FormControl><FormLabel className="font-normal">Importación</FormLabel></FormItem>
-                            <FormItem className="flex items-center space-x-2"><FormControl><RadioGroupItem value="exportacion" /></FormControl><FormLabel className="font-normal">Exportación</FormLabel></FormItem>
-                        </RadioGroup>
-                     </FormControl><FormMessage /></FormItem>
+                     <FormItem className="space-y-3"><FormLabel>Tipo de Operación</FormLabel>
+                        <Select onValueChange={field.onChange} value={field.value || undefined}>
+                            <FormControl><SelectTrigger><SelectValue placeholder="Seleccionar tipo..." /></SelectTrigger></FormControl>
+                            <SelectContent>
+                                <SelectItem value="importacion">Importación</SelectItem>
+                                <SelectItem value="exportacion">Exportación</SelectItem>
+                            </SelectContent>
+                        </Select>
+                     <FormMessage /></FormItem>
                 )}/>
                 {watchOperationType && (
                     <div className="grid grid-cols-2 gap-4">
