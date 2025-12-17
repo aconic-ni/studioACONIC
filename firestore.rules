@@ -119,11 +119,12 @@ service cloud.firestore {
         // Rules for the 'aforo' subcollection and its documents/subcollections
         match /aforo/{document} {
             allow read, write: if isAuthenticated();
-            
-            match /actualizaciones/{updateId} {
-               allow read, write: if isAuthenticated();
-            }
         }
+
+        // New rule for 'actualizaciones' subcollection at the same level as 'aforo'
+        match /actualizaciones/{updateId} {
+           allow read, write: if isAuthenticated();
+        } 
     }
 
     match /Validaciones/{validacionId} {

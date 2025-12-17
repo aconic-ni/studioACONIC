@@ -464,25 +464,22 @@ function BitacoraMigrator() {
 
     const fetchStats = useCallback(async () => {
         setIsLoading(true);
-        let totalLogs = 0;
-        let casesWithLogs = 0;
         try {
-            const aforoCasesSnapshot = await getDocs(query(collection(db, 'AforoCases'), where('worksheetId', '!=', null)));
-            const casesWithWorksheet = aforoCasesSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as AforoCase));
+            const q = query(collection(db, 'AforoCases'), where('worksheetId', '!=', null));
+            const querySnapshot = await getDocs(q);
+            const casesWithWorksheet = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as AforoCase));
             
+            let totalLogs = 0;
             for (const caseData of casesWithWorksheet) {
                 try {
                     const sourceUpdatesRef = collection(db, 'AforoCases', caseData.id, 'actualizaciones');
                     const sourceSnapshot = await getDocs(sourceUpdatesRef);
-                    if (!sourceSnapshot.empty) {
-                        casesWithLogs++;
-                        totalLogs += sourceSnapshot.size;
-                    }
-                } catch(e) {
+                    totalLogs += sourceSnapshot.size;
+                } catch (e) {
                     console.warn(`Could not process case ${caseData.id} for stats:`, e);
                 }
             }
-            setStats({ casesWithLogs: casesWithLogs, logsToMigrate: totalLogs });
+            setStats({ casesWithLogs: casesWithWorksheet.length, logsToMigrate: totalLogs });
         } catch (error) {
             console.error("Error fetching bitácora stats:", error);
             toast({ title: 'Error', description: 'No se pudieron cargar las estadísticas de migración de bitácora.', variant: 'destructive' });
@@ -509,7 +506,7 @@ function BitacoraMigrator() {
 
                 if (worksheetId) {
                     const sourceUpdatesRef = collection(db, 'AforoCases', caseDoc.id, 'actualizaciones');
-                    const targetUpdatesRef = collection(db, `worksheets/${worksheetId}/aforo/actualizaciones`);
+                    const targetUpdatesRef = collection(db, 'worksheets', worksheetId, 'actualizaciones');
                     
                     const sourceSnapshot = await getDocs(sourceUpdatesRef);
                     if (!sourceSnapshot.empty) {
@@ -543,7 +540,7 @@ function BitacoraMigrator() {
             <CardHeader>
                 <CardTitle>Migrador de Bitácora de Aforo</CardTitle>
                 <CardDescription>
-                    Esta herramienta transfiere la subcolección `actualizaciones` desde `AforoCases` a `worksheets/{'{ID}'}/aforo/actualizaciones`.
+                    Esta herramienta transfiere la subcolección `actualizaciones` desde `AforoCases` a `worksheets/{'{ID}'}/actualizaciones`.
                 </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
@@ -601,4 +598,3 @@ export default function UpdatesAdminPage() {
     </AppShell>
   );
 }
-
