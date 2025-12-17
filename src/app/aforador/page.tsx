@@ -9,7 +9,7 @@ import { Loader2, Search, FileSpreadsheet, ListChecks, Printer, ClipboardList } 
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { db } from '@/lib/firebase';
-import { collectionGroup, query, where, onSnapshot, orderBy } from 'firebase/firestore';
+import { collectionGroup, query, where, onSnapshot, orderBy, doc, getDoc } from 'firebase/firestore';
 import type { WorksheetWithCase, Worksheet } from '@/types';
 import { useToast } from '@/hooks/use-toast';
 import { AforadorCasesTable } from '@/components/aforador/AforadorCasesTable';
@@ -41,9 +41,9 @@ export default function AforadorPage() {
     );
 
     const unsubscribe = onSnapshot(q, (snapshot) => {
-        const promises = snapshot.docs.map(async (doc) => {
-            const aforoData = doc.data();
-            const worksheetRef = doc.ref.parent.parent; // This should be the worksheet document
+        const promises = snapshot.docs.map(async (docSnapshot) => {
+            const aforoData = docSnapshot.data();
+            const worksheetRef = docSnapshot.ref.parent.parent; 
             if (worksheetRef) {
                 const worksheetSnap = await getDoc(worksheetRef);
                 if (worksheetSnap.exists()) {
@@ -51,8 +51,8 @@ export default function AforadorPage() {
                     return {
                         id: worksheetRef.id,
                         ...worksheetData,
-                        aforo: aforoData, // Attach the aforo data
-                        worksheet: { id: worksheetRef.id, ...worksheetData } // For compatibility
+                        aforo: aforoData,
+                        worksheet: { id: worksheetRef.id, ...worksheetData }
                     } as WorksheetWithCase;
                 }
             }
@@ -73,6 +73,7 @@ export default function AforadorPage() {
 
     return unsubscribe;
   }, [user?.displayName, toast]);
+
 
   useEffect(() => {
     const unsubscribe = fetchCases();

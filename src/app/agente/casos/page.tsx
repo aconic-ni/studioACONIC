@@ -47,7 +47,7 @@ export default function AgenteCasosPage() {
   const [allCases, setAllCases] = useState<WorksheetWithCase[]>([]);
   const [filteredCases, setFilteredCases] = useState<WorksheetWithCase[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [selectedCaseForAction, setSelectedCaseForAction] = useState<AforoCase | null>(null);
+  const [selectedCaseForAction, setSelectedCaseForAction] = useState<WorksheetWithCase | null>(null);
   const [isObservationModalOpen, setIsObservationModalOpen] = useState(false);
   const [isHistoryModalOpen, setIsHistoryModalOpen] = useState(false);
   const [worksheetToView, setWorksheetToView] = useState<Worksheet | null>(null);
@@ -79,18 +79,21 @@ export default function AgenteCasosPage() {
     );
 
     const unsubscribe = onSnapshot(q, async (snapshot) => {
-        const promises = snapshot.docs.map(async (doc) => {
-            const aforoData = doc.data();
-            const worksheetRef = doc.ref.parent.parent;
+        const promises = snapshot.docs.map(async (aforoDoc) => {
+            const aforoData = aforoDoc.data();
+            const worksheetRef = aforoDoc.ref.parent.parent;
             if (worksheetRef) {
                 const wsSnap = await getDoc(worksheetRef);
                 if (wsSnap.exists()) {
                     const wsData = wsSnap.data() as Worksheet;
-                    return {
+                    
+                    const caseData: WorksheetWithCase = {
                         id: wsSnap.id,
-                        ...aforoData, // Spread aforo data here
-                        worksheet: { id: wsSnap.id, ...wsData }
-                    } as WorksheetWithCase;
+                        ...(aforoData as Partial<AforoCase>), // Spread aforo data
+                        ...wsData, // Spread worksheet data
+                        worksheet: { id: wsSnap.id, ...wsData } // Keep worksheet nested
+                    };
+                    return caseData;
                 }
             }
             return null;
@@ -109,9 +112,12 @@ export default function AgenteCasosPage() {
   }, [user, toast]);
 
   useEffect(() => {
-    const unsub = fetchData();
+    let unsubscribe: (() => void) | undefined;
+    fetchData().then(unsub => {
+        if(unsub) unsubscribe = unsub;
+    });
     return () => {
-        unsub.then(u => u && u());
+        if (unsubscribe) unsubscribe();
     };
   }, [fetchData]);
 
@@ -200,7 +206,6 @@ export default function AgenteCasosPage() {
         await batch.commit();
         toast({ title: 'Éxito', description: `${selectedRows.length} casos han sido aprobados.` });
         setSelectedRows([]);
-        fetchData(); // Refresh data
     } catch (error) {
         console.error("Error bulk approving cases:", error);
         toast({ title: 'Error', description: 'No se pudieron aprobar los casos seleccionados.', variant: 'destructive' });
@@ -217,7 +222,7 @@ export default function AgenteCasosPage() {
     }
   }
 
-  const openActionModal = (caseItem: AforoCase, action: 'observation' | 'history') => {
+  const openActionModal = (caseItem: WorksheetWithCase, action: 'observation' | 'history') => {
     setSelectedCaseForAction(caseItem);
     if (action === 'observation') setIsObservationModalOpen(true);
     if (action === 'history') setIsHistoryModalOpen(true);
@@ -229,11 +234,10 @@ export default function AgenteCasosPage() {
   
   const handleCloseObservationModal = () => {
     setIsObservationModalOpen(false);
-    fetchData();
   };
 
 
-  const handleViewWorksheet = async (caseItem: AforoCase) => {
+  const handleViewWorksheet = async (caseItem: WorksheetWithCase) => {
     if (!caseItem.worksheetId) {
         toast({ title: "Sin Hoja de Trabajo", description: "Este caso no tiene una hoja de trabajo asociada.", variant: "destructive" });
         return;
