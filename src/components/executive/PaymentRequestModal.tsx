@@ -104,7 +104,7 @@ export function PaymentRequestModal({ isOpen, onClose, caseData }: PaymentReques
                   <FormItem>
                     <FormLabel>Número de Entrada (NE)</FormLabel>
                     <FormControl>
-                      <Input {...field} disabled={isGeneralRequest} placeholder={isGeneralRequest ? 'ID único autogenerado' : ''} />
+                      <Input {...field} disabled={!isGeneralRequest} placeholder={isGeneralRequest ? 'ID único autogenerado' : ''} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>

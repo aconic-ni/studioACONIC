@@ -4,7 +4,7 @@ import React, { useEffect, useState } from 'react';
 import Image from 'next/image';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardFooter } from '@/components/ui/card';
-import { Printer, Edit } from 'lucide-react';
+import { Edit } from 'lucide-react';
 import type { Worksheet, AppUser } from '@/types';
 import { Timestamp, collection, query, where, getDocs } from 'firebase/firestore';
 import { format as formatDateFns } from 'date-fns';

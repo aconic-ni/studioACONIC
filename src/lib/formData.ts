@@ -284,7 +284,6 @@ export const paisesValueMap = new Map(paises.map(p => [p.label, p.value]));
 
 export const aduanas = [  
     { value: "0610", label: "0610 ADUANA MANAGUA" },
-    { value: "6109", label: "6109 DELEGACION MANAGUA" },
     { value: "0110", label: "0110 ADUANA CENTRAL DE CARGA AEREA" },
     { value: "0630", label: "0630 ADUANA TERMINAL AEREA" },
     { value: "0340", label: "0340 PUERTO CORINTO" },
@@ -314,7 +313,6 @@ export const aduanas = [
 
 export const aduanaToShortCode: { [key: string]: string } = {
     "0610": "ACM", // ADUANA CENTRAL MANAGUA
-    "6109": "DM",  // DELEGACION MANAGUA
     "0110": "ACCA",// ADUANA CENTRAL DE CARGA AEREA
     "0630": "ATA", // ADUANA TERMINAL AEREA
     "0340": "PC",  // PUERTO CORINTO
