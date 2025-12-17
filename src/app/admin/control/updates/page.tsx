@@ -466,7 +466,7 @@ function BitacoraMigrator() {
         setIsLoading(true);
         try {
             const allCasesSnapshot = await getDocs(query(collection(db, 'AforoCases'), where('worksheetId', '!=', null)));
-            const casesWithWorksheet = allCasesSnapshot.docs.map(doc => doc.data() as AforoCase);
+            const casesWithWorksheet = allCasesSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as AforoCase));
 
             let casesWithLogsCount = 0;
             let totalLogsToMigrate = 0;
@@ -478,8 +478,8 @@ function BitacoraMigrator() {
                 if (!sourceSnapshot.empty) {
                     casesWithLogsCount++;
                     
-                    const targetUpdatesRef = collection(db, `worksheets/${caseData.worksheetId}/aforo/actualizaciones`);
-                    const targetSnapshot = await getDocs(targetUpdatesRef);
+                    const targetUpdatesRef = collection(db, 'worksheets', caseData.worksheetId, 'aforo', 'actualizaciones');
+                    const targetSnapshot = await getDocs(query(targetUpdatesRef));
                     if (targetSnapshot.empty) {
                        totalLogsToMigrate += sourceSnapshot.size;
                     }
