@@ -65,7 +65,7 @@ export default function AgenteCasosPage() {
   const [selectedRows, setSelectedRows] = useState<string[]>([]);
 
   const fetchData = useCallback(async () => {
-    if (!user || !(user.uid)) {
+    if (!user || !user.displayName) {
         setIsLoading(false);
         return;
     }
@@ -74,7 +74,7 @@ export default function AgenteCasosPage() {
     
     const aforoMetadataQuery = query(
       collectionGroup(db, 'aforo'),
-      where('revisorId', '==', user.uid)
+      where('revisor', '==', user.displayName)
     );
 
     const unsubscribe = onSnapshot(aforoMetadataQuery, async (snapshot) => {
@@ -192,7 +192,7 @@ export default function AgenteCasosPage() {
         if (!originalCase?.id) return;
         
         const aforoCaseRef = doc(db, 'AforoCases', originalCase.id);
-        const updatesSubcollectionRef = collection(db, 'AforoCases', originalCase.id, 'actualizaciones');
+        const updatesSubcollectionRef = collection(db, 'worksheets', originalCase.id, 'actualizaciones');
         
         batch.update(aforoCaseRef, {
             revisorStatus: newStatus,
@@ -427,7 +427,7 @@ export default function AgenteCasosPage() {
                           </Badge>
                         </TableCell>
                         <TableCell>{caseItem.declarationPattern}</TableCell>
-                        <TableCell>{caseItem.totalPosiciones || 'N/A'}</TableCell>
+                        <TableCell>{(caseItem as any).aforo?.totalPosiciones || 'N/A'}</TableCell>
                         <TableCell>{getPreliquidationStatusBadge(caseItem.preliquidationStatus)}</TableCell>
                         <TableCell>{caseItem.digitadorAsignado || 'N/A'}</TableCell>
                         <TableCell>{getDigitacionBadge(caseItem.digitacionStatus)}</TableCell>

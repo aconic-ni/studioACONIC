@@ -31,12 +31,12 @@ export default function AforadorPage() {
   }, [user, authLoading, router]);
 
   const fetchCases = useCallback(() => {
-    if (!user?.uid) return;
+    if (!user?.displayName) return;
     setIsLoading(true);
 
     const aforoMetadataQuery = query(
       collectionGroup(db, 'aforo'),
-      where('aforadorId', '==', user.uid)
+      where('aforador', '==', user.displayName)
     );
 
     const unsubscribe = onSnapshot(aforoMetadataQuery, async (snapshot) => {
@@ -58,6 +58,7 @@ export default function AforadorPage() {
       for (const wsDoc of worksheetDocs) {
         if (wsDoc && wsDoc.exists()) {
           const wsData = { id: wsDoc.id, ...wsDoc.data() } as Worksheet;
+          // We need to fetch the AforoCase separately to get all case details
           const aforoCaseSnap = await getDoc(doc(db, 'AforoCases', wsDoc.id));
           if(aforoCaseSnap.exists()){
             casesData.push({
@@ -69,7 +70,13 @@ export default function AforadorPage() {
         }
       }
       
-      casesData.sort((a,b) => (b.assignmentDate?.toMillis() ?? 0) - (a.assignmentDate?.toMillis() ?? 0));
+      // Sort cases by assignment date from the aforo metadata
+      casesData.sort((a,b) => {
+          const aDate = (a as any).aforo?.aforadorAssignedAt?.toMillis() ?? 0;
+          const bDate = (b as any).aforo?.aforadorAssignedAt?.toMillis() ?? 0;
+          return bDate - aDate;
+      });
+      
       setCases(casesData);
       setIsLoading(false);
 
@@ -80,7 +87,7 @@ export default function AforadorPage() {
     });
   
     return unsubscribe;
-  }, [user?.uid, toast]);
+  }, [user?.displayName, toast]);
 
 
   useEffect(() => {
@@ -96,8 +103,9 @@ export default function AforadorPage() {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     return cases.filter(c => {
-        const lastUpdateDate = c.aforadorStatusLastUpdate?.at?.toDate();
-        return c.aforadorStatus === 'En revisión' && 
+        const aforoData = (c.worksheet as any)?.aforo;
+        const lastUpdateDate = aforoData?.aforadorStatusLastUpdate?.at?.toDate();
+        return aforoData?.aforadorStatus === 'En revisión' && 
                lastUpdateDate && lastUpdateDate >= today;
     });
   }, [cases]);
