@@ -11,7 +11,7 @@ import { DatePickerWithRange } from '@/components/reports/DatePickerWithRange';
 import { DatePicker } from '@/components/reports/DatePicker';
 import { Loader2, Search, Eye, Edit, Archive, History, Inbox, Trash2, FolderOpen, Megaphone, BarChartHorizontal } from 'lucide-react';
 import { db } from '@/lib/firebase';
-import { collection, getDocs, query, orderBy, Timestamp, where, doc, updateDoc, addDoc, serverTimestamp } from 'firebase/firestore';
+import { collection, getDocs, query, orderBy, Timestamp, where, doc, updateDoc, addDoc, serverTimestamp, writeBatch } from 'firebase/firestore';
 import type { ExamDocument, AdminAuditLogEntry, AuditLogEntry, WorksheetWithCase } from '@/types';
 import type { DateRange } from 'react-day-picker';
 import { EditableExamDetails } from '@/components/admin/EditableExamDetails';
@@ -161,19 +161,21 @@ export default function AdminControlPage() {
     setAuditLogs([]);
     try {
         let logs: CombinedLog[] = [];
+        let logPath: string;
+
         if ('products' in item) { // It's an ExamDocument
-             const adminLogsQuery = query(collection(db, "adminAuditLog"), where("docId", "==", item.id));
-             const gestorLogsQuery = query(collection(db, "examenesRecuperados"), where("examNe", "==", item.ne));
-             const [adminSnapshot, gestorSnapshot] = await Promise.all([getDocs(adminLogsQuery), getDocs(gestorLogsQuery)]);
-             adminSnapshot.forEach(doc => logs.push({ ...doc.data(), id: doc.id, sortDate: doc.data().timestamp.toDate() } as CombinedLog));
+             const gestorLogsQuery = query(collection(db, "examenesRecuperados"), where("examNe", "==", item.ne), orderBy("changedAt", "desc"));
+             const gestorSnapshot = await getDocs(gestorLogsQuery);
              gestorSnapshot.forEach(doc => logs.push({ ...doc.data(), id: doc.id, sortDate: doc.data().changedAt.toDate() } as CombinedLog));
+             logPath = `examenesPrevios/${item.id}/actualizaciones`;
         } else { // It's a WorksheetWithCase
-            const adminLogsQuery = query(collection(db, "adminAuditLog"), where("docId", "==", item.id));
-            const updatesQuery = query(collection(item.id, 'actualizaciones'), orderBy('updatedAt', 'desc'));
-            const [adminSnapshot, updatesSnapshot] = await Promise.all([getDocs(adminLogsQuery), getDocs(updatesQuery)]);
-            adminSnapshot.forEach(doc => logs.push({ ...doc.data(), id: doc.id, sortDate: doc.data().timestamp.toDate() } as CombinedLog));
-            updatesSnapshot.forEach(doc => logs.push({ ...doc.data(), id: doc.id, sortDate: doc.data().updatedAt.toDate() } as CombinedLog));
+            logPath = `worksheets/${item.id}/actualizaciones`;
         }
+
+        const updatesQuery = query(collection(db, logPath), orderBy('updatedAt', 'desc'));
+        const updatesSnapshot = await getDocs(updatesQuery);
+        updatesSnapshot.forEach(doc => logs.push({ ...doc.data(), id: doc.id, sortDate: doc.data().updatedAt.toDate() } as CombinedLog));
+        
         logs.sort((a, b) => b.sortDate.getTime() - a.sortDate.getTime());
         setAuditLogs(logs);
 
@@ -189,7 +191,8 @@ export default function AdminControlPage() {
       return;
     }
 
-    const collectionName = 'products' in item ? "examenesPrevios" : "AforoCases";
+    const isExamen = 'products' in item;
+    const collectionName = isExamen ? "examenesPrevios" : "AforoCases";
     const docRef = doc(db, collectionName, item.id!);
     const batch = writeBatch(db);
 
@@ -197,17 +200,26 @@ export default function AdminControlPage() {
       const oldValue = item.isArchived ?? false;
       batch.update(docRef, { isArchived: archive });
       
-      if ('worksheetId' in item && item.worksheetId) {
-          const worksheetRef = doc(db, "worksheets", item.worksheetId);
+      let worksheetId: string | undefined;
+      if (!isExamen && (item as WorksheetWithCase).worksheetId) {
+          worksheetId = (item as WorksheetWithCase).worksheetId;
+          const worksheetRef = doc(db, "worksheets", worksheetId!);
           batch.update(worksheetRef, { isArchived: archive });
       }
 
-      const logRef = collection(db, "adminAuditLog");
-      await addDoc(logRef, {
-          collection: collectionName, docId: item.id, adminId: user.uid, adminEmail: user.email,
-          timestamp: serverTimestamp(), action: 'update',
-          changes: [{ field: 'isArchived', oldValue, newValue: archive }]
-      });
+      // Log to the corresponding worksheet/exam's audit trail
+      const auditCollectionPath = isExamen ? `examenesPrevios/${item.id}/actualizaciones` : `worksheets/${worksheetId}/actualizaciones`;
+      if (isExamen || worksheetId) {
+          const logRef = doc(collection(db, auditCollectionPath));
+          batch.set(logRef, {
+              updatedAt: serverTimestamp(),
+              updatedBy: user.email,
+              field: 'isArchived',
+              oldValue: oldValue,
+              newValue: archive,
+              comment: `Registro ${archive ? 'archivado' : 'restaurado'} por administrador.`
+          });
+      }
 
       await batch.commit();
       toast({ title: `Registro ${archive ? 'archivado' : 'restaurado'} con éxito.` });
@@ -276,7 +288,7 @@ export default function AdminControlPage() {
               <div className="flex gap-2">
                  <Button asChild variant="outline">
                     <Link href="/admin/control/updates">
-                        <BarChartHorizontal className="mr-2 h-4 w-4" /> Estadísticas
+                        <BarChartHorizontal className="mr-2 h-4 w-4" /> Herramientas de Datos
                     </Link>
                 </Button>
                 <Button asChild>

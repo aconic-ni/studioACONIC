@@ -24,13 +24,13 @@ export function AforoCaseHistoryModal({ isOpen, onClose, caseData }: AforoCaseHi
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    if (!isOpen || !caseData?.id) {
+    if (!isOpen || !caseData?.worksheetId) {
         setHistory([]);
         return;
     };
 
     setIsLoading(true);
-    const updatesRef = collection(db, 'AforoCases', caseData.id, 'actualizaciones');
+    const updatesRef = collection(db, 'worksheets', caseData.worksheetId, 'actualizaciones');
     const q = query(updatesRef, orderBy('updatedAt', 'desc'));
 
     const unsubscribe = onSnapshot(q, (querySnapshot) => {

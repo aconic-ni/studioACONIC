@@ -84,8 +84,8 @@ export function ResaNotificationModal({ isOpen, onClose, caseData }: ResaNotific
   
 
   const onSubmit = async (data: ResaFormData) => {
-    if (!user || !user.displayName) {
-        toast({ title: 'Error', description: 'Debe estar autenticado.', variant: 'destructive' });
+    if (!user || !user.displayName || !caseData.worksheetId) {
+        toast({ title: 'Error', description: 'Debe estar autenticado y el caso debe tener una hoja de trabajo asociada.', variant: 'destructive' });
         return;
     }
 
@@ -96,22 +96,18 @@ export function ResaNotificationModal({ isOpen, onClose, caseData }: ResaNotific
 
     setIsSubmitting(true);
     const caseDocRef = doc(db, 'AforoCases', caseData.id);
-    const updatesSubcollectionRef = collection(caseDocRef, 'actualizaciones');
+    const worksheetDocRef = doc(db, 'worksheets', caseData.worksheetId);
+    const updatesSubcollectionRef = collection(worksheetDocRef, 'actualizaciones');
     const batch = writeBatch(db);
 
     try {
-        const updatePayload: Partial<AforoCase> = {
+        const updatePayload: Partial<AforoCase & Worksheet> = {
             resaNumber: data.resaNumber,
             resaNotificationDate: Timestamp.fromDate(data.resaNotificationDate),
             resaDueDate: Timestamp.fromDate(calculatedDueDate),
         };
         
-        // Also update the worksheet if it exists
-        if (caseData.worksheetId) {
-            const worksheetDocRef = doc(db, 'worksheets', caseData.worksheetId);
-            batch.update(worksheetDocRef, updatePayload);
-        }
-
+        batch.update(worksheetDocRef, updatePayload);
         batch.update(caseDocRef, updatePayload);
 
         const updateLog: AforoCaseUpdate = {

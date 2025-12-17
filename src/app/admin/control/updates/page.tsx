@@ -591,10 +591,4 @@ export default function UpdatesAdminPage() {
                 <TotalPosicionesMigrator />
             </TabsContent>
             <TabsContent value="stats" className="mt-4">
-                 <p>Módulo de estadísticas en desarrollo.</p>
-            </TabsContent>
-        </Tabs>
-      </div>
-    </AppShell>
-  );
-}
+                 <p>Módulo de estadísticas en desarrollo.</

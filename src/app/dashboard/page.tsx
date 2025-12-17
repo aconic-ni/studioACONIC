@@ -49,8 +49,6 @@ export default function DashboardPage() {
         worksheetsSnap, 
         solicitudesSnap, 
         memorandumSnap,
-        adminLogsSnap,
-        recoveredLogsSnap,
         updatesLogsSnap
       ] = await Promise.all([
           getDocs(query(collection(db, "examenesPrevios"), orderBy("ne", "desc"))),
@@ -58,8 +56,6 @@ export default function DashboardPage() {
           getDocs(query(collection(db, "worksheets"), orderBy("createdAt", "desc"))),
           getDocs(query(collection(db, "SolicitudCheques"), orderBy("savedAt", "desc"))),
           getDocs(query(collection(db, "Memorandum"), orderBy("savedAt", "desc"))),
-          getDocs(query(collection(db, "adminAuditLog"))),
-          getDocs(query(collectionGroup(db, 'examenesRecuperados'))),
           getDocs(query(collectionGroup(db, 'actualizaciones'))),
       ]);
       
@@ -84,14 +80,6 @@ export default function DashboardPage() {
 
        // Process logs
         const combinedLogs: CombinedActivityLog[] = [];
-        adminLogsSnap.forEach(doc => {
-            const data = doc.data();
-            combinedLogs.push({ user: data.adminEmail, date: data.timestamp.toDate() });
-        });
-        recoveredLogsSnap.forEach(doc => {
-            const data = doc.data();
-            combinedLogs.push({ user: data.changedBy, date: data.changedAt.toDate() });
-        });
         updatesLogsSnap.forEach(doc => {
             const data = doc.data();
             combinedLogs.push({ user: data.updatedBy, date: data.updatedAt.toDate() });
@@ -227,4 +215,3 @@ export default function DashboardPage() {
     </AppShell>
   );
 }
-

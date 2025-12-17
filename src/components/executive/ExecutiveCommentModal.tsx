@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect } from 'react';
@@ -58,8 +59,8 @@ export function ExecutiveCommentModal({ isOpen, onClose, caseData }: ExecutiveCo
 
 
   const onSubmit = async (data: CommentFormData) => {
-    if (!user || !user.displayName) {
-        toast({ title: 'Error', description: 'Debe estar autenticado.', variant: 'destructive' });
+    if (!user || !user.displayName || !caseData.worksheetId) {
+        toast({ title: 'Error', description: 'Debe estar autenticado y el caso debe tener una hoja de trabajo asociada.', variant: 'destructive' });
         return;
     }
 
@@ -69,8 +70,8 @@ export function ExecutiveCommentModal({ isOpen, onClose, caseData }: ExecutiveCo
     }
 
     setIsSubmitting(true);
-    const caseDocRef = doc(db, 'AforoCases', caseData.id);
-    const updatesSubcollectionRef = collection(caseDocRef, 'actualizaciones');
+    const worksheetDocRef = doc(db, 'worksheets', caseData.worksheetId);
+    const updatesSubcollectionRef = collection(worksheetDocRef, 'actualizaciones');
     const batch = writeBatch(db);
 
     const newComment: ExecutiveComment = {
@@ -85,7 +86,7 @@ export function ExecutiveCommentModal({ isOpen, onClose, caseData }: ExecutiveCo
         setComments(prev => [newComment, ...prev]);
 
         // Firestore update
-        batch.update(caseDocRef, {
+        batch.update(worksheetDocRef, {
             executiveComments: arrayUnion(newComment)
         });
 

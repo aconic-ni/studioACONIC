@@ -1,3 +1,4 @@
+
 "use client";
 import { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
@@ -12,7 +13,7 @@ import { Switch } from '@/components/ui/switch';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/context/AuthContext';
 import { db } from '@/lib/firebase';
-import { doc, updateDoc, addDoc, collection, Timestamp } from 'firebase/firestore';
+import { doc, updateDoc, addDoc, collection, Timestamp, writeBatch } from 'firebase/firestore';
 import type { AforoCase, AforoCaseUpdate } from '@/types';
 import { Loader2 } from 'lucide-react';
 import { ScrollArea } from '../ui/scroll-area';
@@ -76,28 +77,28 @@ export function IncidentReportModal({ isOpen, onClose, caseData }: IncidentRepor
 
 
   const onSubmit = async (data: IncidentFormData) => {
-    if (!user || !user.displayName) {
-      toast({ title: 'Error', description: 'Debe estar autenticado.', variant: 'destructive' });
+    if (!user || !user.displayName || !caseData.worksheetId) {
+      toast({ title: 'Error', description: 'Debe estar autenticado y el caso debe tener una hoja de trabajo asociada.', variant: 'destructive' });
       return;
     }
 
     setIsSubmitting(true);
     const caseDocRef = doc(db, 'AforoCases', caseData.id);
-    const updatesSubcollectionRef = collection(caseDocRef, 'actualizaciones');
+    const updatesSubcollectionRef = collection(db, 'worksheets', caseData.worksheetId, 'actualizaciones');
+    const batch = writeBatch(db);
 
     try {
-      // Consolidate all updates into one object
       const updatePayload: Partial<AforoCase> = {
         ...data,
-        incidentType: 'Rectificacion', // Set the incident type explicitly
+        incidentType: 'Rectificacion',
         incidentReported: true,
-        incidentReason: data.motivoRectificacion, // Main reason for the incident
-        incidentStatus: 'Pendiente' as const,
+        incidentReason: data.motivoRectificacion,
+        incidentStatus: 'Pendiente',
         incidentReportedBy: user.displayName,
         incidentReportedAt: Timestamp.now(),
       };
       
-      await updateDoc(caseDocRef, updatePayload);
+      batch.update(caseDocRef, updatePayload);
 
       const updateLog: AforoCaseUpdate = {
         updatedAt: Timestamp.now(),
@@ -107,7 +108,9 @@ export function IncidentReportModal({ isOpen, onClose, caseData }: IncidentRepor
         newValue: 'reported',
         comment: `Incidencia reportada: ${data.motivoRectificacion}`,
       };
-      await addDoc(updatesSubcollectionRef, updateLog);
+      batch.set(doc(updatesSubcollectionRef), updateLog);
+      
+      await batch.commit();
 
       toast({
         title: 'Incidencia Reportada',

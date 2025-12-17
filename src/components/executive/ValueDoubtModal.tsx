@@ -74,14 +74,14 @@ export function ValueDoubtModal({ isOpen, onClose, caseData }: ValueDoubtModalPr
   const isInitialSave = !caseData.hasValueDoubt;
 
   const onSubmit = async (data: ValueDoubtFormData) => {
-    if (!user || !user.displayName) {
-        toast({ title: 'Error', description: 'Debe estar autenticado.', variant: 'destructive' });
+    if (!user || !user.displayName || !caseData.worksheetId) {
+        toast({ title: 'Error', description: 'Debe estar autenticado y el caso debe tener una hoja de trabajo asociada.', variant: 'destructive' });
         return;
     }
 
     setIsSubmitting(true);
     const caseDocRef = doc(db, 'AforoCases', caseData.id);
-    const updatesSubcollectionRef = collection(caseDocRef, 'actualizaciones');
+    const updatesSubcollectionRef = collection(db, 'worksheets', caseData.worksheetId, 'actualizaciones');
     const batch = writeBatch(db);
 
     try {
