@@ -465,21 +465,16 @@ function BitacoraMigrator() {
     const fetchStats = useCallback(async () => {
         setIsLoading(true);
         try {
-            const q = query(collection(db, 'AforoCases'), where('worksheetId', '!=', null));
-            const querySnapshot = await getDocs(q);
-            const casesWithWorksheet = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as AforoCase));
+            const updatesQuery = query(collectionGroup(db, 'actualizaciones'));
+            const querySnapshot = await getDocs(updatesQuery);
+            const logsCount = querySnapshot.size;
             
-            let totalLogs = 0;
-            for (const caseData of casesWithWorksheet) {
-                try {
-                    const sourceUpdatesRef = collection(db, 'AforoCases', caseData.id, 'actualizaciones');
-                    const sourceSnapshot = await getDocs(sourceUpdatesRef);
-                    totalLogs += sourceSnapshot.size;
-                } catch (e) {
-                    console.warn(`Could not process case ${caseData.id} for stats:`, e);
-                }
-            }
-            setStats({ casesWithLogs: casesWithWorksheet.length, logsToMigrate: totalLogs });
+            // This is a simplified count, it doesn't know how many cases these belong to.
+            // To get a case count, we'd need to process the paths.
+            const casesSet = new Set(querySnapshot.docs.map(d => d.ref.path.split('/')[1]));
+            
+            setStats({ casesWithLogs: casesSet.size, logsToMigrate: logsCount });
+
         } catch (error) {
             console.error("Error fetching bitácora stats:", error);
             toast({ title: 'Error', description: 'No se pudieron cargar las estadísticas de migración de bitácora.', variant: 'destructive' });
@@ -487,6 +482,7 @@ function BitacoraMigrator() {
             setIsLoading(false);
         }
     }, [toast]);
+
 
     useEffect(() => {
         fetchStats();
@@ -506,6 +502,7 @@ function BitacoraMigrator() {
 
                 if (worksheetId) {
                     const sourceUpdatesRef = collection(db, 'AforoCases', caseDoc.id, 'actualizaciones');
+                    // Corrected target path
                     const targetUpdatesRef = collection(db, 'worksheets', worksheetId, 'actualizaciones');
                     
                     const sourceSnapshot = await getDocs(sourceUpdatesRef);
@@ -591,4 +588,10 @@ export default function UpdatesAdminPage() {
                 <TotalPosicionesMigrator />
             </TabsContent>
             <TabsContent value="stats" className="mt-4">
-                 <p>Módulo de estadísticas en desarrollo.</
+                 <p>Módulo de estadísticas en desarrollo.</p>
+            </TabsContent>
+        </Tabs>
+      </div>
+    </AppShell>
+  );
+}
