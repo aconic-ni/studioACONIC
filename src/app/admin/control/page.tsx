@@ -350,6 +350,7 @@ export default function AdminControlPage() {
                       <TableBody>
                         {filteredItems.map((item) => {
                             const isExamen = 'products' in item;
+                            const isComplete = isExamen ? item.status === 'complete' : item.aforadorStatus === 'En revisión';
                             return (
                               <TableRow key={item.id}>
                                 <TableCell className="font-medium">{item.ne}</TableCell>
@@ -358,12 +359,12 @@ export default function AdminControlPage() {
                                 <TableCell><Badge variant="secondary">{isExamen ? (item.assignedTo || item.manager) : item.executive}</Badge></TableCell>
                                 <TableCell>{formatTimestamp(item.createdAt)}</TableCell>
                                 <TableCell>
-                                    {item.isArchived ? <Badge variant="destructive">Archivado</Badge> : (item.status === 'complete' ? <Badge className="bg-green-500 text-white">Completo</Badge> : <Badge variant="outline">{isExamen ? item.status : item.aforadorStatus}</Badge>)}
+                                  {item.isArchived ? <Badge variant="destructive">Archivado</Badge> : (isComplete ? <Badge className="bg-green-500 text-white">Completo</Badge> : <Badge variant="outline">{isExamen ? item.status : item.aforadorStatus}</Badge>)}
                                 </TableCell>
                                 <TableCell className="text-right space-x-1">
                                     <Button variant="ghost" size="sm" onClick={() => handleViewDetails(item)}><Eye className="h-4 w-4"/> <span className="sr-only">Ver</span></Button>
                                     <Button variant="ghost" size="sm" onClick={() => handleViewModifications(item)}><History className="h-4 w-4"/> <span className="sr-only">Modificaciones</span></Button>
-                                    {isExamen && <Button variant="ghost" size="sm" onClick={() => handleEditExam(item)}><Edit className="h-4 w-4"/> <span className="sr-only">Editar</span></Button>}
+                                    {isExamen && <Button variant="ghost" size="sm" onClick={() => handleEditExam(item as ExamDocument)}><Edit className="h-4 w-4"/> <span className="sr-only">Editar</span></Button>}
                                     
                                     <AlertDialog>
                                         <AlertDialogTrigger asChild>
