@@ -159,6 +159,7 @@ export default function GestionLocalPage() {
                 onComment={(worksheet) => setCommentModal({ isOpen: true, worksheet })}
                 onView={(worksheet) => setViewModal({ isOpen: true, worksheet })}
                 isLoading={isLoading}
+                onRefresh={fetchWorksheets}
               />
             )}
           </CardContent>

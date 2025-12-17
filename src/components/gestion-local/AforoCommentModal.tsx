@@ -78,6 +78,8 @@ export function AforoCommentModal({ isOpen, onClose, worksheet }: AforoCommentMo
     if (!timestamp) return 'Justo ahora';
     return format(timestamp.toDate(), 'dd/MM/yy hh:mm a', { locale: es });
   };
+  
+  const canComment = user?.role === 'admin' || user?.role === 'coordinadora' || user?.role === 'supervisor';
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
@@ -98,18 +100,20 @@ export function AforoCommentModal({ isOpen, onClose, worksheet }: AforoCommentMo
             ))}
           </div>
         </ScrollArea>
-        <div className="space-y-2 pt-4 border-t">
-          <Textarea
-            placeholder="Añadir un nuevo comentario..."
-            value={newComment}
-            onChange={(e) => setNewComment(e.target.value)}
-            disabled={isSubmitting}
-          />
-          <Button onClick={handleAddComment} disabled={isSubmitting || !newComment.trim()} className="w-full">
-            {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : <Send className="mr-2 h-4 w-4"/>}
-            Enviar
-          </Button>
-        </div>
+        {canComment && (
+            <div className="space-y-2 pt-4 border-t">
+            <Textarea
+                placeholder="Añadir un nuevo comentario..."
+                value={newComment}
+                onChange={(e) => setNewComment(e.target.value)}
+                disabled={isSubmitting}
+            />
+            <Button onClick={handleAddComment} disabled={isSubmitting || !newComment.trim()} className="w-full">
+                {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : <Send className="mr-2 h-4 w-4"/>}
+                Enviar
+            </Button>
+            </div>
+        )}
         <DialogFooter>
           <Button variant="outline" onClick={onClose}>Cerrar</Button>
         </DialogFooter>

@@ -43,6 +43,29 @@
       "queryScope": "COLLECTION",
       "fields": [
         {
+          "fieldPath": "aforadorStatus",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "worksheetType",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "createdAt",
+          "order": "DESCENDING"
+        },
+        {
+          "fieldPath": "__name__",
+          "order": "DESCENDING"
+        }
+      ],
+      "density": "SPARSE_ALL"
+    },
+    {
+      "collectionGroup": "AforoCases",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
           "fieldPath": "consignee",
           "order": "ASCENDING"
         },
@@ -139,6 +162,33 @@
       "fields": [
         {
           "fieldPath": "digitacionStatus",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "revisorStatus",
+          "order": "DESCENDING"
+        },
+        {
+          "fieldPath": "createdAt",
+          "order": "DESCENDING"
+        },
+        {
+          "fieldPath": "__name__",
+          "order": "DESCENDING"
+        }
+      ],
+      "density": "SPARSE_ALL"
+    },
+    {
+      "collectionGroup": "AforoCases",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "digitacionStatus",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "worksheetType",
           "order": "ASCENDING"
         },
         {
@@ -550,6 +600,25 @@
       "fields": [
         {
           "fieldPath": "createdBy",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "createdAt",
+          "order": "DESCENDING"
+        },
+        {
+          "fieldPath": "__name__",
+          "order": "DESCENDING"
+        }
+      ],
+      "density": "SPARSE_ALL"
+    },
+    {
+      "collectionGroup": "worksheets",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "worksheetType",
           "order": "ASCENDING"
         },
         {
