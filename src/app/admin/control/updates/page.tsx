@@ -466,15 +466,15 @@ function BitacoraMigrator() {
         setIsLoading(true);
         try {
             const allCasesSnapshot = await getDocs(query(collection(db, 'AforoCases')));
-            const casesWithWorksheet = allCasesSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as AforoCase));
+            const casesWithWorksheet = allCasesSnapshot.docs
+                .map(doc => ({ id: doc.id, ...doc.data() } as AforoCase))
+                .filter(c => c.worksheetId);
 
             let casesWithLogsCount = 0;
             let totalLogsToMigrate = 0;
 
             for (const caseData of casesWithWorksheet) {
                 try {
-                    if (!caseData.id) continue;
-                    
                     const sourceUpdatesRef = collection(db, 'AforoCases', caseData.id, 'actualizaciones');
                     const sourceSnapshot = await getDocs(sourceUpdatesRef);
                     
@@ -511,7 +511,7 @@ function BitacoraMigrator() {
         
         let migratedCount = 0;
         try {
-            const aforoCasesSnapshot = await getDocs(query(collection(db, 'AforoCases')));
+            const aforoCasesSnapshot = await getDocs(query(collection(db, 'AforoCases'), where('worksheetId', '!=', null)));
             
             for (const caseDoc of aforoCasesSnapshot.docs) {
                 try {
@@ -522,7 +522,7 @@ function BitacoraMigrator() {
                         const sourceUpdatesRef = collection(db, 'AforoCases', caseDoc.id, 'actualizaciones');
                         const targetUpdatesRef = collection(db, 'worksheets', worksheetId, 'aforo', 'actualizaciones');
     
-                        const targetSnapshot = await getDocs(query(targetUpdatesRef));
+                        const targetSnapshot = await getDocs(query(targetUpdatesRef).limit(1));
                         if (targetSnapshot.empty) { // Only migrate if target is empty
                             const sourceSnapshot = await getDocs(query(sourceUpdatesRef));
                             if (!sourceSnapshot.empty) {
