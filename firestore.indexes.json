@@ -181,32 +181,20 @@
         }
       ]
     },
-    {
-      "collectionGroup": "aforo",
-      "queryScope": "COLLECTION_GROUP",
-      "fields": [
-        {
-          "fieldPath": "aforadorId",
-          "order": "ASCENDING"
-        },
-        {
-          "fieldPath": "aforadorAssignedAt",
-          "order": "DESCENDING"
-        }
-      ]
-    },
      {
       "collectionGroup": "aforo",
       "queryScope": "COLLECTION_GROUP",
       "fields": [
-        {
-          "fieldPath": "revisorId",
-          "order": "ASCENDING"
-        },
-        {
-          "fieldPath": "revisorAssignedAt",
-          "order": "DESCENDING"
-        }
+        { "fieldPath": "aforadorId", "order": "ASCENDING" },
+        { "fieldPath": "aforadorAssignedAt", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "aforo",
+      "queryScope": "COLLECTION_GROUP",
+      "fields": [
+        { "fieldPath": "revisorId", "order": "ASCENDING" },
+        { "fieldPath": "revisorAssignedAt", "order": "DESCENDING" }
       ]
     }
   ]

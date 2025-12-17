@@ -74,7 +74,8 @@ export default function AgenteCasosPage() {
     
     const aforoMetadataQuery = query(
       collectionGroup(db, 'aforo'),
-      where('revisorId', '==', user.uid)
+      where('revisorId', '==', user.uid),
+      orderBy('revisorAssignedAt', 'desc')
     );
 
     const unsubscribe = onSnapshot(aforoMetadataQuery, async (snapshot) => {
@@ -100,7 +101,7 @@ export default function AgenteCasosPage() {
                 const aforoData = snapshot.docs[i].data();
                 
                 const combinedData = {
-                    ...wsData,
+                    ...(wsData as any),
                     aforo: aforoData
                 } as WorksheetWithCase;
 
@@ -108,13 +109,12 @@ export default function AgenteCasosPage() {
             }
         }
         
-        casesData.sort((a,b) => (b.aforo?.revisorAssignedAt?.toMillis() ?? 0) - (a.aforo?.revisorAssignedAt?.toMillis() ?? 0));
         setAllCases(casesData);
         setIsLoading(false);
 
     }, (error) => {
         console.error("Error fetching assigned cases:", error);
-        toast({ title: "Error", description: "No se pudieron cargar los casos asignados.", variant: "destructive" });
+        toast({ title: "Error", description: "No se pudieron cargar los casos asignados. Revise los índices de Firestore.", variant: "destructive" });
         setIsLoading(false);
     });
 

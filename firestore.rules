@@ -103,9 +103,6 @@ service cloud.firestore {
     // Rules for collection group queries.
     match /{path=**}/aforo/{docId} {
        allow read: if isAuthenticated();
-       allow list: if isAuthenticated()
-           && (request.query.where.aforadorId == request.auth.uid
-               || request.query.where.revisorId == request.auth.uid);
     }
     
     match /worksheets/{worksheetId} {
