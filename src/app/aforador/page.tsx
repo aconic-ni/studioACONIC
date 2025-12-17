@@ -69,7 +69,7 @@ export default function AforadorPage() {
             
             const combinedData: WorksheetWithCase = {
                 ...(wsData as any),
-                aforo: aforoData
+                ...aforoData
             };
             
             casesData.push(combinedData);
@@ -78,8 +78,8 @@ export default function AforadorPage() {
       
       // Sort on the client side
       casesData.sort((a, b) => {
-          const timeA = (a.aforo as any)?.aforadorAssignedAt instanceof Timestamp ? (a.aforo as any).aforadorAssignedAt.toMillis() : 0;
-          const timeB = (b.aforo as any)?.aforadorAssignedAt instanceof Timestamp ? (b.aforo as any).aforadorAssignedAt.toMillis() : 0;
+          const timeA = (a.aforadorAssignedAt as any) instanceof Timestamp ? (a.aforadorAssignedAt as any).toMillis() : 0;
+          const timeB = (b.aforadorAssignedAt as any) instanceof Timestamp ? (b.aforadorAssignedAt as any).toMillis() : 0;
           return timeB - timeA;
       });
 
@@ -114,7 +114,7 @@ export default function AforadorPage() {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     return cases.filter(c => {
-        const aforoData = (c as any).aforo as any;
+        const aforoData = c as any;
         const lastUpdateDate = aforoData?.aforadorStatusLastUpdate?.at?.toDate();
         return aforoData?.aforadorStatus === 'En revisión' && 
                lastUpdateDate && lastUpdateDate >= today;
