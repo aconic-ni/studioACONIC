@@ -2,7 +2,7 @@
 "use client";
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { db } from '@/lib/firebase';
-import { collection, query, where, onSnapshot, Timestamp, orderBy, getDocs, QueryConstraint, getDoc, writeBatch, doc, collectionGroup } from 'firebase/firestore';
+import { collection, query, where, onSnapshot, Timestamp, orderBy, getDocs, QueryConstraint, getDoc, writeBatch, doc, collectionGroup, serverTimestamp } from 'firebase/firestore';
 import { useAuth } from '@/context/AuthContext';
 import { AppShell } from '@/components/layout/AppShell';
 import { Loader2, Inbox, Eye, Search, Calendar, CalendarDays, CalendarRange, BookOpen, AlertTriangle, History, CheckSquare } from 'lucide-react';
@@ -98,12 +98,12 @@ export default function AgenteCasosPage() {
             const wsDoc = worksheetDocs[i];
             if (wsDoc && wsDoc.exists()) {
                 const wsData = { id: wsDoc.id, ...wsDoc.data() } as Worksheet;
-                const aforoData = snapshot.docs[i].data();
+                const aforoData = snapshot.docs[i].data() as Omit<WorksheetWithCase, 'worksheet'>;
                 
-                const combinedData = {
-                    ...(wsData as any),
-                    aforo: aforoData
-                } as WorksheetWithCase;
+                const combinedData: WorksheetWithCase = {
+                    ...aforoData,
+                    worksheet: wsData,
+                };
 
                 casesData.push(combinedData);
             }
@@ -139,7 +139,7 @@ export default function AgenteCasosPage() {
     }
 
     if (statusFilter !== 'todos') {
-        cases = cases.filter(c => (c.aforo?.revisorStatus || 'Pendiente') === statusFilter);
+        cases = cases.filter(c => (c.revisorStatus || 'Pendiente') === statusFilter);
     }
     
     let dateFiltered = cases;
@@ -159,7 +159,7 @@ export default function AgenteCasosPage() {
 
     if (start && end) {
         dateFiltered = cases.filter(c => {
-            const caseDate = (c.aforo?.revisorAssignedAt as Timestamp)?.toDate();
+            const caseDate = (c.revisorAssignedAt as Timestamp)?.toDate();
             return caseDate && caseDate >= start! && caseDate <= end!;
         });
     }
@@ -177,7 +177,7 @@ export default function AgenteCasosPage() {
     setStatusFilter('Pendiente');
     setDateFilterType('range');
     setDateRange(undefined);
-    setFilteredCases(allCases.filter(c => (c.aforo?.revisorStatus || 'Pendiente') === 'Pendiente'));
+    setFilteredCases(allCases.filter(c => (c.revisorStatus || 'Pendiente') === 'Pendiente'));
     setSelectedRows([]);
   }
 
@@ -205,7 +205,7 @@ export default function AgenteCasosPage() {
             updatedAt: serverTimestamp(),
             updatedBy: user.displayName,
             field: 'status_change',
-            oldValue: originalCase?.aforo?.revisorStatus || 'Pendiente',
+            oldValue: originalCase?.revisorStatus || 'Pendiente',
             newValue: newStatus,
             comment: comment,
         };
@@ -225,7 +225,7 @@ export default function AgenteCasosPage() {
   };
 
   const handleSelectAll = () => {
-    const selectableIds = filteredCases.filter(c => c.aforo?.revisorStatus === 'Pendiente').map(c => c.id);
+    const selectableIds = filteredCases.filter(c => c.revisorStatus === 'Pendiente').map(c => c.id);
     if (selectedRows.length === selectableIds.length) {
         setSelectedRows([]);
     } else {
@@ -249,7 +249,7 @@ export default function AgenteCasosPage() {
 
 
   const handleViewWorksheet = (caseItem: WorksheetWithCase) => {
-    setWorksheetToView(caseItem);
+    setWorksheetToView(caseItem.worksheet);
   };
 
   const getStatusBadgeVariant = (status?: AforoCaseStatus) => {
@@ -363,7 +363,7 @@ export default function AgenteCasosPage() {
                     <TableRow>
                       <TableHead className="w-12">
                           <Checkbox
-                              checked={selectedRows.length > 0 && selectedRows.length === filteredCases.filter(c => c.aforo?.revisorStatus === 'Pendiente').length}
+                              checked={selectedRows.length > 0 && selectedRows.length === filteredCases.filter(c => c.revisorStatus === 'Pendiente').length}
                               onCheckedChange={handleSelectAll}
                           />
                       </TableHead>
@@ -390,7 +390,7 @@ export default function AgenteCasosPage() {
                                         ? prev.filter(id => id !== caseItem.id)
                                         : [...prev, caseItem.id]
                                 )}
-                                disabled={caseItem.aforo?.revisorStatus !== 'Pendiente'}
+                                disabled={caseItem.revisorStatus !== 'Pendiente'}
                             />
                         </TableCell>
                         <TableCell>
@@ -399,7 +399,7 @@ export default function AgenteCasosPage() {
                                     <DropdownMenuTrigger asChild><Button variant="ghost" size="sm">Ver</Button></DropdownMenuTrigger>
                                     <DropdownMenuContent>
                                         <DropdownMenuItem onSelect={() => handleViewWorksheet(caseItem)}><BookOpen className="mr-2 h-4 w-4" /> Hoja de Trabajo</DropdownMenuItem>
-                                        {caseItem.aforo?.incidentReported && <DropdownMenuItem onSelect={() => setIncidentToView(caseItem)}><AlertTriangle className="mr-2 h-4 w-4" /> Incidencia</DropdownMenuItem>}
+                                        {caseItem.incidentReported && <DropdownMenuItem onSelect={() => setIncidentToView(caseItem)}><AlertTriangle className="mr-2 h-4 w-4" /> Incidencia</DropdownMenuItem>}
                                         <DropdownMenuItem onSelect={() => openActionModal(caseItem, 'history')}><History className="mr-2 h-4 w-4" /> Bitácora</DropdownMenuItem>
                                     </DropdownMenuContent>
                                 </DropdownMenu>
@@ -408,17 +408,17 @@ export default function AgenteCasosPage() {
                         </TableCell>
                         <TableCell className="font-medium">{caseItem.ne}</TableCell>
                         <TableCell>{caseItem.consignee}</TableCell>
-                        <TableCell>{caseItem.aforo?.aforador || 'N/A'}</TableCell>
+                        <TableCell>{caseItem.aforador || 'N/A'}</TableCell>
                         <TableCell>
-                          <Badge variant={getStatusBadgeVariant(caseItem.aforo?.revisorStatus)}>
-                            {caseItem.aforo?.revisorStatus || 'Pendiente'}
+                          <Badge variant={getStatusBadgeVariant(caseItem.revisorStatus)}>
+                            {caseItem.revisorStatus || 'Pendiente'}
                           </Badge>
                         </TableCell>
                         <TableCell>{caseItem.declarationPattern}</TableCell>
-                        <TableCell>{caseItem.aforo?.totalPosiciones || 'N/A'}</TableCell>
-                        <TableCell>{getPreliquidationStatusBadge(caseItem.aforo?.preliquidationStatus)}</TableCell>
-                        <TableCell>{caseItem.aforo?.digitador || 'N/A'}</TableCell>
-                        <TableCell>{getDigitacionBadge(caseItem.aforo?.digitadorStatus)}</TableCell>
+                        <TableCell>{caseItem.totalPosiciones || 'N/A'}</TableCell>
+                        <TableCell>{getPreliquidationStatusBadge(caseItem.preliquidationStatus)}</TableCell>
+                        <TableCell>{caseItem.digitadorAsignado || 'N/A'}</TableCell>
+                        <TableCell>{getDigitacionBadge(caseItem.digitacionStatus)}</TableCell>
                       </TableRow>
                     ))}
                   </TableBody>
