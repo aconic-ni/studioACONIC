@@ -1,4 +1,3 @@
-
 "use client";
 import React, { useEffect, useState } from 'react';
 import Image from 'next/image';
@@ -16,6 +15,8 @@ import { db } from '@/lib/firebase';
 import Link from 'next/link';
 import { Anexo7Details } from './Anexo7Details';
 import { Anexo5PrintButton } from './Anexo5PrintButton';
+import { SignatureSection } from '@/components/shared/SignatureSection';
+
 
 const formatShortDate = (timestamp: Timestamp | Date | null | undefined): string => {
   if (!timestamp) return '';
@@ -42,29 +43,6 @@ const TransportDetailItem: React.FC<{ label: string; value?: string | number | n
         <td className="text-xs font-medium text-gray-800 print:text-[9pt] p-1">{value || ''}</td>
     </tr>
 );
-
-const SignatureSection: React.FC<{
-  title: string;
-  subtitle?: string;
-  className?: string;
-  children?: React.ReactNode;
-  align?: 'left' | 'center' | 'right';
-  showSignatureLine?: boolean;
-}> = ({ title, subtitle, className, children, align = 'left', showSignatureLine = true }) => {
-  const textAlignClass = `text-${align}`;
-  return (
-    <div className={cn("flex flex-col", className)}>
-      {showSignatureLine && <div className="flex-grow border-b-2 border-black print:h-6 mb-1 h-[50px]"></div>}
-      <div className={cn("text-xs print:text-[8pt]", textAlignClass)}>
-          <p className="font-semibold">{title}</p>
-          {subtitle && <p className="text-gray-600 print:text-[7pt]">{subtitle}</p>}
-          <div className="min-h-[30px] print:min-h-[20px] text-black font-semibold">
-           {children}
-          </div>
-      </div>
-    </div>
-  );
-};
 
 export function Anexo5Details({ worksheet, onClose }: { worksheet: Worksheet; onClose: () => void; }) {
   const [agente, setAgente] = useState<AppUser | null>(null);

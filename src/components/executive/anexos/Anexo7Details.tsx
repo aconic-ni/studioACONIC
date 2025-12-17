@@ -13,6 +13,8 @@ import { cn } from "@/lib/utils";
 import { db } from '@/lib/firebase';
 import Link from 'next/link';
 import { Anexo5PrintButton } from './Anexo5PrintButton';
+import { SignatureSection } from '@/components/shared/SignatureSection';
+
 
 const formatShortDate = (timestamp: Timestamp | Date | null | undefined): string => {
   if (!timestamp) return '';
@@ -48,30 +50,6 @@ const TransportDetailItem: React.FC<{ label: string; value?: string | number | n
         <td className="text-xs font-medium text-gray-800 print:text-[9pt] p-1">{value || ''}</td>
     </tr>
 );
-
-const SignatureSection: React.FC<{
-  title: string;
-  subtitle?: string;
-  className?: string;
-  children?: React.ReactNode;
-  align?: 'left' | 'center' | 'right';
-}> = ({ title, subtitle, className, children, align = 'left' }) => {
-  const textAlignClass = `text-${align}`;
-  return (
-    <div className={cn("flex flex-col", className)}>
-       <div className="flex-grow border-b-2 border-black print:h-6 mb-1"></div>
-      <div className={cn("text-xs print:text-[8pt]", textAlignClass)}>
-          <p className="font-semibold">Firma y Sello</p>
-          <p className="font-bold text-black">{title}</p>
-          {subtitle && <p className="text-gray-600 print:text-[7pt]">{subtitle}</p>}
-          <div className="min-h-[30px] print:min-h-[20px] text-black font-semibold">
-           {children}
-          </div>
-      </div>
-    </div>
-  );
-};
-
 
 export function Anexo7Details({ worksheet, onClose }: { worksheet: Worksheet; onClose: () => void; }) {
   const [agente, setAgente] = useState<AppUser | null>(null);

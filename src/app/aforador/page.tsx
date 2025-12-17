@@ -68,7 +68,7 @@ export default function AforadorPage() {
             const aforoData = snapshot.docs[i].data();
             
             const combinedData: WorksheetWithCase = {
-                ...(wsData as any),
+                ...(wsData as any), // Cast to any to merge
                 ...aforoData
             };
             
