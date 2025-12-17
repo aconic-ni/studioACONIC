@@ -33,20 +33,19 @@ export function AssignUserModal({ isOpen, onClose, worksheet, type, selectedWork
     if (!isOpen) return;
     
     const fetchUsers = async () => {
-      let users: AppUser[] = [];
+      let rolesToFetch: string[] = [];
+      if (type.includes('revisor')) {
+        rolesToFetch = ['agente aduanero', 'supervisor', 'admin', 'coordinadora'];
+      } else if (type.includes('aforador')) {
+        rolesToFetch = ['aforador', 'supervisor', 'coordinadora'];
+      } else { // digitador
+        rolesToFetch = ['digitador', 'supervisor', 'coordinadora'];
+      }
+
       try {
-        let roles: string[];
-        if (type.includes('revisor')) {
-            roles = ['agente aduanero', 'supervisor', 'admin', 'coordinadora'];
-             const usersQuery = query(collection(db, 'users'), where('role', 'in', roles));
-             const snapshot = await getDocs(usersQuery);
-             users = snapshot.docs.map(d => ({ uid: d.id, ...d.data() } as AppUser));
-        } else { // aforador or digitador
-            roles = ['aforador', 'supervisor', 'coordinadora', 'digitador'];
-            const usersQuery = query(collection(db, 'users'), where('role', 'in', roles));
-            const snapshot = await getDocs(usersQuery);
-            users = snapshot.docs.map(d => ({ uid: d.id, ...d.data() } as AppUser));
-        }
+        const usersQuery = query(collection(db, 'users'), where('role', 'in', rolesToFetch));
+        const snapshot = await getDocs(usersQuery);
+        const users = snapshot.docs.map(d => ({ uid: d.id, ...d.data() } as AppUser));
         setAssignableUsers(users.filter(u => u.displayName));
       } catch (error) {
         console.error("Error fetching users for assignment:", error);
@@ -63,16 +62,13 @@ export function AssignUserModal({ isOpen, onClose, worksheet, type, selectedWork
     
     const batch = writeBatch(db);
     
-    let fieldToUpdate: 'aforador' | 'revisor' | 'digitador';
-    let idFieldToUpdate: 'aforadorId' | 'revisorId' | 'digitadorId';
+    let fieldToUpdate: 'aforador' | 'revisor' | 'digitador' = 'aforador';
+    let idFieldToUpdate: 'aforadorId' | 'revisorId' | 'digitadorId' = 'aforadorId';
 
-    if (type.includes('aforador')) {
-        fieldToUpdate = 'aforador';
-        idFieldToUpdate = 'aforadorId';
-    } else if (type.includes('revisor')) {
+    if (type.includes('revisor')) {
         fieldToUpdate = 'revisor';
         idFieldToUpdate = 'revisorId';
-    } else {
+    } else if (type.includes('digitador')) {
         fieldToUpdate = 'digitador';
         idFieldToUpdate = 'digitadorId';
     }
@@ -90,7 +86,6 @@ export function AssignUserModal({ isOpen, onClose, worksheet, type, selectedWork
 
     idsToUpdate.forEach(wsId => {
       const aforoMetadataRef = doc(db, `worksheets/${wsId}/aforo/metadata`);
-      const caseDocRef = doc(db, 'AforoCases', wsId); // Still need to update this for other modules to work
       
       const updateData = {
           [fieldToUpdate]: userDisplayName,
@@ -99,11 +94,7 @@ export function AssignUserModal({ isOpen, onClose, worksheet, type, selectedWork
           [`${fieldToUpdate}AssignedBy`]: currentUser.displayName,
       };
       
-      const caseUpdateField = type.includes('revisor') ? 'revisorAsignado' : fieldToUpdate;
-      const caseUpdateData = { [caseUpdateField]: userDisplayName };
-      
       batch.set(aforoMetadataRef, updateData, { merge: true });
-      batch.set(caseDocRef, caseUpdateData, { merge: true }); // Sync with AforoCases
     });
 
     try {
