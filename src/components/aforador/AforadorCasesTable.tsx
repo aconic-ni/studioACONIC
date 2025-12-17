@@ -1,4 +1,3 @@
-
 "use client";
 import React, { useState } from 'react';
 import type { Worksheet } from '@/types';
@@ -9,6 +8,7 @@ import { es } from 'date-fns/locale';
 import { Eye } from 'lucide-react';
 import { WorksheetDetailModal } from '../reporter/WorksheetDetailModal';
 import { Timestamp } from 'firebase/firestore';
+import { AssignmentTypeBadge } from '../gestion-local/AssignmentTypeBadge';
 
 
 interface AforadorCasesTableProps {
@@ -28,6 +28,7 @@ export function AforadorCasesTable({ cases }: AforadorCasesTableProps) {
       <Table>
         <TableHeader>
           <TableRow>
+            <TableHead>Tipo</TableHead>
             <TableHead>Acciones</TableHead>
             <TableHead>NE</TableHead>
             <TableHead>Consignatario</TableHead>
@@ -39,8 +40,12 @@ export function AforadorCasesTable({ cases }: AforadorCasesTableProps) {
           {cases.map((c) => {
             const aforoData = (c as any).aforo;
             const assignedAt = aforoData?.aforadorAssignedAt;
+            const digitadorAssignedAt = aforoData?.digitadorAssignedAt;
             return (
             <TableRow key={c.id}>
+              <TableCell>
+                <AssignmentTypeBadge assignmentDate={assignedAt} digitadorAssignedAt={digitadorAssignedAt} />
+              </TableCell>
               <TableCell>
                 <Button variant="outline" size="sm" onClick={() => setWorksheetToView(c)}>
                     <Eye className="mr-2 h-4 w-4"/> Ver Hoja
