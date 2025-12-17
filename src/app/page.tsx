@@ -25,6 +25,8 @@ export default function HomePage() {
           roleToUse = 'supervisor';
       } else if (user.roleTitle === 'agente aduanero') {
           roleToUse = 'agente';
+      } else if (user.role === 'aforador') {
+          roleToUse = 'aforador';
       } else {
           roleToUse = user.role || 'gestor';
       }

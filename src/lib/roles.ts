@@ -1,3 +1,4 @@
+
 import type { UserRole } from '@/types';
 import {
   Shield,
@@ -17,9 +18,10 @@ import {
   LayoutDashboard,
   FileDigit,
   Scale, // Added for legal
+  ClipboardList
 } from 'lucide-react';
 
-export type NavLink = 'admin' | 'assignments' | 'dashboard' | 'dbPrevios' | 'dbPagos' | 'dbMemorandum' | 'dbPermisos' | 'dbValidaciones' | 'photos' | 'reportsPrevios' | 'reportsAforo' | 'agenteCasos' | 'supervisor' | 'executive' | 'reporter' | 'facturacion' | 'legal' | 'legalRequest';
+export type NavLink = 'admin' | 'assignments' | 'dashboard' | 'dbPrevios' | 'dbPagos' | 'dbMemorandum' | 'dbPermisos' | 'dbValidaciones' | 'photos' | 'reportsPrevios' | 'reportsAforo' | 'agenteCasos' | 'supervisor' | 'executive' | 'reporter' | 'facturacion' | 'legal' | 'legalRequest' | 'aforador';
 
 export interface RoleConfig {
   home: string;
@@ -29,15 +31,15 @@ export interface RoleConfig {
 export const roleConfig: Record<UserRole, RoleConfig> = {
   admin: {
     home: '/admin',
-    navLinks: ['admin', 'assignments', 'dashboard', 'dbPrevios', 'dbPagos', 'dbMemorandum', 'dbPermisos', 'dbValidaciones', 'photos', 'reportsPrevios', 'reportsAforo', 'facturacion', 'legalRequest'],
+    navLinks: ['admin', 'assignments', 'dashboard', 'dbPrevios', 'dbPagos', 'dbMemorandum', 'dbPermisos', 'dbValidaciones', 'photos', 'reportsPrevios', 'reportsAforo', 'facturacion', 'legalRequest', 'aforador'],
   },
   coordinadora: {
     home: '/executive',
-    navLinks: ['assignments', 'dashboard', 'dbPrevios', 'dbPagos', 'dbMemorandum', 'dbPermisos', 'dbValidaciones', 'photos', 'reportsPrevios', 'legalRequest', 'reporter', 'facturacion'],
+    navLinks: ['assignments', 'dashboard', 'dbPrevios', 'dbPagos', 'dbMemorandum', 'dbPermisos', 'dbValidaciones', 'photos', 'reportsPrevios', 'legalRequest', 'reporter', 'facturacion', 'aforador'],
   },
   supervisor: {
     home: '/supervisor',
-    navLinks: ['assignments', 'dashboard', 'dbPrevios', 'dbPagos', 'dbMemorandum', 'dbPermisos', 'dbValidaciones', 'photos', 'reportsPrevios', 'agenteCasos'],
+    navLinks: ['assignments', 'dashboard', 'dbPrevios', 'dbPagos', 'dbMemorandum', 'dbPermisos', 'dbValidaciones', 'photos', 'reportsPrevios', 'agenteCasos', 'aforador'],
   },
   ejecutivo: {
     home: '/executive',
@@ -48,8 +50,8 @@ export const roleConfig: Record<UserRole, RoleConfig> = {
     navLinks: ['dbPrevios', 'photos'],
   },
   aforador: {
-    home: '/database',
-    navLinks: ['dashboard', 'dbPrevios', 'photos'],
+    home: '/aforador',
+    navLinks: ['aforador', 'dbPrevios', 'reportsPrevios', 'photos'],
   },
   agente: {
     home: '/agente',
@@ -108,4 +110,5 @@ export const navLinkDetails: Record<NavLink, { href: string; label: string; icon
   facturacion: { href: '/facturacion', label: 'Facturación', icon: FileDigit },
   legal: { href: '/legal', label: 'Módulo Legal', icon: Scale },
   legalRequest: { href: '/legal/request', label: 'Solicitud Legal', icon: Scale },
+  aforador: { href: '/aforador', label: 'Panel Aforador', icon: ClipboardList }
 };
