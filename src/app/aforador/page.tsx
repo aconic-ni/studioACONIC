@@ -15,6 +15,7 @@ import { useToast } from '@/hooks/use-toast';
 import { AforadorCasesTable } from '@/components/aforador/AforadorCasesTable';
 import { DailySummaryModal } from '@/components/aforador/DailySummaryModal';
 import Link from 'next/link';
+import { startOfDay, endOfDay } from 'date-fns';
 
 export default function AforadorPage() {
   const { user, loading: authLoading } = useAuth();
@@ -34,9 +35,14 @@ export default function AforadorPage() {
     if (!user?.displayName) return;
     setIsLoading(true);
 
+    const todayStart = startOfDay(new Date());
+    const todayEnd = endOfDay(new Date());
+
     const aforoMetadataQuery = query(
       collectionGroup(db, 'aforo'),
-      where('aforador', '==', user.displayName)
+      where('aforador', '==', user.displayName),
+      where('aforadorAssignedAt', '>=', todayStart),
+      where('aforadorAssignedAt', '<=', todayEnd)
     );
 
     const unsubscribe = onSnapshot(aforoMetadataQuery, async (snapshot) => {
@@ -130,7 +136,7 @@ export default function AforadorPage() {
                     <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-4">
                          <div>
                             <CardTitle className="text-2xl">Panel de Aforador</CardTitle>
-                            <CardDescription>Bienvenido, {welcomeName}. Aquí están sus casos asignados.</CardDescription>
+                            <CardDescription>Bienvenido, {welcomeName}. Aquí están sus casos asignados para hoy.</CardDescription>
                         </div>
                         <div className="flex flex-wrap gap-2">
                              <Button asChild variant="outline">
@@ -152,7 +158,7 @@ export default function AforadorPage() {
                 <CardHeader>
                     <div className="flex justify-between items-center">
                         <CardTitle className="text-xl flex items-center gap-2">
-                            <Inbox /> Mis Casos Asignados
+                            <Inbox /> Mis Casos Asignados de Hoy
                         </CardTitle>
                          <Button onClick={() => setIsSummaryModalOpen(true)} variant="secondary">
                             Resumen Diario
@@ -168,7 +174,7 @@ export default function AforadorPage() {
                             <Loader2 className="h-8 w-8 animate-spin text-primary" />
                          </div>
                     ) : cases.length === 0 ? (
-                        <div className="text-center py-10 text-muted-foreground">No tiene casos asignados pendientes.</div>
+                        <div className="text-center py-10 text-muted-foreground">No tiene casos asignados para hoy.</div>
                     ) : (
                         <AforadorCasesTable cases={cases} />
                     )}

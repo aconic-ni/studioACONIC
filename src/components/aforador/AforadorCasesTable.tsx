@@ -1,5 +1,6 @@
+
 "use client";
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import type { Worksheet } from '@/types';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
@@ -9,6 +10,7 @@ import { Eye } from 'lucide-react';
 import { WorksheetDetailModal } from '../reporter/WorksheetDetailModal';
 import { Timestamp } from 'firebase/firestore';
 import { AssignmentTypeBadge } from '../gestion-local/AssignmentTypeBadge';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
 
 
 interface AforadorCasesTableProps {
@@ -17,6 +19,15 @@ interface AforadorCasesTableProps {
 
 export function AforadorCasesTable({ cases }: AforadorCasesTableProps) {
   const [worksheetToView, setWorksheetToView] = useState<Worksheet | null>(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(10);
+
+  const paginatedCases = useMemo(() => {
+    const startIndex = (currentPage - 1) * itemsPerPage;
+    return cases.slice(startIndex, startIndex + itemsPerPage);
+  }, [cases, currentPage, itemsPerPage]);
+
+  const totalPages = Math.ceil(cases.length / itemsPerPage);
 
   if (cases.length === 0) {
     return <p className="text-center text-muted-foreground p-4">No tiene casos asignados pendientes.</p>;
@@ -37,7 +48,7 @@ export function AforadorCasesTable({ cases }: AforadorCasesTableProps) {
           </TableRow>
         </TableHeader>
         <TableBody>
-          {cases.map((c) => {
+          {paginatedCases.map((c) => {
             const aforoData = (c as any).aforo;
             const assignedAt = aforoData?.aforadorAssignedAt;
             const digitadorAssignedAt = aforoData?.digitadorAssignedAt;
@@ -60,6 +71,57 @@ export function AforadorCasesTable({ cases }: AforadorCasesTableProps) {
         </TableBody>
       </Table>
     </div>
+
+    {cases.length > itemsPerPage && (
+        <div className="flex items-center justify-between space-x-2 py-4">
+            <div className="flex items-center space-x-2">
+                <p className="text-sm font-medium">Filas por página</p>
+                <Select
+                value={`${itemsPerPage}`}
+                onValueChange={(value) => {
+                    setItemsPerPage(Number(value));
+                    setCurrentPage(1);
+                }}
+                >
+                <SelectTrigger className="h-8 w-[70px]">
+                    <SelectValue placeholder={itemsPerPage} />
+                </SelectTrigger>
+                <SelectContent side="top">
+                    {[10, 20, 30, 50].map((pageSize) => (
+                    <SelectItem key={pageSize} value={`${pageSize}`}>
+                        {pageSize}
+                    </SelectItem>
+                    ))}
+                </SelectContent>
+                </Select>
+            </div>
+            <div className="text-sm text-muted-foreground">
+                Total de casos hoy: {cases.length}
+            </div>
+            <div className="flex items-center space-x-2">
+                <span className="text-sm">
+                    Página {currentPage} de {totalPages}
+                </span>
+                <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                    disabled={currentPage === 1}
+                >
+                    Anterior
+                </Button>
+                <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+                    disabled={currentPage === totalPages}
+                >
+                    Siguiente
+                </Button>
+            </div>
+        </div>
+    )}
+
     {worksheetToView && (
       <WorksheetDetailModal
         isOpen={!!worksheetToView}
