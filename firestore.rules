@@ -99,6 +99,11 @@ service cloud.firestore {
         allow create: if isAdmin();
         allow read, list, update, delete: if isAdmin();
     }
+    
+     // Grant admin read access to all "actualizaciones" subcollections for counting
+    match /{path=**}/actualizaciones/{updateId} {
+      allow read, list: if isAdmin();
+    }
 
     match /worksheets/{worksheetId} {
         function isOwner() {
@@ -112,12 +117,12 @@ service cloud.firestore {
         allow delete: if isAdmin();
 
         // Rules for the 'aforo' subcollection and its documents/subcollections
-        match /aforo/metadata {
+        match /aforo/{document} {
             allow read, write: if isAuthenticated();
-        }
-        
-        match /aforo/actualizaciones/{updateId} {
-            allow read, write: if isAuthenticated();
+            
+            match /actualizaciones/{updateId} {
+               allow read, write: if isAuthenticated();
+            }
         }
     }
 

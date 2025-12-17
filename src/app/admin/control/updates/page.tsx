@@ -465,24 +465,20 @@ function BitacoraMigrator() {
     const fetchStats = useCallback(async () => {
         setIsLoading(true);
         try {
-            const aforoCasesQuery = query(collection(db, 'AforoCases'));
-            const aforoCasesSnapshot = await getDocs(aforoCasesQuery);
-            let totalLogs = 0;
+            const q = query(collectionGroup(db, 'actualizaciones'));
+            const snapshot = await getDocs(q);
+            
             const caseIdsWithLogs = new Set<string>();
-
-            for (const caseDoc of aforoCasesSnapshot.docs) {
-                const updatesRef = collection(db, 'AforoCases', caseDoc.id, 'actualizaciones');
-                const updatesCountSnapshot = await getCountFromServer(updatesRef);
-                const count = updatesCountSnapshot.data().count;
-                if (count > 0) {
-                    totalLogs += count;
-                    caseIdsWithLogs.add(caseDoc.id);
+            snapshot.forEach(doc => {
+                const pathParts = doc.ref.path.split('/');
+                if (pathParts.length > 1 && pathParts[0] === 'AforoCases') {
+                    caseIdsWithLogs.add(pathParts[1]);
                 }
-            }
-
+            });
+            
             setStats({
                 casesWithLogs: caseIdsWithLogs.size,
-                logsToMigrate: totalLogs,
+                logsToMigrate: snapshot.size,
             });
 
         } catch (error) {
