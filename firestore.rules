@@ -1,3 +1,4 @@
+
 rules_version = '2';
 
 service cloud.firestore {
@@ -98,6 +99,12 @@ service cloud.firestore {
         allow create: if isAdmin();
         allow read, list, update, delete: if isAdmin();
     }
+    
+    // This rule allows querying the 'aforo' collection group,
+    // which is necessary for agents and aforadores to find their assigned cases.
+    match /{path=**}/aforo/{docId} {
+       allow read: if isAuthenticated();
+    }
 
     match /AforoCases/{caseId} {
       allow read: if isAuthenticated();
@@ -126,14 +133,12 @@ service cloud.firestore {
         allow read: if isAuthenticated();
         allow list: if isAdmin() || hasRole('invitado') || (isAuthenticated() && hasRole('coordinadora')) || (isAuthenticated() && hasRole('ejecutivo') && isOwner()) || isAgenteAduanero() || isSupervisor();
         allow update: if isAuthenticated() && (hasRole('ejecutivo') || isAdmin() || isAgenteAduanero() || isSupervisor() || hasRole('coordinadora') || hasRole('aforador'));
-     allow delete: if isAdmin();
+        allow delete: if isAdmin();
 
-        // Rules for the 'aforo' subcollection and its documents/subcollections
-        match /aforo/metadata {
+        match /aforo/{docId} {
             allow read, write: if isAuthenticated();
         }
         
-        // New rule for 'actualizaciones' subcollection at the same level as 'aforo'
         match /actualizaciones/{updateId} {
            allow read, write: if isAuthenticated();
         } 

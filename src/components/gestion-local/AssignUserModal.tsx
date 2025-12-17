@@ -37,22 +37,10 @@ export function AssignUserModal({ isOpen, onClose, worksheet, type, selectedWork
       try {
         let roles: string[];
         if (type.includes('revisor')) {
-            const qAgentes = query(collection(db, 'users'), where('roleTitle', '==', 'agente aduanero'));
-            const qSupervisores = query(collection(db, 'users'), where('role', '==', 'supervisor'));
-            
-            const [agentesSnapshot, supervisoresSnapshot] = await Promise.all([
-              getDocs(qAgentes),
-              getDocs(qSupervisores),
-            ]);
-            
-            const combinedUsers = new Map<string, AppUser>();
-            agentesSnapshot.forEach(doc => {
-              combinedUsers.set(doc.id, { uid: doc.id, ...doc.data() } as AppUser);
-            });
-            supervisoresSnapshot.forEach(doc => {
-              combinedUsers.set(doc.id, { uid: doc.id, ...doc.data() } as AppUser);
-            });
-            users = Array.from(combinedUsers.values());
+            roles = ['agente aduanero', 'supervisor', 'admin', 'coordinadora'];
+             const usersQuery = query(collection(db, 'users'), where('role', 'in', roles));
+             const snapshot = await getDocs(usersQuery);
+             users = snapshot.docs.map(d => ({ uid: d.id, ...d.data() } as AppUser));
         } else { // aforador or digitador
             roles = ['aforador', 'supervisor', 'coordinadora', 'digitador'];
             const usersQuery = query(collection(db, 'users'), where('role', 'in', roles));
@@ -102,8 +90,8 @@ export function AssignUserModal({ isOpen, onClose, worksheet, type, selectedWork
 
     idsToUpdate.forEach(wsId => {
       const aforoMetadataRef = doc(db, `worksheets/${wsId}/aforo/metadata`);
-      const caseRef = doc(db, `AforoCases/${wsId}`);
-
+      const caseDocRef = doc(db, 'AforoCases', wsId); // Still need to update this for other modules to work
+      
       const updateData = {
           [fieldToUpdate]: userDisplayName,
           [idFieldToUpdate]: userId,
@@ -111,10 +99,11 @@ export function AssignUserModal({ isOpen, onClose, worksheet, type, selectedWork
           [`${fieldToUpdate}AssignedBy`]: currentUser.displayName,
       };
       
-      const caseUpdateData = type.includes('revisor') ? { revisorAsignado: userDisplayName } : { [fieldToUpdate]: userDisplayName };
+      const caseUpdateField = type.includes('revisor') ? 'revisorAsignado' : fieldToUpdate;
+      const caseUpdateData = { [caseUpdateField]: userDisplayName };
       
       batch.set(aforoMetadataRef, updateData, { merge: true });
-      batch.set(caseRef, caseUpdateData, { merge: true });
+      batch.set(caseDocRef, caseUpdateData, { merge: true }); // Sync with AforoCases
     });
 
     try {

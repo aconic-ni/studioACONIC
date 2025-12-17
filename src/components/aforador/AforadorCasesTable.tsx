@@ -1,7 +1,7 @@
 
 "use client";
 import React, { useState } from 'react';
-import type { WorksheetWithCase, AforoCase } from '@/types';
+import type { WorksheetWithCase, Worksheet } from '@/types';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -24,7 +24,7 @@ export function AforadorCasesTable({ cases, onRefresh }: AforadorCasesTableProps
   const { toast } = useToast();
   const [positions, setPositions] = useState<{ [key: string]: string }>({});
   const [savingState, setSavingState] = useState<{ [key: string]: boolean }>({});
-  const [worksheetToView, setWorksheetToView] = useState<WorksheetWithCase['worksheet'] | null>(null);
+  const [worksheetToView, setWorksheetToView] = useState<Worksheet | null>(null);
 
 
   const handlePositionChange = (caseId: string, value: string) => {
@@ -64,7 +64,7 @@ export function AforadorCasesTable({ cases, onRefresh }: AforadorCasesTableProps
             updatedAt: Timestamp.now(),
             updatedBy: user.displayName,
             field: 'totalPosiciones',
-            oldValue: (caseData as any).aforo?.totalPosiciones || null,
+            oldValue: caseData.aforo?.totalPosiciones || null,
             newValue: Number(newPositionValue),
             comment: 'Total de posiciones actualizado por aforador.'
         });
@@ -105,18 +105,18 @@ export function AforadorCasesTable({ cases, onRefresh }: AforadorCasesTableProps
         </TableHeader>
         <TableBody>
           {cases.map((c) => {
-            const aforoData = (c as any).aforo;
+            const aforoData = c.aforo;
             return (
             <TableRow key={c.id}>
               <TableCell>
-                <Button variant="outline" size="sm" onClick={() => setWorksheetToView(c.worksheet)}>
+                <Button variant="outline" size="sm" onClick={() => setWorksheetToView(c)}>
                     <Eye className="mr-2 h-4 w-4"/> Ver Hoja
                 </Button>
               </TableCell>
               <TableCell className="font-medium">{c.ne}</TableCell>
               <TableCell>{c.consignee}</TableCell>
-              <TableCell>{aforoData?.declarationPattern || 'N/A'}</TableCell>
-              <TableCell>{c.assignmentDate ? format(c.assignmentDate.toDate(), 'dd/MM/yyyy HH:mm', { locale: es }) : 'N/A'}</TableCell>
+              <TableCell>{c.declarationPattern || 'N/A'}</TableCell>
+              <TableCell>{aforoData?.aforadorAssignedAt ? format(aforoData.aforadorAssignedAt.toDate(), 'dd/MM/yyyy HH:mm', { locale: es }) : 'N/A'}</TableCell>
               <TableCell>
                 {aforoData?.aforadorStatus === 'En revisión' ? (
                     <span className="font-semibold text-green-600">{aforoData.totalPosiciones}</span>

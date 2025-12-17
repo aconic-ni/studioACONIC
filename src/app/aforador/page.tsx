@@ -31,12 +31,12 @@ export default function AforadorPage() {
   }, [user, authLoading, router]);
 
   const fetchCases = useCallback(() => {
-    if (!user?.displayName) return;
+    if (!user?.uid) return;
     setIsLoading(true);
 
     const aforoMetadataQuery = query(
       collectionGroup(db, 'aforo'),
-      where('aforador', '==', user.displayName)
+      where('aforadorId', '==', user.uid)
     );
 
     const unsubscribe = onSnapshot(aforoMetadataQuery, async (snapshot) => {
@@ -55,27 +55,23 @@ export default function AforadorPage() {
       const worksheetDocs = await Promise.all(worksheetPromises);
       
       const casesData: WorksheetWithCase[] = [];
-      for (const wsDoc of worksheetDocs) {
+      for (let i = 0; i < worksheetDocs.length; i++) {
+        const wsDoc = worksheetDocs[i];
         if (wsDoc && wsDoc.exists()) {
-          const wsData = { id: wsDoc.id, ...wsDoc.data() } as Worksheet;
-          // We need to fetch the AforoCase separately to get all case details
-          const aforoCaseSnap = await getDoc(doc(db, 'AforoCases', wsDoc.id));
-          if(aforoCaseSnap.exists()){
-            casesData.push({
-              ...(aforoCaseSnap.data() as AforoCase),
-              id: aforoCaseSnap.id,
-              worksheet: wsData
-            });
-          }
+            const wsData = { id: wsDoc.id, ...wsDoc.data() } as Worksheet;
+            const aforoData = snapshot.docs[i].data();
+            
+            // Combine worksheet data with its aforo metadata
+            const combinedData = {
+                ...wsData, 
+                aforo: aforoData
+            } as WorksheetWithCase;
+            
+            casesData.push(combinedData);
         }
       }
       
-      // Sort cases by assignment date from the aforo metadata
-      casesData.sort((a,b) => {
-          const aDate = (a as any).aforo?.aforadorAssignedAt?.toMillis() ?? 0;
-          const bDate = (b as any).aforo?.aforadorAssignedAt?.toMillis() ?? 0;
-          return bDate - aDate;
-      });
+      casesData.sort((a,b) => (a.aforo?.aforadorAssignedAt?.toMillis() ?? 0) - (b.aforo?.aforadorAssignedAt?.toMillis() ?? 0));
       
       setCases(casesData);
       setIsLoading(false);
@@ -87,7 +83,7 @@ export default function AforadorPage() {
     });
   
     return unsubscribe;
-  }, [user?.displayName, toast]);
+  }, [user?.uid, toast]);
 
 
   useEffect(() => {
@@ -103,7 +99,7 @@ export default function AforadorPage() {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     return cases.filter(c => {
-        const aforoData = (c.worksheet as any)?.aforo;
+        const aforoData = c.aforo;
         const lastUpdateDate = aforoData?.aforadorStatusLastUpdate?.at?.toDate();
         return aforoData?.aforadorStatus === 'En revisión' && 
                lastUpdateDate && lastUpdateDate >= today;

@@ -11,7 +11,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import type { AforoCase, AforoCaseStatus, PreliquidationStatus, DigitacionStatus, Worksheet, AforoCaseUpdate, WorksheetWithCase } from '@/types';
+import type { AforoCaseStatus, PreliquidationStatus, DigitacionStatus, Worksheet, AforoCaseUpdate, WorksheetWithCase } from '@/types';
 import { format, startOfDay, endOfDay, startOfMonth, endOfMonth } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { ObservationModal } from '@/components/reporter/ObservationModal';
@@ -51,7 +51,7 @@ export default function AgenteCasosPage() {
   const [isObservationModalOpen, setIsObservationModalOpen] = useState(false);
   const [isHistoryModalOpen, setIsHistoryModalOpen] = useState(false);
   const [worksheetToView, setWorksheetToView] = useState<Worksheet | null>(null);
-  const [incidentToView, setIncidentToView] = useState<AforoCase | null>(null);
+  const [incidentToView, setIncidentToView] = useState<WorksheetWithCase | null>(null);
   const { toast } = useToast();
   const [isBulkApproving, setIsBulkApproving] = useState(false);
 
@@ -65,7 +65,7 @@ export default function AgenteCasosPage() {
   const [selectedRows, setSelectedRows] = useState<string[]>([]);
 
   const fetchData = useCallback(async () => {
-    if (!user || !user.displayName) {
+    if (!user || !user.uid) {
         setIsLoading(false);
         return;
     }
@@ -74,7 +74,7 @@ export default function AgenteCasosPage() {
     
     const aforoMetadataQuery = query(
       collectionGroup(db, 'aforo'),
-      where('revisor', '==', user.displayName)
+      where('revisorId', '==', user.uid)
     );
 
     const unsubscribe = onSnapshot(aforoMetadataQuery, async (snapshot) => {
@@ -93,21 +93,22 @@ export default function AgenteCasosPage() {
         const worksheetDocs = await Promise.all(worksheetPromises);
         
         const casesData: WorksheetWithCase[] = [];
-        for (const wsDoc of worksheetDocs) {
+        for (let i = 0; i < worksheetDocs.length; i++) {
+            const wsDoc = worksheetDocs[i];
             if (wsDoc && wsDoc.exists()) {
                 const wsData = { id: wsDoc.id, ...wsDoc.data() } as Worksheet;
-                const aforoCaseSnap = await getDoc(doc(db, 'AforoCases', wsDoc.id));
-                if (aforoCaseSnap.exists()) {
-                    casesData.push({
-                        ...(aforoCaseSnap.data() as AforoCase),
-                        id: aforoCaseSnap.id,
-                        worksheet: wsData
-                    });
-                }
+                const aforoData = snapshot.docs[i].data();
+                
+                const combinedData = {
+                    ...wsData,
+                    aforo: aforoData
+                } as WorksheetWithCase;
+
+                casesData.push(combinedData);
             }
         }
         
-        casesData.sort((a,b) => (b.revisorAsignadoLastUpdate?.at?.toMillis() ?? 0) - (a.revisorAsignadoLastUpdate?.at?.toMillis() ?? 0));
+        casesData.sort((a,b) => (b.aforo?.revisorAssignedAt?.toMillis() ?? 0) - (a.aforo?.revisorAssignedAt?.toMillis() ?? 0));
         setAllCases(casesData);
         setIsLoading(false);
 
@@ -138,7 +139,7 @@ export default function AgenteCasosPage() {
     }
 
     if (statusFilter !== 'todos') {
-        cases = cases.filter(c => (c.revisorStatus || 'Pendiente') === statusFilter);
+        cases = cases.filter(c => (c.aforo?.revisorStatus || 'Pendiente') === statusFilter);
     }
     
     let dateFiltered = cases;
@@ -158,7 +159,7 @@ export default function AgenteCasosPage() {
 
     if (start && end) {
         dateFiltered = cases.filter(c => {
-            const caseDate = (c.revisorAsignadoLastUpdate?.at as Timestamp)?.toDate();
+            const caseDate = (c.aforo?.revisorAssignedAt as Timestamp)?.toDate();
             return caseDate && caseDate >= start! && caseDate <= end!;
         });
     }
@@ -176,7 +177,7 @@ export default function AgenteCasosPage() {
     setStatusFilter('Pendiente');
     setDateFilterType('range');
     setDateRange(undefined);
-    setFilteredCases(allCases.filter(c => (c.revisorStatus || 'Pendiente') === 'Pendiente'));
+    setFilteredCases(allCases.filter(c => (c.aforo?.revisorStatus || 'Pendiente') === 'Pendiente'));
     setSelectedRows([]);
   }
 
@@ -191,10 +192,10 @@ export default function AgenteCasosPage() {
         const originalCase = allCases.find(c => c.id === caseId);
         if (!originalCase?.id) return;
         
-        const aforoCaseRef = doc(db, 'AforoCases', originalCase.id);
+        const aforoMetadataRef = doc(db, 'worksheets', originalCase.id, 'aforo', 'metadata');
         const updatesSubcollectionRef = collection(db, 'worksheets', originalCase.id, 'actualizaciones');
         
-        batch.update(aforoCaseRef, {
+        batch.update(aforoMetadataRef, {
             revisorStatus: newStatus,
             observacionRevisor: comment,
             revisorStatusLastUpdate: { by: user.displayName, at: Timestamp.now() }
@@ -204,7 +205,7 @@ export default function AgenteCasosPage() {
             updatedAt: serverTimestamp(),
             updatedBy: user.displayName,
             field: 'status_change',
-            oldValue: originalCase?.revisorStatus || 'Pendiente',
+            oldValue: originalCase?.aforo?.revisorStatus || 'Pendiente',
             newValue: newStatus,
             comment: comment,
         };
@@ -224,10 +225,11 @@ export default function AgenteCasosPage() {
   };
 
   const handleSelectAll = () => {
-    if (selectedRows.length === filteredCases.filter(c => c.revisorStatus === 'Pendiente').length) {
+    const selectableIds = filteredCases.filter(c => c.aforo?.revisorStatus === 'Pendiente').map(c => c.id);
+    if (selectedRows.length === selectableIds.length) {
         setSelectedRows([]);
     } else {
-        setSelectedRows(filteredCases.filter(c => c.revisorStatus === 'Pendiente').map(c => c.id));
+        setSelectedRows(selectableIds);
     }
   }
 
@@ -246,22 +248,8 @@ export default function AgenteCasosPage() {
   };
 
 
-  const handleViewWorksheet = async (caseItem: WorksheetWithCase) => {
-    if (!caseItem.worksheetId) {
-        toast({ title: "Sin Hoja de Trabajo", description: "Este caso no tiene una hoja de trabajo asociada.", variant: "destructive" });
-        return;
-    }
-    try {
-        const wsDocRef = doc(db, 'worksheets', caseItem.worksheetId);
-        const wsSnap = await getDoc(wsDocRef);
-        if (wsSnap.exists()) {
-            setWorksheetToView({ id: wsSnap.id, ...wsSnap.data() } as Worksheet);
-        } else {
-            toast({ title: "Error", description: "No se pudo encontrar la hoja de trabajo.", variant: "destructive" });
-        }
-    } catch (error) {
-        toast({ title: "Error", description: "Ocurrió un error al cargar la hoja de trabajo.", variant: "destructive" });
-    }
+  const handleViewWorksheet = (caseItem: WorksheetWithCase) => {
+    setWorksheetToView(caseItem);
   };
 
   const getStatusBadgeVariant = (status?: AforoCaseStatus) => {
@@ -375,7 +363,7 @@ export default function AgenteCasosPage() {
                     <TableRow>
                       <TableHead className="w-12">
                           <Checkbox
-                              checked={selectedRows.length > 0 && selectedRows.length === filteredCases.filter(c => c.revisorStatus === 'Pendiente').length}
+                              checked={selectedRows.length > 0 && selectedRows.length === filteredCases.filter(c => c.aforo?.revisorStatus === 'Pendiente').length}
                               onCheckedChange={handleSelectAll}
                           />
                       </TableHead>
@@ -402,7 +390,7 @@ export default function AgenteCasosPage() {
                                         ? prev.filter(id => id !== caseItem.id)
                                         : [...prev, caseItem.id]
                                 )}
-                                disabled={caseItem.revisorStatus !== 'Pendiente'}
+                                disabled={caseItem.aforo?.revisorStatus !== 'Pendiente'}
                             />
                         </TableCell>
                         <TableCell>
@@ -411,7 +399,7 @@ export default function AgenteCasosPage() {
                                     <DropdownMenuTrigger asChild><Button variant="ghost" size="sm">Ver</Button></DropdownMenuTrigger>
                                     <DropdownMenuContent>
                                         <DropdownMenuItem onSelect={() => handleViewWorksheet(caseItem)}><BookOpen className="mr-2 h-4 w-4" /> Hoja de Trabajo</DropdownMenuItem>
-                                        {caseItem.incidentReported && <DropdownMenuItem onSelect={() => setIncidentToView(caseItem)}><AlertTriangle className="mr-2 h-4 w-4" /> Incidencia</DropdownMenuItem>}
+                                        {caseItem.aforo?.incidentReported && <DropdownMenuItem onSelect={() => setIncidentToView(caseItem)}><AlertTriangle className="mr-2 h-4 w-4" /> Incidencia</DropdownMenuItem>}
                                         <DropdownMenuItem onSelect={() => openActionModal(caseItem, 'history')}><History className="mr-2 h-4 w-4" /> Bitácora</DropdownMenuItem>
                                     </DropdownMenuContent>
                                 </DropdownMenu>
@@ -420,17 +408,17 @@ export default function AgenteCasosPage() {
                         </TableCell>
                         <TableCell className="font-medium">{caseItem.ne}</TableCell>
                         <TableCell>{caseItem.consignee}</TableCell>
-                        <TableCell>{caseItem.aforador || 'N/A'}</TableCell>
+                        <TableCell>{caseItem.aforo?.aforador || 'N/A'}</TableCell>
                         <TableCell>
-                          <Badge variant={getStatusBadgeVariant(caseItem.revisorStatus)}>
-                            {caseItem.revisorStatus || 'Pendiente'}
+                          <Badge variant={getStatusBadgeVariant(caseItem.aforo?.revisorStatus)}>
+                            {caseItem.aforo?.revisorStatus || 'Pendiente'}
                           </Badge>
                         </TableCell>
                         <TableCell>{caseItem.declarationPattern}</TableCell>
-                        <TableCell>{(caseItem as any).aforo?.totalPosiciones || 'N/A'}</TableCell>
-                        <TableCell>{getPreliquidationStatusBadge(caseItem.preliquidationStatus)}</TableCell>
-                        <TableCell>{caseItem.digitadorAsignado || 'N/A'}</TableCell>
-                        <TableCell>{getDigitacionBadge(caseItem.digitacionStatus)}</TableCell>
+                        <TableCell>{caseItem.aforo?.totalPosiciones || 'N/A'}</TableCell>
+                        <TableCell>{getPreliquidationStatusBadge(caseItem.aforo?.preliquidationStatus)}</TableCell>
+                        <TableCell>{caseItem.aforo?.digitador || 'N/A'}</TableCell>
+                        <TableCell>{getDigitacionBadge(caseItem.aforo?.digitadorStatus)}</TableCell>
                       </TableRow>
                     ))}
                   </TableBody>
