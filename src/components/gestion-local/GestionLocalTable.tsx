@@ -40,7 +40,9 @@ import { Switch } from '../ui/switch';
 import { CompleteDigitizationModal } from '../reporter/CompleteDigitizationModal';
 import { Tooltip, TooltipProvider, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { AssignmentTypeBadge } from './AssignmentTypeBadge';
-
+import { AssignUserModal } from './AssignUserModal';
+import { ExecutiveCommentModal } from '../executive/ExecutiveCommentModal';
+import { WorksheetDetailModal } from '../reporter/WorksheetDetailModal';
 
 interface GestionLocalTableProps {
   worksheets: Worksheet[];
@@ -52,11 +54,6 @@ interface GestionLocalTableProps {
   onView: (worksheet: Worksheet) => void;
   isLoading: boolean;
   onRefresh: () => void;
-  isDeathkeyModalOpen: boolean;
-  setIsDeathkeyModalOpen: (isOpen: boolean) => void;
-  pinInput: string;
-  setPinInput: (value: string) => void;
-  handleDeathkey: () => void;
 }
 
 const formatDate = (timestamp: any): string => {
@@ -761,3 +758,5 @@ export function GestionLocalTable({ worksheets, setWorksheets, selectedRows, set
     </>
   );
 }
+
+```

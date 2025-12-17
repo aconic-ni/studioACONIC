@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useEffect } from 'react';
@@ -54,8 +53,6 @@ export function ExecutiveCommentModal({ isOpen, onClose, caseData }: ExecutiveCo
     resolver: zodResolver(commentSchema),
     defaultValues: { comment: '' },
   });
-  
-  const canComment = user?.role === 'ejecutivo' || user?.role === 'coordinadora' || user?.role === 'admin';
 
 
   const onSubmit = async (data: CommentFormData) => {
@@ -64,14 +61,9 @@ export function ExecutiveCommentModal({ isOpen, onClose, caseData }: ExecutiveCo
         return;
     }
 
-    if (!canComment) {
-        toast({ title: 'Permiso Denegado', description: 'No tiene permisos para añadir un comentario.', variant: 'destructive' });
-        return;
-    }
-
     setIsSubmitting(true);
-    const worksheetDocRef = doc(db, 'worksheets', caseData.worksheetId);
-    const updatesSubcollectionRef = collection(worksheetDocRef, 'actualizaciones');
+    const caseDocRef = doc(db, 'AforoCases', caseData.id);
+    const updatesSubcollectionRef = collection(db, 'worksheets', caseData.worksheetId, 'actualizaciones');
     const batch = writeBatch(db);
 
     const newComment: ExecutiveComment = {
@@ -86,7 +78,7 @@ export function ExecutiveCommentModal({ isOpen, onClose, caseData }: ExecutiveCo
         setComments(prev => [newComment, ...prev]);
 
         // Firestore update
-        batch.update(worksheetDocRef, {
+        batch.update(caseDocRef, {
             executiveComments: arrayUnion(newComment)
         });
 
@@ -97,7 +89,7 @@ export function ExecutiveCommentModal({ isOpen, onClose, caseData }: ExecutiveCo
             field: 'executiveComments',
             oldValue: 'N/A',
             newValue: data.comment,
-            comment: `Comentario ejecutivo añadido: "${data.comment}"`
+            comment: `Comentario añadido: "${data.comment}"`
         };
         batch.set(doc(updatesSubcollectionRef), updateLog);
         
@@ -163,8 +155,8 @@ export function ExecutiveCommentModal({ isOpen, onClose, caseData }: ExecutiveCo
                     <Textarea
                       {...field}
                       rows={3}
-                      disabled={!canComment || isSubmitting}
-                      placeholder={canComment ? 'Escriba su comentario aquí...' : 'No tiene permisos para comentar.'}
+                      disabled={isSubmitting}
+                      placeholder='Escriba su comentario aquí...'
                     />
                   </FormControl>
                   <FormMessage />
@@ -174,12 +166,10 @@ export function ExecutiveCommentModal({ isOpen, onClose, caseData }: ExecutiveCo
             
             <DialogFooter className="pt-4">
                 <Button type="button" variant="outline" onClick={onClose}>Cerrar</Button>
-                {canComment && (
-                    <Button type="submit" disabled={isSubmitting}>
-                        {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin"/>}
-                        Guardar Comentario
-                    </Button>
-                )}
+                <Button type="submit" disabled={isSubmitting}>
+                    {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin"/>}
+                    Guardar Comentario
+                </Button>
             </DialogFooter>
           </form>
         </Form>
