@@ -185,6 +185,7 @@ function WorksheetForm() {
             ...wsData,
             eta: wsData.eta?.toDate() ?? null,
             operationType: wsData.operationType ?? null, // Ensure null is passed if undefined
+            patternRegime: wsData.patternRegime ?? '',
             requiredPermits: (wsData.requiredPermits || []).map((p: any) => ({
               ...p,
               tramiteDate: p.tramiteDate?.toDate(),
@@ -239,7 +240,10 @@ function WorksheetForm() {
     if (user?.displayName && !editingWorksheetId) {
       form.setValue('executive', user.displayName);
     }
-  }, [user, form, editingWorksheetId]);
+    if (editingWorksheetId && originalWorksheet) {
+      form.setValue('executive', originalWorksheet.executive);
+    }
+  }, [user, form, editingWorksheetId, originalWorksheet]);
   
   useEffect(() => {
     const fetchUsers = async () => {
@@ -427,9 +431,8 @@ function WorksheetForm() {
         const logRef = doc(collection(db, 'worksheets', editingWorksheetId, 'actualizaciones'));
         
         try {
-            const { createdBy, createdAt, ...restOfData } = data;
             const updatedWorksheetData = { 
-                ...restOfData, 
+                ...data, 
                 eta: data.eta ? Timestamp.fromDate(data.eta) : null,
                 lastUpdatedAt: Timestamp.now(),
                 createdBy: originalWorksheet?.createdBy || user.email,
@@ -461,12 +464,7 @@ function WorksheetForm() {
             setIsSubmitting(false);
         }
     } else {
-        if (data.consignee.toUpperCase().trim() === "PSMT NICARAGUA, SOCIEDAD ANONIMA" && (!data.aforador || data.aforador === '-')) {
-            toast({ title: "Campo Requerido", description: "Debe seleccionar un aforador para el consignatario PSMT.", variant: "destructive" });
-            setIsSubmitting(false);
-            return;
-        }
-
+      // Create new record logic...
       const neTrimmed = data.ne.trim().toUpperCase();
       const worksheetDocRef = doc(db, 'worksheets', neTrimmed);
       const aforoCaseDocRef = doc(db, 'AforoCases', neTrimmed);
@@ -1086,7 +1084,7 @@ function WorksheetForm() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-4 border-t">
                 <FormField control={form.control} name="operationType" render={({ field }) => (
                      <FormItem className="space-y-3"><FormLabel>Tipo de Operación</FormLabel>
-                        <Select onValueChange={field.onChange} value={field.value || undefined}>
+                        <Select onValueChange={field.onChange} value={field.value || ''}>
                             <FormControl><SelectTrigger><SelectValue placeholder="Seleccionar tipo..." /></SelectTrigger></FormControl>
                             <SelectContent>
                                 <SelectItem value="importacion">Importación</SelectItem>
@@ -1218,3 +1216,5 @@ export default function WorksheetPage() {
         </AppShell>
     )
 }
+
+    
