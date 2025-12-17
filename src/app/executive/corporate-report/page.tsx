@@ -1,3 +1,4 @@
+
 "use client";
 import React, { useEffect, useState, Suspense } from 'react';
 import { useForm } from 'react-hook-form';
@@ -26,33 +27,7 @@ import { FacturaModal } from '@/components/executive/corporate-report/FacturaMod
 import { PermitManagement } from '@/components/executive/corporate-report/PermitManagement';
 import { DatePicker } from '@/components/reports/DatePicker';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-
-// Zod Schema Definition
-export const corporateReportSchema = z.object({
-  worksheetType: z.literal('corporate_report').default('corporate_report'),
-  ne: z.string().min(1, "El campo NE es requerido."),
-  reference: z.string().optional(),
-  entryCustoms: z.string().min(1, "Aduana de ingreso es requerida."),
-  dispatchCustoms: z.string().min(1, "Aduana de despacho es requerida."),
-  consignee: z.string().min(1, "Consignatario es requerido."),
-  proveedor: z.string().optional(),
-  documents: z.array(z.object({
-    id: z.string(),
-    type: z.literal('FACTURA'),
-    number: z.string(),
-    noADMI: z.string(),
-  })).optional(),
-  fechaEnvioCliente: z.date().optional().nullable(),
-  requiredPermits: z.array(z.any()).optional(),
-  proveedorTransporte: z.string().optional(),
-  declaracionNumero: z.string().optional(),
-  fechaNacionalizacion: z.date().optional().nullable(),
-  selectividad: z.enum(['verde', 'amarillo', 'rojo']).optional().nullable(),
-  fechaDespacho: z.date().optional().nullable(),
-  observations: z.string().optional(),
-});
-
-type CorporateReportFormData = z.infer<typeof corporateReportSchema>;
+import { corporateReportSchema, type CorporateReportFormData } from '@/components/examiner/FormParts/zodSchemas';
 
 function CorporateReportForm() {
   const { user } = useAuth();
@@ -208,10 +183,10 @@ function CorporateReportForm() {
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 pt-4 border-t">
                 <FormField control={form.control} name="proveedorTransporte" render={({ field }) => (<FormItem><FormLabel>Proveedor de Transporte</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>)} />
                 <FormField control={form.control} name="declaracionNumero" render={({ field }) => (<FormItem><FormLabel>Declaración</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>)} />
-                <FormField control={form.control} name="fechaNacionalizacion" render={({ field }) => (<FormItem className="flex flex-col"><FormLabel>Fecha de Nacionalización</FormLabel><FormControl><DatePicker date={field.value || undefined} onDateChange={field.onChange} /></FormControl><FormMessage /></FormItem>)} />
+                <FormField control={form.control} name="fechaNacionalizacion" render={({ field }) => (<FormItem className="flex flex-col"><FormLabel>Fecha de Nacionalización</FormLabel><FormControl><DatePicker date={field.value} onDateChange={field.onChange} /></FormControl><FormMessage /></FormItem>)} />
                 <FormField control={form.control} name="selectividad" render={({ field }) => (<FormItem><FormLabel>Selectividad</FormLabel><Select onValueChange={field.onChange} value={field.value || undefined}><FormControl><SelectTrigger><SelectValue placeholder="Seleccionar..." /></SelectTrigger></FormControl><SelectContent><SelectItem value="verde">Verde</SelectItem><SelectItem value="amarillo">Amarillo</SelectItem><SelectItem value="rojo">Rojo</SelectItem></SelectContent></Select><FormMessage /></FormItem>)} />
-                <FormField control={form.control} name="fechaEnvioCliente" render={({ field }) => (<FormItem className="flex flex-col"><FormLabel>Fecha Envío a Cliente</FormLabel><FormControl><DatePicker date={field.value || undefined} onDateChange={field.onChange} /></FormControl><FormMessage /></FormItem>)} />
-                <FormField control={form.control} name="fechaDespacho" render={({ field }) => (<FormItem className="flex flex-col"><FormLabel>Fecha Despacho</FormLabel><FormControl><DatePicker date={field.value || undefined} onDateChange={field.onChange} /></FormControl><FormMessage /></FormItem>)} />
+                <FormField control={form.control} name="fechaEnvioCliente" render={({ field }) => (<FormItem className="flex flex-col"><FormLabel>Fecha Envío a Cliente</FormLabel><FormControl><DatePicker date={field.value} onDateChange={field.onChange} /></FormControl><FormMessage /></FormItem>)} />
+                <FormField control={form.control} name="fechaDespacho" render={({ field }) => (<FormItem className="flex flex-col"><FormLabel>Fecha Despacho</FormLabel><FormControl><DatePicker date={field.value} onDateChange={field.onChange} /></FormControl><FormMessage /></FormItem>)} />
               </div>
 
               <FormField control={form.control} name="observations" render={({ field }) => (<FormItem className="pt-4 border-t"><FormLabel>Observaciones</FormLabel><FormControl><Textarea rows={3} {...field} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>)} />

@@ -11,9 +11,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { PlusCircle, Trash2 } from 'lucide-react';
 import { v4 as uuidv4 } from 'uuid';
-import { corporateReportSchema } from '@/app/executive/corporate-report/page';
-
-type CorporateReportFormData = z.infer<typeof corporateReportSchema>;
+import { type CorporateReportFormData } from '@/components/examiner/FormParts/zodSchemas';
 
 const facturaItemSchema = z.object({
   number: z.string().min(1, "Número de factura requerido."),

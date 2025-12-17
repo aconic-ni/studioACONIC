@@ -57,3 +57,29 @@ export const anexoDocumentSchema = z.object({
 });
 
 export type AnexoDocumentFormData = z.infer<typeof anexoDocumentSchema>;
+
+export const corporateReportSchema = z.object({
+  worksheetType: z.literal('corporate_report').default('corporate_report'),
+  ne: z.string().min(1, "El campo NE es requerido."),
+  reference: z.string().optional(),
+  entryCustoms: z.string().min(1, "Aduana de ingreso es requerida."),
+  dispatchCustoms: z.string().min(1, "Aduana de despacho es requerida."),
+  consignee: z.string().min(1, "Consignatario es requerido."),
+  proveedor: z.string().optional(),
+  documents: z.array(z.object({
+    id: z.string(),
+    type: z.literal('FACTURA'),
+    number: z.string(),
+    noADMI: z.string(),
+  })).optional(),
+  fechaEnvioCliente: z.date().optional().nullable(),
+  requiredPermits: z.array(z.any()).optional(),
+  proveedorTransporte: z.string().optional(),
+  declaracionNumero: z.string().optional(),
+  fechaNacionalizacion: z.date().optional().nullable(),
+  selectividad: z.enum(['verde', 'amarillo', 'rojo']).optional().nullable(),
+  fechaDespacho: z.date().optional().nullable(),
+  observations: z.string().optional(),
+});
+
+export type CorporateReportFormData = z.infer<typeof corporateReportSchema>;

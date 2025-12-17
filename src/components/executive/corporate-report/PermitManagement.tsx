@@ -10,7 +10,7 @@ import { PlusCircle, Trash2 } from 'lucide-react';
 import { v4 as uuidv4 } from 'uuid';
 import { permitOptions } from '@/lib/formData';
 import type { RequiredPermit, DocumentStatus, WorksheetDocument } from '@/types';
-import { corporateReportSchema } from '@/app/executive/corporate-report/page';
+import { corporateReportSchema } from '@/components/examiner/FormParts/zodSchemas';
 import { z } from 'zod';
 
 type CorporateReportFormData = z.infer<typeof corporateReportSchema>;
