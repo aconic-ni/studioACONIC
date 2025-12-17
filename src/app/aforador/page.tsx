@@ -9,7 +9,7 @@ import { Loader2, Search, FileSpreadsheet, ListChecks, Printer, ClipboardList } 
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { db } from '@/lib/firebase';
-import { collection, query, where, onSnapshot, orderBy, doc, getDoc } from 'firebase/firestore';
+import { collection, query, where, onSnapshot, orderBy, doc, getDoc, getDocs, collectionGroup } from 'firebase/firestore';
 import type { WorksheetWithCase, Worksheet, AforoCase } from '@/types';
 import { useToast } from '@/hooks/use-toast';
 import { AforadorCasesTable } from '@/components/aforador/AforadorCasesTable';
@@ -31,48 +31,48 @@ export default function AforadorPage() {
   }, [user, authLoading, router]);
 
   const fetchCases = useCallback(() => {
-    if (!user?.displayName) return;
+    if (!user?.uid) return;
     setIsLoading(true);
-  
-    // Query AforoCases directly. This is more secure and performant.
-    const q = query(
-      collection(db, 'AforoCases'),
-      where('aforador', '==', user.displayName),
-      orderBy('assignmentDate', 'desc')
+
+    const aforoMetadataQuery = query(
+      collectionGroup(db, 'aforo'),
+      where('aforadorId', '==', user.uid)
     );
-  
-    const unsubscribe = onSnapshot(q, async (snapshot) => {
-        const aforoCasesData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as AforoCase));
-        
-        const worksheetIds = aforoCasesData
-            .map(c => c.worksheetId)
-            .filter((id): id is string => !!id);
 
-        let worksheetsMap = new Map<string, Worksheet>();
-        if (worksheetIds.length > 0) {
-            // Firestore 'in' query is limited to 30 elements
-            const worksheetPromises = [];
-            for (let i = 0; i < worksheetIds.length; i += 30) {
-                const chunk = worksheetIds.slice(i, i + 30);
-                const wsQuery = query(collection(db, 'worksheets'), where('id', 'in', chunk));
-                worksheetPromises.push(getDocs(wsQuery));
-            }
-            const worksheetSnapshots = await Promise.all(worksheetPromises);
-            worksheetSnapshots.forEach(snap => {
-                snap.forEach(doc => {
-                    worksheetsMap.set(doc.id, { id: doc.id, ...doc.data() } as Worksheet);
-                });
-            });
-        }
-        
-        const combinedData = aforoCasesData.map(caseItem => ({
-            ...caseItem,
-            worksheet: caseItem.worksheetId ? worksheetsMap.get(caseItem.worksheetId) || null : null
-        } as WorksheetWithCase));
-
-        setCases(combinedData);
+    const unsubscribe = onSnapshot(aforoMetadataQuery, async (snapshot) => {
+      if (snapshot.empty) {
+        setCases([]);
         setIsLoading(false);
-  
+        return;
+      }
+      
+      const worksheetPromises = snapshot.docs.map(docSnapshot => {
+        const parentRef = docSnapshot.ref.parent.parent;
+        if (!parentRef) return null;
+        return getDoc(parentRef);
+      });
+      
+      const worksheetDocs = await Promise.all(worksheetPromises);
+      
+      const casesData: WorksheetWithCase[] = [];
+      for (const wsDoc of worksheetDocs) {
+        if (wsDoc && wsDoc.exists()) {
+          const wsData = { id: wsDoc.id, ...wsDoc.data() } as Worksheet;
+          const aforoCaseSnap = await getDoc(doc(db, 'AforoCases', wsDoc.id));
+          if(aforoCaseSnap.exists()){
+            casesData.push({
+              ...(aforoCaseSnap.data() as AforoCase),
+              id: aforoCaseSnap.id,
+              worksheet: wsData
+            });
+          }
+        }
+      }
+      
+      casesData.sort((a,b) => (b.assignmentDate?.toMillis() ?? 0) - (a.assignmentDate?.toMillis() ?? 0));
+      setCases(casesData);
+      setIsLoading(false);
+
     }, (error) => {
         console.error("Error fetching aforador cases:", error);
         toast({ title: "Error", description: "No se pudieron cargar los casos asignados.", variant: "destructive" });
@@ -80,7 +80,7 @@ export default function AforadorPage() {
     });
   
     return unsubscribe;
-  }, [user?.displayName, toast]);
+  }, [user?.uid, toast]);
 
 
   useEffect(() => {

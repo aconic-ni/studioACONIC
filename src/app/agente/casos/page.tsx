@@ -65,50 +65,52 @@ export default function AgenteCasosPage() {
   const [selectedRows, setSelectedRows] = useState<string[]>([]);
 
   const fetchData = useCallback(async () => {
-    if (!user || !(user.roleTitle === 'agente aduanero' || user.role === 'supervisor')) {
+    if (!user || !(user.uid)) {
         setIsLoading(false);
         return;
     }
 
     setIsLoading(true);
     
-    // Query AforoCases directly for better performance and security rule compliance.
-    const q = query(
-        collection(db, "AforoCases"),
-        where("revisorAsignado", "==", user.displayName),
-        orderBy("revisorAsignadoLastUpdate.at", "desc")
+    const aforoMetadataQuery = query(
+      collectionGroup(db, 'aforo'),
+      where('revisorId', '==', user.uid)
     );
 
-    const unsubscribe = onSnapshot(q, async (snapshot) => {
-        const aforoCasesData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as AforoCase));
-        
-        const worksheetIds = aforoCasesData
-            .map(c => c.worksheetId)
-            .filter((id): id is string => !!id);
+    const unsubscribe = onSnapshot(aforoMetadataQuery, async (snapshot) => {
+        if (snapshot.empty) {
+            setAllCases([]);
+            setIsLoading(false);
+            return;
+        }
 
-        let worksheetsMap = new Map<string, Worksheet>();
-        if (worksheetIds.length > 0) {
-            const worksheetPromises = [];
-            for (let i = 0; i < worksheetIds.length; i += 30) {
-                const chunk = worksheetIds.slice(i, i + 30);
-                const wsQuery = query(collection(db, 'worksheets'), where('id', 'in', chunk));
-                worksheetPromises.push(getDocs(wsQuery));
+        const worksheetPromises = snapshot.docs.map(docSnapshot => {
+            const parentRef = docSnapshot.ref.parent.parent;
+            if (!parentRef) return null;
+            return getDoc(parentRef);
+        });
+
+        const worksheetDocs = await Promise.all(worksheetPromises);
+        
+        const casesData: WorksheetWithCase[] = [];
+        for (const wsDoc of worksheetDocs) {
+            if (wsDoc && wsDoc.exists()) {
+                const wsData = { id: wsDoc.id, ...wsDoc.data() } as Worksheet;
+                const aforoCaseSnap = await getDoc(doc(db, 'AforoCases', wsDoc.id));
+                if (aforoCaseSnap.exists()) {
+                    casesData.push({
+                        ...(aforoCaseSnap.data() as AforoCase),
+                        id: aforoCaseSnap.id,
+                        worksheet: wsData
+                    });
+                }
             }
-            const worksheetSnapshots = await Promise.all(worksheetPromises);
-            worksheetSnapshots.forEach(snap => {
-                snap.forEach(doc => {
-                    worksheetsMap.set(doc.id, { id: doc.id, ...doc.data() } as Worksheet);
-                });
-            });
         }
         
-        const combinedData = aforoCasesData.map(caseItem => ({
-            ...caseItem,
-            worksheet: caseItem.worksheetId ? worksheetsMap.get(caseItem.worksheetId) || null : null
-        } as WorksheetWithCase));
-
-        setAllCases(combinedData);
+        casesData.sort((a,b) => (b.revisorAsignadoLastUpdate?.at?.toMillis() ?? 0) - (a.revisorAsignadoLastUpdate?.at?.toMillis() ?? 0));
+        setAllCases(casesData);
         setIsLoading(false);
+
     }, (error) => {
         console.error("Error fetching assigned cases:", error);
         toast({ title: "Error", description: "No se pudieron cargar los casos asignados.", variant: "destructive" });

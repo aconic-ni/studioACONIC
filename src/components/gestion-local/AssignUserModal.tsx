@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect } from 'react';
@@ -34,39 +35,31 @@ export function AssignUserModal({ isOpen, onClose, worksheet, type, selectedWork
     const fetchUsers = async () => {
       let users: AppUser[] = [];
       try {
+        let roles: string[];
         if (type.includes('revisor')) {
-          const qAgentes = query(collection(db, 'users'), where('roleTitle', '==', 'agente aduanero'));
-          const qSupervisores = query(collection(db, 'users'), where('role', '==', 'supervisor'), where('roleTitle', '==', 'PSMT'));
-          
-          const [agentesSnapshot, supervisoresSnapshot] = await Promise.all([
-            getDocs(qAgentes),
-            getDocs(qSupervisores),
-          ]);
-          
-          const combinedUsers = new Map<string, AppUser>();
-          agentesSnapshot.forEach(doc => {
-            combinedUsers.set(doc.id, { uid: doc.id, ...doc.data() } as AppUser);
-          });
-          supervisoresSnapshot.forEach(doc => {
-            combinedUsers.set(doc.id, { uid: doc.id, ...doc.data() } as AppUser);
-          });
-          users = Array.from(combinedUsers.values());
-
-        } else {
-          let roles: string[];
-          if (type.includes('aforador') || type.includes('digitador')) {
-              roles = ['aforador', 'supervisor', 'coordinadora'];
-          } else {
-              roles = [];
-          }
-
-          if(roles.length > 0) {
+            const qAgentes = query(collection(db, 'users'), where('roleTitle', '==', 'agente aduanero'));
+            const qSupervisores = query(collection(db, 'users'), where('role', '==', 'supervisor'));
+            
+            const [agentesSnapshot, supervisoresSnapshot] = await Promise.all([
+              getDocs(qAgentes),
+              getDocs(qSupervisores),
+            ]);
+            
+            const combinedUsers = new Map<string, AppUser>();
+            agentesSnapshot.forEach(doc => {
+              combinedUsers.set(doc.id, { uid: doc.id, ...doc.data() } as AppUser);
+            });
+            supervisoresSnapshot.forEach(doc => {
+              combinedUsers.set(doc.id, { uid: doc.id, ...doc.data() } as AppUser);
+            });
+            users = Array.from(combinedUsers.values());
+        } else { // aforador or digitador
+            roles = ['aforador', 'supervisor', 'coordinadora', 'digitador'];
             const usersQuery = query(collection(db, 'users'), where('role', 'in', roles));
             const snapshot = await getDocs(usersQuery);
             users = snapshot.docs.map(d => ({ uid: d.id, ...d.data() } as AppUser));
-          }
         }
-        setAssignableUsers(users);
+        setAssignableUsers(users.filter(u => u.displayName));
       } catch (error) {
         console.error("Error fetching users for assignment:", error);
         toast({ title: "Error", description: "No se pudieron cargar los usuarios para asignar.", variant: "destructive"});
@@ -81,18 +74,24 @@ export function AssignUserModal({ isOpen, onClose, worksheet, type, selectedWork
     setIsSubmitting(true);
     
     const batch = writeBatch(db);
+    
     let fieldToUpdate: 'aforador' | 'revisor' | 'digitador';
+    let idFieldToUpdate: 'aforadorId' | 'revisorId' | 'digitadorId';
 
     if (type.includes('aforador')) {
         fieldToUpdate = 'aforador';
+        idFieldToUpdate = 'aforadorId';
     } else if (type.includes('revisor')) {
         fieldToUpdate = 'revisor';
+        idFieldToUpdate = 'revisorId';
     } else {
         fieldToUpdate = 'digitador';
+        idFieldToUpdate = 'digitadorId';
     }
 
     const now = Timestamp.now();
     const userDisplayName = selectedUser.displayName || selectedUser.email;
+    const userId = selectedUser.uid;
     const idsToUpdate = worksheet ? [worksheet.id] : selectedWorksheetIds || [];
 
     if (idsToUpdate.length === 0) {
@@ -102,13 +101,20 @@ export function AssignUserModal({ isOpen, onClose, worksheet, type, selectedWork
     }
 
     idsToUpdate.forEach(wsId => {
-      const aforoSubcollectionRef = doc(db, `worksheets/${wsId}/aforo/metadata`);
+      const aforoMetadataRef = doc(db, `worksheets/${wsId}/aforo/metadata`);
+      const caseRef = doc(db, `AforoCases/${wsId}`);
+
       const updateData = {
           [fieldToUpdate]: userDisplayName,
+          [idFieldToUpdate]: userId,
           [`${fieldToUpdate}AssignedAt`]: now,
           [`${fieldToUpdate}AssignedBy`]: currentUser.displayName,
       };
-      batch.set(aforoSubcollectionRef, updateData, { merge: true });
+      
+      const caseUpdateData = type.includes('revisor') ? { revisorAsignado: userDisplayName } : { [fieldToUpdate]: userDisplayName };
+      
+      batch.set(aforoMetadataRef, updateData, { merge: true });
+      batch.set(caseRef, caseUpdateData, { merge: true });
     });
 
     try {
@@ -121,7 +127,11 @@ export function AssignUserModal({ isOpen, onClose, worksheet, type, selectedWork
         if (setWorksheets) {
             setWorksheets(prev => prev.map(ws => {
                 if (idsToUpdate.includes(ws.id)) {
-                    const newAforo = { ...(ws as any).aforo, [fieldToUpdate]: userDisplayName };
+                    const newAforo = { 
+                        ...(ws as any).aforo, 
+                        [fieldToUpdate]: userDisplayName,
+                        [idFieldToUpdate]: userId
+                    };
                     return { ...ws, aforo: newAforo };
                 }
                 return ws;
