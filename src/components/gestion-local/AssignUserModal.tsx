@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useEffect } from 'react';
@@ -19,10 +18,10 @@ interface AssignUserModalProps {
   worksheet?: Worksheet | null;
   type: 'aforador' | 'revisor' | 'digitador' | 'bulk-aforador' | 'bulk-revisor' | 'bulk-digitador';
   selectedWorksheetIds?: string[];
-  setWorksheets?: React.Dispatch<React.SetStateAction<Worksheet[]>>;
+  onAssignSuccess: () => void;
 }
 
-export function AssignUserModal({ isOpen, onClose, worksheet, type, selectedWorksheetIds, setWorksheets }: AssignUserModalProps) {
+export function AssignUserModal({ isOpen, onClose, worksheet, type, selectedWorksheetIds, onAssignSuccess }: AssignUserModalProps) {
   const { user: currentUser } = useAuth();
   const { toast } = useToast();
   const [selectedUser, setSelectedUser] = useState<AppUser | null>(null);
@@ -104,20 +103,7 @@ export function AssignUserModal({ isOpen, onClose, worksheet, type, selectedWork
             description: `${userDisplayName} ha sido asignado como ${fieldToUpdate} a ${idsToUpdate.length} hoja(s) de trabajo.`,
         });
         
-        if (setWorksheets) {
-            setWorksheets(prev => prev.map(ws => {
-                if (idsToUpdate.includes(ws.id)) {
-                    const newAforo = { 
-                        ...(ws as any).aforo, 
-                        [fieldToUpdate]: userDisplayName,
-                        [idFieldToUpdate]: userId
-                    };
-                    return { ...ws, aforo: newAforo };
-                }
-                return ws;
-            }));
-        }
-
+        onAssignSuccess();
         onClose();
     } catch(e) {
         console.error(e);

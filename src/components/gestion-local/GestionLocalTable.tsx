@@ -1,4 +1,3 @@
-
 "use client";
 import React, { useState, useMemo, useRef } from 'react';
 import type { Worksheet } from '@/types';
@@ -48,10 +47,9 @@ interface GestionLocalTableProps {
   onComment: (worksheet: Worksheet) => void;
   onView: (worksheet: Worksheet) => void;
   isLoading: boolean;
-  onRefresh: () => void;
 }
 
-export function GestionLocalTable({ worksheets, setWorksheets, selectedRows, setSelectedRows, onAssign, onComment, onView, isLoading, onRefresh }: GestionLocalTableProps) {
+export function GestionLocalTable({ worksheets, setWorksheets, selectedRows, setSelectedRows, onAssign, onComment, onView, isLoading }: GestionLocalTableProps) {
   const { toast } = useToast();
   const { user } = useAuth();
   const [currentPage, setCurrentPage] = useState(1);
@@ -129,7 +127,6 @@ export function GestionLocalTable({ worksheets, setWorksheets, selectedRows, set
     try {
         if (successNEs.length > 0) {
             await batch.commit();
-            onRefresh();
         }
         setBulkActionResult({ isOpen: true, success: successNEs, skipped: skippedNEs });
         setSelectedRows([]);
@@ -149,6 +146,22 @@ export function GestionLocalTable({ worksheets, setWorksheets, selectedRows, set
         setStatusModal({isOpen: false, type: 'aforador'}); // Close the status selection modal
         return;
     }
+    
+    const originalWorksheets = [...worksheets];
+    const updatedWorksheetIds = new Set(selectedRows);
+    const updatedLocalWorksheets = worksheets.map(ws => {
+      if (updatedWorksheetIds.has(ws.id)) {
+        return {
+          ...ws,
+          aforo: {
+            ...(ws as any).aforo,
+            [type]: value,
+          },
+        };
+      }
+      return ws;
+    });
+    setWorksheets(updatedLocalWorksheets as Worksheet[]);
 
     const batch = writeBatch(db);
     selectedRows.forEach(wsId => {
@@ -162,10 +175,10 @@ export function GestionLocalTable({ worksheets, setWorksheets, selectedRows, set
     try {
         await batch.commit();
         toast({ title: 'Actualización Masiva Exitosa', description: `${selectedRows.length} registros actualizados.`});
-        onRefresh();
         setSelectedRows([]);
     } catch(e) {
         console.error("Bulk update error:", e);
+        setWorksheets(originalWorksheets);
         toast({ title: "Error", description: "No se pudo completar la acción masiva.", variant: "destructive"});
     }
     setStatusModal({isOpen: false, type: 'aforador'});
@@ -189,6 +202,16 @@ export function GestionLocalTable({ worksheets, setWorksheets, selectedRows, set
         setStatusModal({isOpen: false, type: 'aforador'});
         return;
     }
+    
+    const originalWorksheets = [...worksheets];
+    const updatedLocalWorksheets = worksheets.map(ws => {
+      if (ws.id === worksheetId) {
+        const fieldName = type === 'aforador' ? 'aforadorStatus' : 'digitadorStatus';
+        return { ...ws, aforo: { ...(ws as any).aforo, [fieldName]: newStatus } };
+      }
+      return ws;
+    });
+    setWorksheets(updatedLocalWorksheets as Worksheet[]);
 
     const worksheetRef = doc(db, 'worksheets', worksheetId, 'aforo', 'metadata');
     try {
@@ -199,9 +222,9 @@ export function GestionLocalTable({ worksheets, setWorksheets, selectedRows, set
         };
         await writeBatch(db).set(worksheetRef, updateData, { merge: true }).commit();
         toast({ title: 'Estado Actualizado', description: `El estado del ${type} ha sido actualizado a "${newStatus}".` });
-        onRefresh();
         setStatusModal({isOpen: false, type: 'aforador'});
     } catch (e) {
+        setWorksheets(originalWorksheets);
         console.error(e);
         toast({ title: "Error", description: "No se pudo actualizar el estado.", variant: "destructive" });
     }
@@ -217,7 +240,6 @@ export function GestionLocalTable({ worksheets, setWorksheets, selectedRows, set
         };
         await writeBatch(db).set(worksheetRef, updateData, { merge: true }).commit();
         toast({ title: 'Solicitud Enviada', description: 'Se ha solicitado la revalidación al revisor.' });
-        onRefresh();
     } catch(e) {
         console.error(e);
         toast({ title: "Error", description: "No se pudo solicitar la revalidación.", variant: "destructive" });
@@ -242,7 +264,6 @@ export function GestionLocalTable({ worksheets, setWorksheets, selectedRows, set
 
       await batch.commit();
       toast({ title: "Declaración y Estado Guardados", description: `Declaración guardada y estado actualizado a 'Trámite Completo'.` });
-      onRefresh();
     } catch (e) {
       console.error(e);
       toast({ title: "Error", description: "No se pudo guardar el número de declaración.", variant: "destructive" });
@@ -300,7 +321,6 @@ export function GestionLocalTable({ worksheets, setWorksheets, selectedRows, set
         
         if (updatedCount > 0) {
             await batch.commit();
-            onRefresh();
             toast({ title: "Importación Completa", description: `${updatedCount} declaraciones han sido actualizadas.` });
             if(isForBulkComplete) {
                 setIsBulkCompleteModalOpen(false);
@@ -324,10 +344,21 @@ export function GestionLocalTable({ worksheets, setWorksheets, selectedRows, set
     if (!user || !user.displayName || selectedRows.length === 0) return;
     setIsLoading(true);
     const batch = writeBatch(db);
-    
+    const comment = "Se reciben hojas fisicas de casos";
+
     selectedRows.forEach(wsId => {
-        const worksheetRef = doc(db, 'worksheets', wsId, 'aforo', 'metadata');
-        batch.set(worksheetRef, { entregadoAforoAt: Timestamp.now() }, { merge: true });
+        const worksheetRef = doc(db, 'worksheets', wsId);
+        const updatesSubcollectionRef = collection(worksheetRef, 'actualizaciones');
+        const updateLog = {
+            updatedAt: Timestamp.now(),
+            updatedBy: user.displayName,
+            field: 'document_update',
+            oldValue: null,
+            newValue: 'worksheet_received',
+            comment: comment
+        };
+        batch.set(doc(updatesSubcollectionRef), updateLog);
+        batch.update(doc(db, 'worksheets', wsId, 'aforo', 'metadata'), { entregadoAforoAt: Timestamp.now() });
     });
     
     try {
@@ -336,7 +367,6 @@ export function GestionLocalTable({ worksheets, setWorksheets, selectedRows, set
         title: "Acuse Masivo Exitoso",
         description: `${selectedRows.length} caso(s) han sido actualizados.`
       });
-      onRefresh();
       setSelectedRows([]);
     } catch (error) {
       console.error("Error with bulk acknowledge:", error);
@@ -367,7 +397,6 @@ export function GestionLocalTable({ worksheets, setWorksheets, selectedRows, set
         toast({title: 'Éxito', description: 'Las posiciones y el estado han sido guardados.'});
         setPositionsModal({isOpen: false});
         setPositionsInput('');
-        onRefresh();
     } catch(e) {
         toast({title: 'Error', description: 'No se pudieron guardar los datos.', variant: 'destructive'});
     }
@@ -623,7 +652,6 @@ export function GestionLocalTable({ worksheets, setWorksheets, selectedRows, set
             isOpen={!!selectedCaseForCompletion}
             onClose={() => setSelectedCaseForCompletion(null)}
             caseData={{id: selectedCaseForCompletion.id, ne: selectedCaseForCompletion.ne}}
-            onRefresh={onRefresh}
         />
     )}
      <Dialog open={isBulkCompleteModalOpen} onOpenChange={setIsBulkCompleteModalOpen}>
