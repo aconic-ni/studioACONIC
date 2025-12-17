@@ -1,7 +1,7 @@
 
 "use client";
 import React, { useState } from 'react';
-import type { WorksheetWithCase, Worksheet } from '@/types';
+import type { Worksheet } from '@/types';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
 import { format } from 'date-fns';

@@ -10,7 +10,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Button } from '@/components/ui/button';
 import { db } from '@/lib/firebase';
 import { collection, query, where, onSnapshot, orderBy, doc, getDoc, getDocs, collectionGroup } from 'firebase/firestore';
-import type { Worksheet } from '@/types';
+import type { Worksheet, WorksheetWithCase } from '@/types';
 import { useToast } from '@/hooks/use-toast';
 import { AforadorCasesTable } from '@/components/aforador/AforadorCasesTable';
 import { DailySummaryModal } from '@/components/aforador/DailySummaryModal';
@@ -34,8 +34,6 @@ export default function AforadorPage() {
     if (!user?.uid) return;
     setIsLoading(true);
 
-    // This is the correct query structure that requires a composite index.
-    // Firestore will generate a link in the browser console if the index is missing.
     const aforoMetadataQuery = query(
       collectionGroup(db, 'aforo'),
       where('aforadorId', '==', user.uid),
@@ -50,7 +48,6 @@ export default function AforadorPage() {
       }
       
       const worksheetPromises = snapshot.docs.map(docSnapshot => {
-        // The parent of a subcollection document is the document that contains it.
         const parentRef = docSnapshot.ref.parent.parent; 
         if (!parentRef) return Promise.resolve(null);
         return getDoc(parentRef);
@@ -65,8 +62,6 @@ export default function AforadorPage() {
             const wsData = { id: wsDoc.id, ...wsDoc.data() } as Worksheet;
             const aforoData = snapshot.docs[i].data();
             
-            // Combine worksheet data with its aforo metadata
-            // We use a property 'aforo' to avoid conflicts with worksheet properties
             const combinedData: Worksheet & { aforo?: any } = wsData;
             combinedData.aforo = aforoData;
             
@@ -109,7 +104,7 @@ export default function AforadorPage() {
         const lastUpdateDate = aforoData?.aforadorStatusLastUpdate?.at?.toDate();
         return aforoData?.aforadorStatus === 'En revisión' && 
                lastUpdateDate && lastUpdateDate >= today;
-    });
+    }).map(c => c as WorksheetWithCase);
   }, [cases]);
 
   if (authLoading || !user) {

@@ -138,12 +138,14 @@ service cloud.firestore {
     
     // This rule enables the collectionGroup query used in /aforador and /agente/casos
     match /{path=**}/aforo/{aforoDocId} {
-      allow get: if isAuthenticated() && (
-        resource.data.aforadorId == request.auth.uid ||
-        resource.data.revisorId == request.auth.uid ||
-        hasRole('admin') || hasRole('coordinadora') || hasRole('supervisor')
-      );
-      allow list: if isAuthenticated();
+      allow list: if isAuthenticated() && 
+                    (request.query.where.aforadorId == request.auth.uid || 
+                     request.query.where.revisorId == request.auth.uid || 
+                     hasRole('admin') || hasRole('coordinadora') || hasRole('supervisor'));
+      allow get: if isAuthenticated() && 
+                   (resource.data.aforadorId == request.auth.uid || 
+                    resource.data.revisorId == request.auth.uid ||
+                    hasRole('admin') || hasRole('coordinadora') || hasRole('supervisor'));
     }
   }
 }
