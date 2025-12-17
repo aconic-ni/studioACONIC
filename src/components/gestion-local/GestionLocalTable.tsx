@@ -54,6 +54,11 @@ interface GestionLocalTableProps {
   onView: (worksheet: Worksheet) => void;
   isLoading: boolean;
   onRefresh: () => void;
+  isDeathkeyModalOpen: boolean;
+  setIsDeathkeyModalOpen: (isOpen: boolean) => void;
+  pinInput: string;
+  setPinInput: (value: string) => void;
+  handleDeathkey: () => void;
 }
 
 const formatDate = (timestamp: any): string => {
@@ -169,7 +174,7 @@ export function GestionLocalTable({ worksheets, setWorksheets, selectedRows, set
   }
 
 
-  const handleBulkAction = async (type: 'aforadorStatus' | 'digitadorStatus', value: string) => {
+  const handleBulkAction = async (type: 'aforador' | 'revisor' | 'digitador' | 'aforadorStatus' | 'digitadorStatus', value: string) => {
     if (!user || !user.displayName || selectedRows.length === 0) return;
 
     if (type === 'digitadorStatus' && value === 'Trámite Completo') {
@@ -511,7 +516,7 @@ export function GestionLocalTable({ worksheets, setWorksheets, selectedRows, set
                 </div>
               </TableCell>
               <TableCell>
-                <div className="flex items-center gap-1">
+                 <div className="flex items-center gap-1">
                     <Badge variant={aforoData?.aforadorStatus === 'En revisión' ? 'default' : 'outline'}>
                         {aforoData?.aforadorStatus || 'Pendiente'}
                     </Badge>
@@ -758,5 +763,3 @@ export function GestionLocalTable({ worksheets, setWorksheets, selectedRows, set
     </>
   );
 }
-
-```
