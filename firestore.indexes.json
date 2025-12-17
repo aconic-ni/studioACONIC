@@ -631,7 +631,23 @@
         }
       ],
       "density": "SPARSE_ALL"
+    },
+    {
+      "collectionGroup": "worksheets",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "aforo.aforadorId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "createdAt",
+          "order": "DESCENDING"
+        }
+      ]
     }
   ],
   "fieldOverrides": []
 }
+
+    
