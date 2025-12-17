@@ -41,8 +41,8 @@ export default function AforadorPage() {
     const aforoMetadataQuery = query(
       collectionGroup(db, 'aforo'),
       where('aforador', '==', user.displayName),
-      where('aforadorAssignedAt', '>=', todayStart),
-      where('aforadorAssignedAt', '<=', todayEnd)
+      where('assignmentDate', '>=', todayStart),
+      where('assignmentDate', '<=', todayEnd)
     );
 
     const unsubscribe = onSnapshot(aforoMetadataQuery, async (snapshot) => {
@@ -68,7 +68,7 @@ export default function AforadorPage() {
             const aforoData = snapshot.docs[i].data();
             
             const combinedData: WorksheetWithCase = {
-                ...(wsData as any), // Cast to any to merge
+                ...(wsData as any),
                 ...aforoData
             };
             
@@ -78,8 +78,8 @@ export default function AforadorPage() {
       
       // Sort on the client side
       casesData.sort((a, b) => {
-          const timeA = (a.aforadorAssignedAt as any) instanceof Timestamp ? (a.aforadorAssignedAt as any).toMillis() : 0;
-          const timeB = (b.aforadorAssignedAt as any) instanceof Timestamp ? (b.aforadorAssignedAt as any).toMillis() : 0;
+          const timeA = (a.assignmentDate as any) instanceof Timestamp ? (a.assignmentDate as any).toMillis() : 0;
+          const timeB = (b.assignmentDate as any) instanceof Timestamp ? (b.assignmentDate as any).toMillis() : 0;
           return timeB - timeA;
       });
 

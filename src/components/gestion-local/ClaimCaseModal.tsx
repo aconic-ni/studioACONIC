@@ -14,8 +14,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/context/AuthContext';
 import { db } from '@/lib/firebase';
-import { doc, getDoc, writeBatch, collection, Timestamp, query, where, getDocs } from 'firebase/firestore';
-import type { AppUser, AforoCase, Worksheet } from '@/types';
+import { doc, getDoc, writeBatch, collection, Timestamp, query, where, getDocs, updateDoc } from 'firebase/firestore';
+import type { AppUser, AforoCase, Worksheet, AforoCaseUpdate } from '@/types';
 import { Loader2 } from 'lucide-react';
 import { ConsigneeSelector } from '../shared/ConsigneeSelector';
 
@@ -68,79 +68,83 @@ export function ClaimCaseModal({ isOpen, onClose, onCaseClaimed }: ClaimCaseModa
 
   const onSubmit = async (data: ClaimFormData) => {
     if (!user || !user.displayName) {
-      toast({ title: 'Error', description: 'Debe estar autenticado.', variant: 'destructive' });
-      return;
+        toast({ title: 'Error', description: 'Debe estar autenticado.', variant: 'destructive' });
+        return;
     }
 
     setIsSubmitting(true);
     const neTrimmed = data.ne.trim().toUpperCase();
     const worksheetDocRef = doc(db, 'worksheets', neTrimmed);
     const aforoCaseDocRef = doc(db, 'AforoCases', neTrimmed);
-    const batch = writeBatch(db);
-
+    
     try {
-      const [worksheetSnap, aforoCaseSnap] = await Promise.all([getDoc(worksheetDocRef), getDoc(aforoCaseDocRef)]);
-      if (worksheetSnap.exists() || aforoCaseSnap.exists()) {
-        toast({ title: "Registro Duplicado", description: `Ya existe un registro con el NE ${neTrimmed}.`, variant: "destructive" });
-        setIsSubmitting(false);
-        return;
-      }
+        const worksheetSnap = await getDoc(worksheetDocRef);
 
-      const creationTimestamp = Timestamp.now();
-      const createdByInfo = { by: user.displayName, at: creationTimestamp };
+        if (worksheetSnap.exists()) {
+            const existingData = worksheetSnap.data() as Worksheet;
+            if (existingData.worksheetType !== 'hoja_de_trabajo') {
+                // The case exists but is not a worksheet, so we convert it.
+                const batch = writeBatch(db);
+                batch.update(worksheetDocRef, { worksheetType: 'hoja_de_trabajo' });
 
-      const worksheetData: Partial<Worksheet> = {
-        id: neTrimmed,
-        ne: neTrimmed,
-        worksheetType: 'hoja_de_trabajo',
-        executive: data.executive,
-        consignee: data.consignee,
-        reference: data.reference,
-        description: data.merchandise,
-        aforador: data.aforador,
-        createdAt: creationTimestamp,
-        createdBy: user.email!,
-        lastUpdatedAt: creationTimestamp,
-      };
-      batch.set(worksheetDocRef, worksheetData);
+                const updatesSubcollectionRef = collection(aforoCaseDocRef, 'actualizaciones');
+                const updateLog: AforoCaseUpdate = {
+                    updatedAt: Timestamp.now(),
+                    updatedBy: user.displayName,
+                    field: 'worksheetType',
+                    oldValue: existingData.worksheetType,
+                    newValue: 'hoja_de_trabajo',
+                    comment: `Caso reclamado y convertido a Hoja de Trabajo por ${user.displayName}.`
+                };
+                batch.set(doc(updatesSubcollectionRef), updateLog);
+                
+                await batch.commit();
 
-      const aforoCaseData: Partial<AforoCase> = {
-        ne: neTrimmed,
-        executive: data.executive,
-        consignee: data.consignee,
-        merchandise: data.merchandise,
-        createdBy: user.uid,
-        createdAt: creationTimestamp,
-        aforador: data.aforador,
-        assignmentDate: creationTimestamp,
-        aforadorStatus: 'Pendiente ',
-        aforadorStatusLastUpdate: createdByInfo,
-        revisorStatus: 'Pendiente',
-        revisorStatusLastUpdate: createdByInfo,
-        preliquidationStatus: 'Pendiente',
-        preliquidationStatusLastUpdate: createdByInfo,
-        digitacionStatus: 'Pendiente',
-        digitacionStatusLastUpdate: createdByInfo,
-        incidentStatus: 'Pendiente',
-        incidentStatusLastUpdate: createdByInfo,
-        worksheetId: neTrimmed,
-        entregadoAforoAt: creationTimestamp,
-      };
-      batch.set(aforoCaseDocRef, aforoCaseData);
-
-      await batch.commit();
-      toast({ title: "Caso Reclamado Exitosamente", description: `El registro para el NE ${neTrimmed} ha sido creado y asignado.` });
-      onCaseClaimed();
-      onClose();
-      form.reset();
+                toast({ title: "Caso Reclamado y Convertido", description: `El registro ${neTrimmed} ahora es una Hoja de Trabajo.` });
+                onCaseClaimed();
+                onClose();
+            } else {
+                // It already exists as a worksheet.
+                toast({ title: "Registro Duplicado", description: `Ya existe una Hoja de Trabajo con el NE ${neTrimmed}.`, variant: "destructive" });
+            }
+        } else {
+            // It does not exist, so we create it.
+            const batch = writeBatch(db);
+            const creationTimestamp = Timestamp.now();
+            const createdByInfo = { by: user.displayName, at: creationTimestamp };
+    
+            const worksheetData: Partial<Worksheet> = {
+                id: neTrimmed, ne: neTrimmed, worksheetType: 'hoja_de_trabajo', executive: data.executive,
+                consignee: data.consignee, reference: data.reference, description: data.merchandise,
+                aforador: data.aforador, createdAt: creationTimestamp, createdBy: user.email!, lastUpdatedAt: creationTimestamp,
+            };
+            batch.set(worksheetDocRef, worksheetData);
+    
+            const aforoCaseData: Partial<AforoCase> = {
+                ne: neTrimmed, executive: data.executive, consignee: data.consignee, merchandise: data.merchandise,
+                createdBy: user.uid, createdAt: creationTimestamp, aforador: data.aforador, assignmentDate: creationTimestamp,
+                aforadorStatus: 'Pendiente ', aforadorStatusLastUpdate: createdByInfo, revisorStatus: 'Pendiente',
+                revisorStatusLastUpdate: createdByInfo, preliquidationStatus: 'Pendiente', preliquidationStatusLastUpdate: createdByInfo,
+                digitacionStatus: 'Pendiente', digitacionStatusLastUpdate: createdByInfo, incidentStatus: 'Pendiente',
+                incidentStatusLastUpdate: createdByInfo, worksheetId: neTrimmed, entregadoAforoAt: creationTimestamp,
+            };
+            batch.set(aforoCaseDocRef, aforoCaseData);
+    
+            await batch.commit();
+            toast({ title: "Caso Reclamado Exitosamente", description: `El registro para el NE ${neTrimmed} ha sido creado y asignado.` });
+            onCaseClaimed();
+            onClose();
+            form.reset();
+        }
 
     } catch (error) {
-      console.error("Error claiming case:", error);
-      toast({ title: "Error", description: "No se pudo crear el registro.", variant: "destructive" });
+        console.error("Error claiming case:", error);
+        toast({ title: "Error", description: "No se pudo crear o actualizar el registro.", variant: "destructive" });
     } finally {
-      setIsSubmitting(false);
+        setIsSubmitting(false);
     }
   };
+
 
   if (!isOpen) return null;
 
