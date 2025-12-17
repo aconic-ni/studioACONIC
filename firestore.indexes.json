@@ -182,29 +182,29 @@
       ]
     },
     {
-      "collectionGroup": "worksheets",
-      "queryScope": "COLLECTION",
+      "collectionGroup": "aforo",
+      "queryScope": "COLLECTION_GROUP",
       "fields": [
         {
-          "fieldPath": "worksheetType",
+          "fieldPath": "aforadorId",
           "order": "ASCENDING"
         },
         {
-          "fieldPath": "createdAt",
+          "fieldPath": "aforadorAssignedAt",
           "order": "DESCENDING"
         }
       ]
     },
-    {
-      "collectionGroup": "worksheets",
-      "queryScope": "COLLECTION",
+     {
+      "collectionGroup": "aforo",
+      "queryScope": "COLLECTION_GROUP",
       "fields": [
         {
-          "fieldPath": "aforo.aforadorId",
+          "fieldPath": "revisorId",
           "order": "ASCENDING"
         },
         {
-          "fieldPath": "createdAt",
+          "fieldPath": "revisorAssignedAt",
           "order": "DESCENDING"
         }
       ]

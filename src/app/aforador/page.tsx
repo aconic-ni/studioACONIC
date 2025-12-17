@@ -5,12 +5,12 @@ import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
 import { AppShell } from '@/components/layout/AppShell';
-import { Loader2, Search, FileSpreadsheet, ListChecks, Printer, ClipboardList } from 'lucide-react';
+import { Loader2, Search, FileSpreadsheet, Inbox } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { db } from '@/lib/firebase';
 import { collection, query, where, onSnapshot, orderBy, doc, getDoc, getDocs, collectionGroup } from 'firebase/firestore';
-import type { WorksheetWithCase, Worksheet, AforoCase } from '@/types';
+import type { WorksheetWithCase, Worksheet } from '@/types';
 import { useToast } from '@/hooks/use-toast';
 import { AforadorCasesTable } from '@/components/aforador/AforadorCasesTable';
 import { DailySummaryModal } from '@/components/aforador/DailySummaryModal';
@@ -36,7 +36,8 @@ export default function AforadorPage() {
 
     const aforoMetadataQuery = query(
       collectionGroup(db, 'aforo'),
-      where('aforadorId', '==', user.uid)
+      where('aforadorId', '==', user.uid),
+      orderBy('aforadorAssignedAt', 'desc')
     );
 
     const unsubscribe = onSnapshot(aforoMetadataQuery, async (snapshot) => {
@@ -62,23 +63,22 @@ export default function AforadorPage() {
             const aforoData = snapshot.docs[i].data();
             
             // Combine worksheet data with its aforo metadata
-            const combinedData = {
-                ...wsData, 
-                aforo: aforoData
-            } as WorksheetWithCase;
+            const combinedData: WorksheetWithCase = {
+                ...wsData, // Spread all properties from worksheet
+                aforo: aforoData, // Add the aforo metadata
+            };
             
             casesData.push(combinedData);
         }
       }
       
-      casesData.sort((a,b) => (a.aforo?.aforadorAssignedAt?.toMillis() ?? 0) - (b.aforo?.aforadorAssignedAt?.toMillis() ?? 0));
-      
+      // The query already sorts by aforadorAssignedAt descending
       setCases(casesData);
       setIsLoading(false);
 
     }, (error) => {
         console.error("Error fetching aforador cases:", error);
-        toast({ title: "Error", description: "No se pudieron cargar los casos asignados.", variant: "destructive" });
+        toast({ title: "Error", description: "No se pudieron cargar los casos asignados. Verifique los permisos de Firestore y los índices de la base de datos.", variant: "destructive" });
         setIsLoading(false);
     });
   
@@ -145,14 +145,14 @@ export default function AforadorPage() {
                 <CardHeader>
                     <div className="flex justify-between items-center">
                         <CardTitle className="text-xl flex items-center gap-2">
-                            <ListChecks /> Mis Casos Asignados
+                            <Inbox /> Mis Casos Asignados
                         </CardTitle>
                          <Button onClick={() => setIsSummaryModalOpen(true)} variant="secondary">
-                            <Printer className="mr-2 h-4 w-4" /> Resumen Diario
+                            Resumen Diario
                         </Button>
                     </div>
                     <CardDescription>
-                        Casos que requieren su atención para el ingreso del total de posiciones.
+                        Casos que le han sido asignados para su revisión.
                     </CardDescription>
                 </CardHeader>
                 <CardContent>
@@ -160,6 +160,8 @@ export default function AforadorPage() {
                          <div className="flex justify-center items-center py-10">
                             <Loader2 className="h-8 w-8 animate-spin text-primary" />
                          </div>
+                    ) : cases.length === 0 ? (
+                        <div className="text-center py-10 text-muted-foreground">No tiene casos asignados pendientes.</div>
                     ) : (
                         <AforadorCasesTable cases={cases} onRefresh={fetchCases} />
                     )}
