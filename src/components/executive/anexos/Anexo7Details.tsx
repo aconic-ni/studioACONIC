@@ -195,11 +195,11 @@ export function Anexo7Details({ worksheet, onClose }: { worksheet: Worksheet; on
                         <tbody>
                             {['Valor $', 'Flete $', 'Seguro $', 'O. Gasto $', 'V. Aduana $'].map(label => {
                                 let value = '';
-                                if (label === 'Valor $') value = worksheet.valor ? `$${Number(worksheet.valor).toLocaleString('es-NI', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '';
-                                if (label === 'Flete $') value = worksheet.flete ? `$${Number(worksheet.flete).toLocaleString('es-NI', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '';
-                                if (label === 'Seguro $') value = worksheet.seguro ? `$${Number(worksheet.seguro).toLocaleString('es-NI', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '';
-                                if (label === 'O. Gasto $') value = worksheet.otrosGastos ? `$${Number(worksheet.otrosGastos).toLocaleString('es-NI', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '';
-                                if (label === 'V. Aduana $') value = `$${valorAduanero.toLocaleString('es-NI', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+                                if (label === 'Valor $') value = worksheet.valor ? `$${'${Number(worksheet.valor).toLocaleString(\'es-NI\', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}'}` : '';
+                                if (label === 'Flete $') value = worksheet.flete ? `$${'${Number(worksheet.flete).toLocaleString(\'es-NI\', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}'}` : '';
+                                if (label === 'Seguro $') value = worksheet.seguro ? `$${'${Number(worksheet.seguro).toLocaleString(\'es-NI\', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}'}` : '';
+                                if (label === 'O. Gasto $') value = worksheet.otrosGastos ? `$${'${Number(worksheet.otrosGastos).toLocaleString(\'es-NI\', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}'}` : '';
+                                if (label === 'V. Aduana $') value = `$${'${valorAduanero.toLocaleString(\'es-NI\', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}'}`;
                                 return (
                                     <tr key={label}>
                                         <td className={cn("border border-black p-1 w-[50%] print:p-0.5", label === 'V. Aduana $' ? 'border-t-2' : '')}>{label}</td>

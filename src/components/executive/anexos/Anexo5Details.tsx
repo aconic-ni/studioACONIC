@@ -127,6 +127,8 @@ export function Anexo5Details({ worksheet, onClose }: { worksheet: Worksheet; on
               <DetailItem label="Fecha" value={formatShortDate(new Date())} />
               <DetailItem label="Empresa que solicita" value={worksheet.consignee} />
               <DetailItem label="RUC" value={worksheet.ruc} />
+              <DetailItem label="Almacén de Salida" value={worksheet.almacenSalida} />
+              <DetailItem label="Código de Almacén" value={worksheet.codigoAlmacen} />
             </div>
             <div className="space-y-1">
               <DetailItem label="RESA No" value={worksheet.resa} />

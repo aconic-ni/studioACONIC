@@ -62,7 +62,7 @@ const transportIcons: { [key: string]: React.ElementType } = {
   terrestre: Truck,
 };
 
-export const WorksheetDetails: React.FC<{ worksheet: Worksheet; aforoCase?: AforoCase | null; onClose: () => void; }> = ({ worksheet, aforoCase, onClose }) => {
+export function WorksheetDetails({ worksheet, aforoCase, onClose }: { worksheet: Worksheet; aforoCase?: AforoCase | null; onClose: () => void; }) {
   
   if (worksheet.worksheetType === 'anexo_7') {
     return <Anexo7Details worksheet={worksheet} onClose={onClose} />;
