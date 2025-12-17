@@ -21,7 +21,7 @@ import {
   ClipboardList
 } from 'lucide-react';
 
-export type NavLink = 'admin' | 'assignments' | 'dashboard' | 'dbPrevios' | 'dbPagos' | 'dbMemorandum' | 'dbPermisos' | 'dbValidaciones' | 'photos' | 'reportsPrevios' | 'reportsAforo' | 'agenteCasos' | 'supervisor' | 'executive' | 'reporter' | 'facturacion' | 'legal' | 'legalRequest' | 'aforador';
+export type NavLink = 'admin' | 'assignments' | 'dashboard' | 'dbPrevios' | 'dbPagos' | 'dbMemorandum' | 'dbPermisos' | 'dbValidaciones' | 'photos' | 'reportsPrevios' | 'reportsAforo' | 'agenteCasos' | 'supervisor' | 'executive' | 'facturacion' | 'legal' | 'legalRequest' | 'aforador';
 
 export interface RoleConfig {
   home: string;
@@ -35,7 +35,7 @@ export const roleConfig: Record<UserRole, RoleConfig> = {
   },
   coordinadora: {
     home: '/executive',
-    navLinks: ['assignments', 'dashboard', 'dbPrevios', 'dbPagos', 'dbMemorandum', 'dbPermisos', 'dbValidaciones', 'photos', 'reportsPrevios', 'legalRequest', 'reporter', 'facturacion', 'aforador'],
+    navLinks: ['assignments', 'dashboard', 'dbPrevios', 'dbPagos', 'dbMemorandum', 'dbPermisos', 'dbValidaciones', 'photos', 'reportsPrevios', 'legalRequest', 'facturacion', 'aforador'],
   },
   supervisor: {
     home: '/supervisor',
@@ -106,7 +106,6 @@ export const navLinkDetails: Record<NavLink, { href: string; label: string; icon
   agenteCasos: { href: '/agente/casos', label: 'Gestión de Casos', icon: Briefcase },
   supervisor: { href: '/supervisor', label: 'Panel Supervisor', icon: Users },
   executive: { href: '/executive', label: 'Módulo Ejecutivo', icon: Briefcase },
-  reporter: { href: '/gestionlocal', label: 'Módulo Aforador', icon: Search },
   facturacion: { href: '/facturacion', label: 'Facturación', icon: FileDigit },
   legal: { href: '/legal', label: 'Módulo Legal', icon: Scale },
   legalRequest: { href: '/legal/request', label: 'Solicitud Legal', icon: Scale },
