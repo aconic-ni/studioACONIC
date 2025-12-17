@@ -1,4 +1,3 @@
-
 import type { Metadata } from 'next';
 import { Inter, Montserrat } from 'next/font/google';
 import './globals.css';
@@ -34,13 +33,13 @@ export default function RootLayout({
     <html lang="es">
       <body className={`${inter.variable} ${montserrat.variable} font-sans antialiased`} suppressHydrationWarning={true}>
         <FirebaseAppProvider>
-          <AppProvider>
-            <AuthProvider>
+          <AuthProvider>
+            <AppProvider>
               <FirebaseErrorListener />
               {children}
               <Toaster />
-            </AuthProvider>
-          </AppProvider>
+            </AppProvider>
+          </AuthProvider>
         </FirebaseAppProvider>
       </body>
     </html>

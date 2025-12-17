@@ -127,8 +127,6 @@ export function Anexo5Details({ worksheet, onClose }: { worksheet: Worksheet; on
               <DetailItem label="Fecha" value={formatShortDate(new Date())} />
               <DetailItem label="Empresa que solicita" value={worksheet.consignee} />
               <DetailItem label="RUC" value={worksheet.ruc} />
-              <DetailItem label="Almacén de Salida" value={worksheet.almacenSalida} />
-              <DetailItem label="Código de Almacén" value={worksheet.codigoAlmacen} />
             </div>
             <div className="space-y-1">
               <DetailItem label="RESA No" value={worksheet.resa} />
@@ -243,7 +241,7 @@ export function Anexo5Details({ worksheet, onClose }: { worksheet: Worksheet; on
                       </tbody>
                   </table>
               </div>
-              <div className="border-t border-b border-black mt-1 print:mt-1 p-2 flex flex-col justify-between">
+              <div className="mt-1 print:mt-1 p-2 flex flex-col justify-between">
                   <p className="text-center font-bold text-sm">TRAMITANTE</p>
                   {agente && (
                       <div className="text-center text-black font-semibold text-xs">
@@ -258,28 +256,38 @@ export function Anexo5Details({ worksheet, onClose }: { worksheet: Worksheet; on
                       <p className="text-xs font-semibold text-gray-700 print:text-[8pt] text-center">Firma y Sello</p>
                   </div>
               </div>
-          </div>
-          <div className="grid grid-cols-2 gap-x-8 mt-2 print:mt-1">
-               <SignatureSection title="ADUANA DESTINO" subtitle="Firma y Sello" align="left" className="w-full" />
-              <div className="border border-black p-2 flex flex-col justify-between">
-                  <p className="text-center font-bold text-sm">TRANSITO</p>
-                  <p className="text-xs font-semibold text-gray-700 print:text-[8pt] text-center">Firma y Sello</p>
-                            <DetailItem label="HORA DE SALIDA" value="" />
-                            <DetailItem label="HORA DE LLEGADA" value="" />
-               </div>
-          </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-x-8 mt-2 print:mt-1">
+                <div className="space-y-4">
+                    <SignatureSection title="ADUANA CENTRAL DE CARGA AEREA" subtitle="Firma y Sello" align="left" className="w-full" />
+                    <SignatureSection title="ADUANA DESTINO" subtitle="Firma y Sello" align="left" className="w-full" />
+                </div>
+                <div className="border border-black p-2 flex flex-col justify-between">
+                    <p className="text-center font-bold text-sm">TRANSITO</p>
+                    <div className="flex-grow flex flex-col justify-end">
+                        <div className="h-[50px]"></div>
+                        <div className="border-b-2 border-black"></div>
+                        <p className="text-xs font-semibold text-center pt-1">Firma y Sello</p>
+                        <DetailItem label="HORA DE SALIDA" value="" />
+                        <DetailItem label="HORA DE LLEGADA" value="" />
+                    </div>
+                </div>
+            </div>
           
       </div>
       <CardFooter className="justify-end gap-2 no-print border-t pt-4 mt-4">
           <Button asChild variant="outline">
-            <Link href={`/executive/anexos?type=${worksheet.worksheetType}&id=${worksheet.id}`}>
+          <Link href={`/executive/anexos?type=${worksheet.worksheetType}&id=${worksheet.id}`}>
               <Edit className="mr-2 h-4 w-4" /> Editar
-            </Link>
+          </Link>
           </Button>
           <Button type="button" onClick={onClose} variant="outline">
-            Cerrar
+          Cerrar
           </Button>
-          <Anexo5PrintButton />
+          <Button type="button" onClick={handlePrint} variant="default">
+          <Printer className="mr-2 h-4 w-4" /> Imprimir
+          </Button>
       </CardFooter>
     </Card>
   );
