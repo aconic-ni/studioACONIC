@@ -99,11 +99,6 @@ service cloud.firestore {
         allow create: if isAdmin();
         allow read, list, update, delete: if isAdmin();
     }
-
-    // Rules for collection group queries.
-    match /{path=**}/aforo/{docId} {
-       allow read: if isAuthenticated();
-    }
     
     match /worksheets/{worksheetId} {
         function isOwner() {
@@ -139,6 +134,16 @@ service cloud.firestore {
       allow read: if isAuthenticated() && (hasRole('facturador') || hasRole('supervisor') || isAdmin() || hasRole('coordinadora'));
       allow list: if isAuthenticated() && (hasRole('facturador') || hasRole('supervisor') || isAdmin() || hasRole('coordinadora'));
       allow create: if isAuthenticated() && (hasRole('facturador') || isAdmin() || hasRole('supervisor'));
+    }
+    
+    // This rule enables the collectionGroup query used in /aforador and /agente/casos
+    match /{path=**}/aforo/{aforoDocId} {
+      allow get: if isAuthenticated() && (
+        resource.data.aforadorId == request.auth.uid ||
+        resource.data.revisorId == request.auth.uid ||
+        hasRole('admin') || hasRole('coordinadora') || hasRole('supervisor')
+      );
+      allow list: if isAuthenticated();
     }
   }
 }

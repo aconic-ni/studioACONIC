@@ -181,7 +181,7 @@
         }
       ]
     },
-     {
+    {
       "collectionGroup": "aforo",
       "queryScope": "COLLECTION_GROUP",
       "fields": [
