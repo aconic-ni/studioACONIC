@@ -465,28 +465,23 @@ function BitacoraMigrator() {
     const fetchStats = useCallback(async () => {
         setIsLoading(true);
         try {
-            const aforoCasesSnapshot = await getDocs(query(collection(db, 'AforoCases'), where('worksheetId', '!=', null)));
-            const casesWithWorksheet = aforoCasesSnapshot.docs;
-            
+            const allCasesSnapshot = await getDocs(query(collection(db, 'AforoCases'), where('worksheetId', '!=', null)));
+            const casesWithWorksheet = allCasesSnapshot.docs.map(doc => doc.data() as AforoCase);
+
             let casesWithLogsCount = 0;
             let totalLogsToMigrate = 0;
 
-            for (const caseDoc of casesWithWorksheet) {
-                const worksheetId = caseDoc.data().worksheetId;
-                if (worksheetId) {
-                    const sourceUpdatesRef = collection(db, 'AforoCases', caseDoc.id, 'actualizaciones');
-                    const targetUpdatesRef = collection(db, 'worksheets', worksheetId, 'aforo', 'actualizaciones');
+            for (const caseData of casesWithWorksheet) {
+                const sourceUpdatesRef = collection(db, 'AforoCases', caseData.id, 'actualizaciones');
+                const sourceSnapshot = await getDocs(sourceUpdatesRef);
+                
+                if (!sourceSnapshot.empty) {
+                    casesWithLogsCount++;
                     
-                    const [sourceSnapshot, targetSnapshot] = await Promise.all([
-                        getDocs(sourceUpdatesRef),
-                        getDocs(targetUpdatesRef)
-                    ]);
-                    
-                    if (!sourceSnapshot.empty) {
-                        casesWithLogsCount++;
-                        if (targetSnapshot.empty) {
-                           totalLogsToMigrate += sourceSnapshot.size;
-                        }
+                    const targetUpdatesRef = collection(db, `worksheets/${caseData.worksheetId}/aforo/actualizaciones`);
+                    const targetSnapshot = await getDocs(targetUpdatesRef);
+                    if (targetSnapshot.empty) {
+                       totalLogsToMigrate += sourceSnapshot.size;
                     }
                 }
             }
