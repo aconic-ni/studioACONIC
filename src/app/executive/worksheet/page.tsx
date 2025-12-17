@@ -424,11 +424,9 @@ function WorksheetForm() {
     
     if (editingWorksheetId) {
         const worksheetDocRef = doc(db, 'worksheets', editingWorksheetId);
-        const batch = writeBatch(db);
 
         try {
             const { createdBy, createdAt, ...restOfData } = data;
-            
             const updatedWorksheetData = { 
                 ...restOfData, 
                 eta: data.eta ? Timestamp.fromDate(data.eta) : null,
@@ -436,10 +434,10 @@ function WorksheetForm() {
                 createdBy: originalWorksheet?.createdBy || user.email,
             };
     
-            batch.update(worksheetDocRef, updatedWorksheetData);
-            
-            const logCollectionRef = collection(db, 'worksheets', editingWorksheetId, 'aforo', 'actualizaciones');
-            const logRef = doc(logCollectionRef);
+            await updateDoc(worksheetDocRef, updatedWorksheetData);
+
+            const aforoCaseDocRef = doc(db, 'AforoCases', editingWorksheetId);
+            const logRef = doc(collection(aforoCaseDocRef, 'actualizaciones'));
             const updateLog: AforoCaseUpdate = {
               updatedAt: Timestamp.now(),
               updatedBy: user.displayName,
@@ -448,15 +446,14 @@ function WorksheetForm() {
               newValue: 'worksheet_updated',
               comment: `Hoja de trabajo modificada por ${user.displayName}.`,
             };
-            batch.set(logRef, updateLog);
+            await setDoc(logRef, updateLog);
             
-            await batch.commit();
             toast({ title: "Hoja de Trabajo Actualizada", description: `El registro para el NE ${editingWorksheetId} ha sido guardado.` });
             router.push('/executive');
     
         } catch(serverError: any) {
              const permissionError = new FirestorePermissionError({
-              path: `batch update to worksheets/${editingWorksheetId}`,
+              path: `worksheets/${editingWorksheetId}`,
               operation: 'update',
               requestResourceData: { worksheetData: data },
             }, serverError);
@@ -530,7 +527,7 @@ function WorksheetForm() {
         };
         batch.set(aforoCaseDocRef, aforoCaseData);
   
-        const initialLogRef = doc(collection(db, 'worksheets', neTrimmed, 'aforo', 'actualizaciones'));
+        const initialLogRef = doc(collection(aforoCaseDocRef, 'actualizaciones'));
         const initialLog: AforoCaseUpdate = {
             updatedAt: Timestamp.now(),
             updatedBy: user.displayName,
@@ -1219,5 +1216,3 @@ export default function WorksheetPage() {
         </AppShell>
     )
 }
-
-    
