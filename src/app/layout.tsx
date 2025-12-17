@@ -6,7 +6,6 @@ import { AuthProvider } from '@/context/AuthContext';
 import { AppProvider } from '@/context/AppContext';
 import { Toaster } from '@/components/ui/toaster';
 import { FirebaseAppProvider } from '@/context/FirebaseAppContext'; // Renamed to avoid conflict
-import { use } from 'react';
 import { FirebaseErrorListener } from '@/components/FirebaseErrorListener';
 
 const inter = Inter({
@@ -35,13 +34,13 @@ export default function RootLayout({
     <html lang="es">
       <body className={`${inter.variable} ${montserrat.variable} font-sans antialiased`} suppressHydrationWarning={true}>
         <FirebaseAppProvider>
-          <AuthProvider>
-            <AppProvider>
+          <AppProvider>
+            <AuthProvider>
               <FirebaseErrorListener />
               {children}
               <Toaster />
-            </AppProvider>
-          </AuthProvider>
+            </AuthProvider>
+          </AppProvider>
         </FirebaseAppProvider>
       </body>
     </html>
