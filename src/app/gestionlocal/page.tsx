@@ -9,7 +9,7 @@ import type { Worksheet, AforoCaseUpdate } from '@/types';
 import { AppShell } from '@/components/layout/AppShell';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Loader2, Search, Inbox, Users, ChevronsUpDown, Download } from 'lucide-react';
+import { Loader2, Search, Inbox, Users, ChevronsUpDown, Download, Edit } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { GestionLocalTable } from '@/components/gestion-local/GestionLocalTable';
 import { useToast } from '@/hooks/use-toast';
@@ -17,7 +17,7 @@ import { AssignUserModal } from '@/components/gestion-local/AssignUserModal';
 import { AforoCommentModal } from '@/components/gestion-local/AforoCommentModal';
 import { WorksheetDetailModal } from '@/components/reporter/WorksheetDetailModal';
 import { downloadAforoReportAsExcel } from '@/lib/fileExporterAforo';
-
+import { ClaimCaseModal } from '@/components/gestion-local/ClaimCaseModal';
 
 export default function GestionLocalPage() {
   const { user, loading: authLoading } = useAuth();
@@ -32,6 +32,7 @@ export default function GestionLocalPage() {
   const [viewModal, setViewModal] = useState<{ isOpen: boolean; worksheet: Worksheet } | null>(null);
   const [selectedRows, setSelectedRows] = useState<string[]>([]);
   const [isExporting, setIsExporting] = useState(false);
+  const [isClaimModalOpen, setIsClaimModalOpen] = useState(false);
 
 
   const fetchWorksheets = useCallback(() => {
@@ -128,8 +129,15 @@ export default function GestionLocalPage() {
       <div className="py-2 md:py-5">
         <Card className="w-full max-w-screen-2xl mx-auto custom-shadow">
           <CardHeader>
-            <CardTitle>Gestión Local de Aforo</CardTitle>
-            <CardDescription>Nueva vista optimizada para la asignación y seguimiento de aforos sobre hojas de trabajo.</CardDescription>
+            <div className="flex justify-between items-start">
+              <div>
+                <CardTitle>Gestión Local de Aforo</CardTitle>
+                <CardDescription>Nueva vista optimizada para la asignación y seguimiento de aforos sobre hojas de trabajo.</CardDescription>
+              </div>
+              <Button onClick={() => setIsClaimModalOpen(true)}>
+                <Edit className="mr-2 h-4 w-4" /> Reclamar Caso
+              </Button>
+            </div>
             <div className="flex flex-col sm:flex-row gap-4 pt-4 border-t">
               <Input placeholder="Filtrar por NE..." value={neFilter} onChange={e => setNeFilter(e.target.value)} className="max-w-xs" />
               <Input placeholder="Filtrar por Consignatario..." value={consigneeFilter} onChange={e => setConsigneeFilter(e.target.value)} className="max-w-xs" />
@@ -192,6 +200,12 @@ export default function GestionLocalPage() {
           worksheet={viewModal.worksheet}
         />
       )}
+      
+      <ClaimCaseModal 
+        isOpen={isClaimModalOpen}
+        onClose={() => setIsClaimModalOpen(false)}
+        onCaseClaimed={fetchWorksheets}
+      />
     </AppShell>
   );
 }
