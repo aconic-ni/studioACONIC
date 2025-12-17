@@ -1,17 +1,16 @@
 "use client";
-import React, { useEffect, useState, useMemo, useCallback } from 'react';
-import { useRouter } from 'next/navigation';
+import React, { useEffect, useState, useMemo, useCallback, Suspense } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth } from '@/context/AuthContext';
 import { AppShell } from '@/components/layout/AppShell';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Loader2, FilePlus, Search, Edit, Eye, History, PlusSquare, UserCheck, Inbox, AlertTriangle, Download, ChevronsUpDown, Info, CheckCircle, CalendarRange, Calendar, CalendarDays, ShieldAlert, BookOpen, FileCheck2, MessageSquare, View, Banknote, Bell as BellIcon, RefreshCw, Send, StickyNote, Scale, Briefcase } from 'lucide-react';
+import { Loader2, FilePlus, Search, Edit, Eye, History, PlusSquare, UserCheck, Inbox, AlertTriangle, Download, ChevronsUpDown, Info, CheckCircle, CalendarRange, Calendar, CalendarDays, ShieldAlert, BookOpen, FileCheck2, MessageSquare, View, Banknote, Bell as BellIcon, RefreshCw, Send, StickyNote, Scale, Briefcase, KeyRound, Copy, Archive } from 'lucide-react';
 import { db } from '@/lib/firebase';
-import { collection, query, where, onSnapshot, orderBy, Timestamp, doc, getDoc, updateDoc, writeBatch, addDoc, getDocs, collectionGroup } from 'firebase/firestore';
+import { collection, query, where, onSnapshot, orderBy, Timestamp, doc, getDoc, updateDoc, writeBatch, addDoc, getDocs, collectionGroup, serverTimestamp, setDoc } from 'firebase/firestore';
 import type { Worksheet, AforoCase, AforadorStatus, AforoCaseStatus, DigitacionStatus, WorksheetWithCase, AforoCaseUpdate, PreliquidationStatus, IncidentType, LastUpdateInfo, ExecutiveComment, InitialDataContext, AppUser, SolicitudRecord, ExamDocument, FacturacionStatus } from '@/types';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { format, toDate, isSameDay, startOfDay, endOfDay, startOfMonth, endOfMonth, differenceInDays } from 'date-fns';
+import { format, toDate, isSameDay, startOfDay, endOfDay, differenceInDays, startOfMonth, endOfMonth } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { Input } from '@/components/ui/input';
 import { AforoCaseHistoryModal } from '@/components/reporter/AforoCaseHistoryModal';
@@ -40,16 +39,22 @@ import { AnnouncementsCarousel } from '@/components/executive/AnnouncementsCarou
 import { AssignUserModal } from '@/components/reporter/AssignUserModal';
 import { ResaNotificationModal } from '@/components/executive/ResaNotificationModal';
 import { useIsMobile } from '@/hooks/use-mobile';
-import { MobileCaseCard } from '@/components/executive/MobileCaseCard';
+import { MobileCasesList } from '@/components/executive/MobileCasesList';
 import { StatusBadges } from '@/components/executive/StatusBadges';
 import { useAppContext } from '@/context/AppContext';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { ViewIncidentsModal } from '@/components/executive/ViewIncidentsModal';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
-
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { StatusProcessModal } from '@/components/executive/StatusProcessModal';
+import { Textarea } from '@/components/ui/textarea';
+import { ExecutiveCasesTable } from '@/components/executive/ExecutiveCasesTable';
+import { v4 as uuidv4 } from 'uuid';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 
 type DateFilterType = 'range' | 'month' | 'today';
+
 
 const months = [
     { value: 0, label: 'Enero' }, { value: 1, label: 'Febrero' }, { value: 2, label: 'Marzo' },
@@ -61,36 +66,12 @@ const months = [
 const currentYear = new Date().getFullYear();
 const years = Array.from({ length: 5 }, (_, i) => currentYear - i);
 
-const formatDate = (date: Date | Timestamp | null | undefined, includeTime: boolean = true): string => {
-    if (!date) return 'N/A';
-    const d = (date as Timestamp)?.toDate ? (date as Timestamp).toDate() : toDate(date);
-    const formatString = includeTime ? "dd/MM/yy HH:mm" : "dd/MM/yy";
-    return format(d, formatString, { locale: es });
-};
+type TabValue = 'worksheets' | 'anexos' | 'corporate';
 
-const LastUpdateTooltip = ({ lastUpdate, caseCreation }: { lastUpdate?: LastUpdateInfo | null, caseCreation: Timestamp }) => {
-    if (!lastUpdate || !lastUpdate.at) return null;
-
-    const isInitialEntry = lastUpdate.at.isEqual(caseCreation);
-    const label = isInitialEntry ? "Registro realizado por" : "Modificado por";
-
-    return (
-        <Tooltip>
-            <TooltipTrigger asChild>
-                <Info className="h-4 w-4 text-muted-foreground ml-2 cursor-pointer"/>
-            </TooltipTrigger>
-            <TooltipContent>
-                <p>{label}: {lastUpdate.by}</p>
-                <p>Fecha: {formatDate(lastUpdate.at)}</p>
-            </TooltipContent>
-        </Tooltip>
-    );
-};
-
-
-export default function ExecutivePage() {
+function ExecutivePageContent() {
   const { user, loading: authLoading } = useAuth();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { toast } = useToast();
   const isMobile = useIsMobile();
   const { openAddProductModal, setInitialContextData, setIsMemorandumMode, caseToAssignAforador, setCaseToAssignAforador } = useAppContext();
@@ -104,7 +85,6 @@ export default function ExecutivePage() {
   const [selectedCaseForIncident, setSelectedCaseForIncident] = useState<AforoCase | null>(null);
   const [selectedCaseForValueDoubt, setSelectedCaseForValueDoubt] = useState<AforoCase | null>(null);
   const [selectedIncidentForDetails, setSelectedIncidentForDetails] = useState<AforoCase | null>(null);
-  const [selectedCaseForDocs, setSelectedCaseForDocs] = useState<AforoCase | null>(null);
   const [selectedWorksheet, setSelectedWorksheet] = useState<Worksheet | null>(null);
   const [selectedCaseForComment, setSelectedCaseForComment] = useState<AforoCase | null>(null);
   const [selectedCaseForQuickRequest, setSelectedCaseForQuickRequest] = useState<WorksheetWithCase | null>(null);
@@ -113,34 +93,65 @@ export default function ExecutivePage() {
   const [selectedCaseForResa, setSelectedCaseForResa] = useState<AforoCase | null>(null);
   const [isRequestPaymentModalOpen, setIsRequestPaymentModalOpen] = useState(false);
   const [selectedCaseForViewIncidents, setSelectedCaseForViewIncidents] = useState<AforoCase | null>(null);
-
-
+  const [caseToArchive, setCaseToArchive] = useState<WorksheetWithCase | null>(null);
+  const [selectedCaseForProcess, setSelectedCaseForProcess] = useState<AforoCase | null>(null);
+  const [isDeathkeyModalOpen, setIsDeathkeyModalOpen] = useState(false);
+  const [pinInput, setPinInput] = useState('');
+  
+  const [duplicateAndRetireModalOpen, setDuplicateAndRetireModalOpen] = useState(false);
+  const [caseToDuplicate, setCaseToDuplicate] = useState<WorksheetWithCase | null>(null);
+  const [newNeForDuplicate, setNewNeForDuplicate] = useState('');
+  const [duplicateReason, setDuplicateReason] = useState('');
 
   const [searchTerm, setSearchTerm] = useState('');
   const [savingState, setSavingState] = useState<{ [key: string]: boolean }>({});
   
-  // States for filter inputs
   const [facturadoFilter, setFacturadoFilter] = useState({ facturado: false, noFacturado: true });
+  const [acuseFilter, setAcuseFilter] = useState({ conAcuse: false, sinAcuse: true });
   const [dateFilterType, setDateFilterType] = useState<DateFilterType>('range');
   const [dateRangeInput, setDateRangeInput] = useState<DateRange | undefined>();
   const [selectedMonth, setSelectedMonth] = useState<number>(new Date().getMonth());
   const [selectedYear, setSelectedYear] = useState<number>(currentYear);
-  const [onlyCorporate, setOnlyCorporate] = useState(false);
+  
+  const urlTab = searchParams.get('tab') as TabValue | null;
+  const activeTab = urlTab || 'worksheets';
+  
+  const [searchHint, setSearchHint] = useState<{ foundIn: TabValue; label: string } | null>(null);
 
 
-  // State for applied filters that trigger re-fetch
+  const handleTabChange = (value: string) => {
+    const tabValue = value as TabValue;
+    router.push(`/executive?tab=${tabValue}`, { scroll: false });
+    setCurrentPage(1); // Reset page on tab change
+    setSearchHint(null);
+  };
+  
   const [appliedFilters, setAppliedFilters] = useState({
     searchTerm: '',
     facturado: false,
     noFacturado: true,
-    onlyCorporate: false,
+    conAcuse: false,
+    sinAcuse: true,
     dateFilterType: 'range' as DateFilterType,
     dateRange: undefined as DateRange | undefined,
+    isSearchActive: false, 
   });
   
+  const [neFilter, setNeFilter] = useState('');
+  const [ejecutivoFilter, setEjecutivoFilter] = useState('');
+  const [consignatarioFilter, setConsignatarioFilter] = useState('');
+  const [facturaFilter, setFacturaFilter] = useState('');
+  const [selectividadFilter, setSelectividadFilter] = useState('');
+  const [incidentTypeFilter, setIncidentTypeFilter] = useState('');
+
+  // Pagination and selection state
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage] = useState(15);
+  const [selectedRows, setSelectedRows] = useState<string[]>([]);
+
 
   useEffect(() => {
-    if (!authLoading && (!user || !['ejecutivo', 'coordinadora', 'admin', 'supervisor'].includes(user.role || ''))) {
+    if (!authLoading && !user) {
       router.push('/');
     }
   }, [user, authLoading, router]);
@@ -150,17 +161,26 @@ export default function ExecutivePage() {
     setIsLoading(true);
     
     let aforoQuery;
+    const globalVisibilityRoles = ['admin', 'supervisor', 'coordinadora'];
+    const groupVisibilityRoles = ['ejecutivo'];
 
-    if (user.role === 'ejecutivo' && user.visibilityGroup && user.visibilityGroup.length > 0) {
-        const groupDisplayNames = Array.from(new Set([user.displayName, ...user.visibilityGroup].filter(Boolean) as string[]));
-        aforoQuery = groupDisplayNames.length > 0
-            ? query(collection(db, 'AforoCases'), where('executive', 'in', groupDisplayNames), orderBy('createdAt', 'desc'))
-            : query(collection(db, 'AforoCases'), where('executive', '==', user.displayName), orderBy('createdAt', 'desc'));
-    } else if (user.role === 'ejecutivo') {
-        aforoQuery = query(collection(db, 'AforoCases'), where('executive', '==', user.displayName), orderBy('createdAt', 'desc'));
+    if (user.role && globalVisibilityRoles.includes(user.role)) {
+      aforoQuery = query(collection(db, 'AforoCases'));
+    } else if (user.role && groupVisibilityRoles.includes(user.role) && user.visibilityGroup && user.visibilityGroup.length > 0) {
+        const groupDisplayNames = Array.from(new Set([user.displayName, ...(user.visibilityGroup?.map(m => m.displayName) || [])])).filter(Boolean) as string[];
+         if (groupDisplayNames.length > 0) {
+            aforoQuery = query(collection(db, 'AforoCases'), where("executive", "in", groupDisplayNames));
+        } else {
+            aforoQuery = query(collection(db, 'AforoCases'), where("executive", "==", user.displayName));
+        }
+    } else if (user.displayName) {
+        aforoQuery = query(collection(db, 'AforoCases'), where('executive', '==', user.displayName));
     } else {
-        aforoQuery = query(collection(db, 'AforoCases'), orderBy('createdAt', 'desc'));
+        setAllCases([]);
+        setIsLoading(false);
+        return () => {};
     }
+
 
     const unsubscribe = onSnapshot(aforoQuery, async (aforoSnapshot) => {
         const aforoCasesData = aforoSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as AforoCase));
@@ -168,8 +188,8 @@ export default function ExecutivePage() {
         const [worksheetsSnap, examenesSnap, solicitudesSnap, memorandumSnap] = await Promise.all([
             getDocs(collection(db, 'worksheets')),
             getDocs(collection(db, 'examenesPrevios')),
-            getDocs(collection(db, "SolicitudCheques")),
-            getDocs(collection(db, "Memorandum")),
+            getDocs(query(collection(db, "SolicitudCheques"), orderBy("savedAt", "desc"))),
+            getDocs(query(collection(db, "Memorandum"), orderBy("savedAt", "desc"))),
         ]);
 
         const worksheetsMap = new Map(worksheetsSnap.docs.map(doc => [doc.id, { id: doc.id, ...doc.data() } as Worksheet]));
@@ -186,13 +206,26 @@ export default function ExecutivePage() {
                 allSolicitudes.get(ne)!.push({ solicitudId: doc.id, ...data });
             }
         });
+        
+        const combinedDataPromises = aforoCasesData.map(async (caseItem) => {
+            if (!caseItem.worksheetId) {
+                return { ...caseItem, worksheet: null, acuseLog: null };
+            }
+            const updatesRef = collection(db, 'worksheets', caseItem.worksheetId, 'actualizaciones');
+            const acuseQuery = query(updatesRef, where('newValue', '==', 'worksheet_received'), orderBy('updatedAt', 'desc'));
+            const acuseSnapshot = await getDocs(acuseQuery);
+            const acuseLog = acuseSnapshot.empty ? null : acuseSnapshot.docs[0].data() as AforoCaseUpdate;
 
-        const combinedData = aforoCasesData.map(caseItem => ({
-            ...caseItem,
-            worksheet: worksheetsMap.get(caseItem.worksheetId || '') || null,
-            examenPrevio: examenesMap.get(caseItem.id) || null,
-            pagos: allSolicitudes.get(caseItem.ne) || []
-        }));
+            return {
+                ...caseItem,
+                worksheet: worksheetsMap.get(caseItem.worksheetId || '') || null,
+                examenPrevio: examenesMap.get(caseItem.id) || null,
+                pagos: allSolicitudes.get(caseItem.ne) || [],
+                acuseLog: acuseLog,
+            };
+        });
+
+        const combinedData = await Promise.all(combinedDataPromises);
         
         setAllCases(combinedData);
         setIsLoading(false);
@@ -213,7 +246,7 @@ export default function ExecutivePage() {
     });
 
     const fetchAssignableUsers = async () => {
-        const usersQuery = query(collection(db, 'users'), where('role', '==', 'aforador'));
+        const usersQuery = query(collection(db, 'users'), where('role', 'in', ['aforador', 'coordinadora']));
         const querySnapshot = await getDocs(usersQuery);
         const users = querySnapshot.docs.map(doc => ({ uid: doc.id, ...doc.data() } as AppUser));
         setAssignableUsers(users);
@@ -245,19 +278,59 @@ export default function ExecutivePage() {
     }
   };
 
+  const handleArchiveCase = async () => {
+    if (!user || user.role !== 'admin' || !user.email || !caseToArchive) {
+      toast({ title: "Acción no permitida", variant: "destructive" });
+      setCaseToArchive(null);
+      return;
+    }
+  
+    setSavingState(prev => ({ ...prev, [caseToArchive.id]: true }));
+    const batch = writeBatch(db);
+  
+    const aforoCaseRef = doc(db, "AforoCases", caseToArchive.id);
+    batch.update(aforoCaseRef, { isArchived: true });
+  
+    if (caseToArchive.worksheetId) {
+      const worksheetRef = doc(db, "worksheets", caseToArchive.worksheetId);
+      batch.update(worksheetRef, { isArchived: true });
 
-  const handleAutoSave = useCallback(async (caseId: string, field: keyof AforoCase, value: any) => {
+      const logRef = doc(collection(worksheetRef, "actualizaciones"));
+      const logData = {
+          updatedAt: serverTimestamp(),
+          updatedBy: user.email,
+          field: 'isArchived',
+          oldValue: false,
+          newValue: true,
+          comment: 'Caso archivado por administrador.'
+      };
+      batch.set(logRef, logData);
+    }
+  
+    try {
+      await batch.commit();
+      toast({ title: "Caso Archivado", description: "El caso ha sido movido al archivo." });
+      setCaseToArchive(null); // Close the dialog
+    } catch (error) {
+      console.error("Error archiving case:", error);
+      toast({ title: "Error", description: "No se pudo archivar el caso.", variant: "destructive" });
+    } finally {
+      setSavingState(prev => ({ ...prev, [caseToArchive.id]: false }));
+    }
+  };
+
+
+  const handleAutoSave = useCallback(async (caseId: string, field: keyof AforoCase, value: any, isTriggerFromFieldUpdate: boolean = false) => {
     if (!user || !user.displayName) { toast({ title: "No autenticado", variant: 'destructive' }); return; }
     
     const originalCase = allCases.find(c => c.id === caseId);
-    if (!originalCase) return;
+    if (!originalCase || !originalCase.worksheetId) return;
 
     const oldValue = originalCase[field as keyof AforoCase];
-    if (JSON.stringify(oldValue) === JSON.stringify(value)) return;
     
     setSavingState(prev => ({ ...prev, [caseId]: true }));
-    const caseDocRef = doc(db, 'AforoCases', caseId);
-    const updatesSubcollectionRef = collection(caseDocRef, 'actualizaciones');
+    const worksheetDocRef = doc(db, 'worksheets', originalCase.worksheetId);
+    const updatesSubcollectionRef = collection(worksheetDocRef, 'actualizaciones');
     const batch = writeBatch(db);
 
     try {
@@ -271,22 +344,24 @@ export default function ExecutivePage() {
           updateData[lastUpdateField] = { by: user.displayName, at: Timestamp.now() }
         }
 
-        batch.update(caseDocRef, updateData);
+        batch.update(doc(db, 'AforoCases', caseId), updateData);
 
-        const updateLog:AforoCaseUpdate = {
-            updatedAt: Timestamp.now(), 
-            updatedBy: user.displayName, 
-            field,
+        const updateLog: AforoCaseUpdate = {
+            updatedAt: Timestamp.now(),
+            updatedBy: user.displayName,
+            field: field as keyof AforoCase,
             oldValue: oldValue ?? null,
             newValue: value,
         };
         batch.set(doc(updatesSubcollectionRef), updateLog);
 
         await batch.commit();
-        toast({ title: "Guardado Automático", description: `El campo se ha actualizado.` });
+        if(!isTriggerFromFieldUpdate) {
+            toast({ title: "Guardado Automático", description: `El campo se ha actualizado.` });
+        }
     } catch (error) {
         console.error("Error updating case:", error);
-        toast({ title: "Error", description: "No se pudo guardar el cambio.", variant: "destructive" });
+        toast({ title: "Error", description: `No se pudo guardar el cambio.`, variant: "destructive" });
     } finally {
         setSavingState(prev => ({ ...prev, [caseId]: false }));
     }
@@ -308,10 +383,12 @@ export default function ExecutivePage() {
     setAppliedFilters({
       searchTerm,
       ...facturadoFilter,
-      onlyCorporate,
+      ...acuseFilter,
       dateFilterType: dateFilterType,
       dateRange: dateRange,
+      isSearchActive: true, // Mark search as active
     });
+    setCurrentPage(1); // Reset to first page on new search
   };
   
   const handleExport = async () => {
@@ -322,25 +399,15 @@ export default function ExecutivePage() {
     setIsExporting(true);
 
     try {
-        if (appliedFilters.onlyCorporate) {
+        if (activeTab === 'corporate') {
             await downloadCorporateReportAsExcel(filteredCases.map(c => c.worksheet).filter(ws => ws !== null) as Worksheet[]);
         } else {
-            const casesWithDetails: (AforoCase & { dispatchCustoms?: string })[] = [];
+            const casesToExport = paginatedCases;
             const auditLogs: (AforoCaseUpdate & { caseNe: string })[] = [];
 
-            for (const caseItem of filteredCases) {
-                let caseDetails: AforoCase & { dispatchCustoms?: string } = { ...caseItem };
-
-                if (caseItem.worksheetId) {
-                    const wsDocRef = doc(db, 'worksheets', caseItem.worksheetId);
-                    const wsSnap = await getDoc(wsDocRef);
-                    if (wsSnap.exists()) {
-                        caseDetails.dispatchCustoms = (wsSnap.data() as Worksheet).dispatchCustoms;
-                    }
-                }
-                casesWithDetails.push(caseDetails);
-
-                const logsQuery = query(collection(db, 'AforoCases', caseItem.id, 'actualizaciones'), orderBy('updatedAt', 'asc'));
+            for (const caseItem of casesToExport) {
+                if (!caseItem.worksheetId) continue;
+                const logsQuery = query(collection(db, 'worksheets', caseItem.worksheetId, 'actualizaciones'), orderBy('updatedAt', 'asc'));
                 const logSnapshot = await getDocs(logsQuery);
                 logSnapshot.forEach(logDoc => {
                     auditLogs.push({
@@ -349,7 +416,7 @@ export default function ExecutivePage() {
                     });
                 });
             }
-            downloadExecutiveReportAsExcel(casesWithDetails, auditLogs);
+            await downloadExecutiveReportAsExcel(casesToExport, auditLogs);
         }
     } catch (e) {
         console.error("Error exporting data: ", e);
@@ -367,7 +434,7 @@ export default function ExecutivePage() {
     const worksheetDocRef = doc(db, 'worksheets', caseItem.worksheetId);
     const docSnap = await getDoc(worksheetDocRef);
     if (docSnap.exists()) {
-        setSelectedWorksheet(docSnap.data() as Worksheet);
+        setSelectedWorksheet({ id: docSnap.id, ...docSnap.data() } as Worksheet);
     } else {
         toast({ title: "Error", description: "No se pudo encontrar la hoja de trabajo.", variant: "destructive" });
     }
@@ -397,9 +464,17 @@ export default function ExecutivePage() {
   const clearFilters = () => {
     setSearchTerm('');
     setFacturadoFilter({ facturado: false, noFacturado: true });
-    setOnlyCorporate(false);
+    setAcuseFilter({ conAcuse: false, sinAcuse: true });
     setDateRangeInput(undefined);
-    setAppliedFilters({ searchTerm: '', facturado: false, noFacturado: true, onlyCorporate: false, dateFilterType: 'range', dateRange: undefined });
+    setNeFilter('');
+    setEjecutivoFilter('');
+    setConsignatarioFilter('');
+    setFacturaFilter('');
+    setSelectividadFilter('');
+    setIncidentTypeFilter('');
+    setAppliedFilters({ searchTerm: '', facturado: false, noFacturado: true, conAcuse: false, sinAcuse: true, dateFilterType: 'range', dateRange: undefined, isSearchActive: false });
+    setCurrentPage(1);
+    setSearchHint(null);
   };
   
   const handleSendToFacturacion = async (caseId: string) => {
@@ -432,79 +507,299 @@ export default function ExecutivePage() {
 
 
   const filteredCases = useMemo(() => {
-    let filtered = allCases;
-
-    if (appliedFilters.onlyCorporate) {
-        filtered = filtered.filter(c => c.worksheet?.worksheetType === 'corporate_report');
-    }
+    let baseCases = allCases.slice().sort((a, b) => (b.createdAt?.toMillis() ?? 0) - (a.createdAt?.toMillis() ?? 0));
     
-    if (appliedFilters.searchTerm) {
-        filtered = filtered.filter(c =>
-          c.ne.toLowerCase().includes(appliedFilters.searchTerm.toLowerCase()) ||
-          c.consignee.toLowerCase().includes(appliedFilters.searchTerm.toLowerCase())
-        );
-    }
-    
-    if (appliedFilters.noFacturado && !appliedFilters.facturado) {
-        filtered = filtered.filter(c => !c.facturado);
-    } else if (appliedFilters.facturado && !appliedFilters.noFacturado) {
-        filtered = filtered.filter(c => c.facturado === true);
+    let filtered = baseCases.filter(c => !c.isArchived);
+
+    // Initial filter by tab
+    let tabFiltered;
+    if (activeTab === 'worksheets') {
+        tabFiltered = filtered.filter(c => c.worksheet?.worksheetType === 'hoja_de_trabajo' || c.worksheet?.worksheetType === undefined);
+    } else if (activeTab === 'anexos') {
+        tabFiltered = filtered.filter(c => c.worksheet?.worksheetType === 'anexo_5' || c.worksheet?.worksheetType === 'anexo_7');
+    } else { // corporate
+        tabFiltered = filtered.filter(c => c.worksheet?.worksheetType === 'corporate_report');
     }
 
-    if (appliedFilters.dateFilterType === 'today') {
-        const today = new Date();
-        const todaysCases = new Map<string, WorksheetWithCase>();
-        
-        allCases.forEach(c => {
-            if (c.createdAt && isSameDay(c.createdAt.toDate(), today)) {
-                todaysCases.set(c.id, c);
-            }
-            if (!c.facturado) {
-                todaysCases.set(c.id, c);
-            }
-            if (c.facturadoAt && isSameDay(c.facturadoAt.toDate(), today)) {
-                todaysCases.set(c.id, c);
-            }
+    if (appliedFilters.isSearchActive) {
+      let finalFiltered = tabFiltered;
+
+      // Apply text and status filters
+      if (appliedFilters.searchTerm) {
+          finalFiltered = finalFiltered.filter(c =>
+            c.ne.toLowerCase().includes(appliedFilters.searchTerm.toLowerCase()) ||
+            c.consignee.toLowerCase().includes(appliedFilters.searchTerm.toLowerCase())
+          );
+      }
+      if (appliedFilters.noFacturado && !appliedFilters.facturado) {
+          finalFiltered = finalFiltered.filter(c => !c.facturado);
+      } else if (appliedFilters.facturado && !appliedFilters.noFacturado) {
+          finalFiltered = finalFiltered.filter(c => c.facturado === true);
+      }
+      if (appliedFilters.conAcuse && !appliedFilters.sinAcuse) {
+          finalFiltered = finalFiltered.filter(c => c.entregadoAforoAt);
+      } else if (appliedFilters.sinAcuse && !appliedFilters.conAcuse) {
+          finalFiltered = finalFiltered.filter(c => !c.entregadoAforoAt);
+      }
+      // Apply date filter
+      if (appliedFilters.dateRange?.from) {
+          const start = startOfDay(appliedFilters.dateRange.from);
+          const end = appliedFilters.dateRange.to ? endOfDay(appliedFilters.dateRange.to) : endOfDay(appliedFilters.dateRange.from);
+          finalFiltered = finalFiltered.filter(item => {
+              const itemDate = item.createdAt?.toDate();
+              return itemDate && itemDate >= start && itemDate <= end;
+          });
+      }
+      
+      // Column filters
+      if (neFilter) finalFiltered = finalFiltered.filter(c => c.ne.toLowerCase().includes(neFilter.toLowerCase()));
+      if (ejecutivoFilter) finalFiltered = finalFiltered.filter(c => c.executive.toLowerCase().includes(ejecutivoFilter.toLowerCase()));
+      if (consignatarioFilter) finalFiltered = finalFiltered.filter(c => c.consignee.toLowerCase().includes(consignatarioFilter.toLowerCase()));
+      if (facturaFilter) {
+        const lowerCaseFilter = facturaFilter.toLowerCase();
+        finalFiltered = finalFiltered.filter(c => {
+          const facturas = c.worksheet?.worksheetType === 'corporate_report' 
+            ? (c.worksheet.documents?.filter(d => d.type === 'FACTURA').map(d => d.number) || [])
+            : (c.facturaNumber ? c.facturaNumber.split(';').map(f => f.trim()) : []);
+          return facturas.some(f => f.toLowerCase().includes(lowerCaseFilter));
         });
-        filtered = Array.from(todaysCases.values());
-
-    } else if (appliedFilters.dateRange?.from) {
-        const start = startOfDay(appliedFilters.dateRange.from);
-        const end = appliedFilters.dateRange.to ? endOfDay(appliedFilters.dateRange.to) : endOfDay(appliedFilters.dateRange.from);
+      }
+      if (selectividadFilter) finalFiltered = finalFiltered.filter(c => (c.selectividad || 'N/A').toLowerCase().includes(selectividadFilter.toLowerCase()));
+      if (incidentTypeFilter) finalFiltered = finalFiltered.filter(c => getIncidentTypeDisplay(c).toLowerCase().includes(incidentTypeFilter.toLowerCase()));
+      
+      // --- New Search Hint Logic ---
+      if (finalFiltered.length === 0 && appliedFilters.searchTerm) {
+        const term = appliedFilters.searchTerm.toLowerCase();
+        const otherTabs: TabValue[] = ['worksheets', 'anexos', 'corporate'].filter(t => t !== activeTab);
         
-        filtered = filtered.filter(c => {
-            if (!c.createdAt) return false;
-            const createdAtDate = c.createdAt.toDate();
-            return createdAtDate >= start && createdAtDate <= end;
-        });
+        for (const tab of otherTabs) {
+          let hintFiltered: WorksheetWithCase[];
+          if (tab === 'worksheets') {
+              hintFiltered = filtered.filter(c => (c.worksheet?.worksheetType === 'hoja_de_trabajo' || c.worksheet?.worksheetType === undefined) && (c.ne.toLowerCase().includes(term) || c.consignee.toLowerCase().includes(term)));
+          } else if (tab === 'anexos') {
+              hintFiltered = filtered.filter(c => (c.worksheet?.worksheetType === 'anexo_5' || c.worksheet?.worksheetType === 'anexo_7') && (c.ne.toLowerCase().includes(term) || c.consignee.toLowerCase().includes(term)));
+          } else { // corporate
+              hintFiltered = filtered.filter(c => c.worksheet?.worksheetType === 'corporate_report' && (c.ne.toLowerCase().includes(term) || c.consignee.toLowerCase().includes(term)));
+          }
+          if (hintFiltered.length > 0) {
+            setSearchHint({ foundIn: tab, label: tab === 'worksheets' ? 'Hojas de Trabajo' : tab === 'anexos' ? 'Anexos' : 'Reportes Corporativos' });
+            break; // Stop at the first hint found
+          } else {
+            setSearchHint(null);
+          }
+        }
+      } else {
+        setSearchHint(null);
+      }
+      
+      return finalFiltered;
+    } else {
+        // Not searching, return top 15 of the current tab
+        setSearchHint(null);
+        return tabFiltered.slice(0, 15);
     }
-
-    return filtered.sort((a, b) => (b.createdAt?.toMillis() ?? 0) - (a.createdAt?.toMillis() ?? 0));
-  }, [allCases, appliedFilters]);
+  }, [allCases, appliedFilters, activeTab, neFilter, ejecutivoFilter, consignatarioFilter, facturaFilter, selectividadFilter, incidentTypeFilter, acuseFilter]);
   
-  const getRevisorStatusBadgeVariant = (status?: AforoCaseStatus) => {
-    switch (status) { case 'Aprobado': return 'default'; case 'Rechazado': return 'destructive'; case 'Revalidación Solicitada': return 'secondary'; default: return 'outline'; }
-  };
-  const getAforadorStatusBadgeVariant = (status?: AforadorStatus) => {
-    switch(status) { case 'En revisión': return 'default'; case 'Incompleto': return 'destructive'; case 'En proceso': return 'secondary'; case 'Pendiente': return 'destructive'; default: return 'outline'; }
-  };
-  const getDigitacionBadge = (status?: DigitacionStatus, declaracion?: string | null) => {
-    if (status === 'Trámite Completo') { return <Badge variant="default" className="bg-green-600">{declaracion || 'Finalizado'}</Badge> }
-    if (status) { return <Badge variant={status === 'En Proceso' ? 'secondary' : 'outline'}>{status}</Badge>; }
-    return <Badge variant="outline">Pendiente</Badge>;
-  }
-
+  const totalPages = Math.ceil(filteredCases.length / itemsPerPage);
+  const paginatedCases = appliedFilters.isSearchActive ? filteredCases.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage) : filteredCases;
+  
   const approvePreliquidation = (caseId: string) => {
     handleAutoSave(caseId, 'preliquidationStatus', 'Aprobada');
   };
   
-  const getPreliquidationStatusBadge = (status?: PreliquidationStatus) => {
-    switch(status) {
-      case 'Aprobada': return <Badge variant="default" className="bg-green-600">Aprobada</Badge>;
-      default: return <Badge variant="outline">Pendiente</Badge>;
+  const handleBulkApprovePreliquidation = async () => {
+    if (!user || selectedRows.length === 0) return;
+    const batch = writeBatch(db);
+    selectedRows.forEach(id => {
+      const caseItem = allCases.find(c => c.id === id);
+      if (!caseItem?.worksheetId) return;
+
+      const aforoCaseRef = doc(db, 'AforoCases', id);
+      const updatesSubcollectionRef = collection(db, 'worksheets', caseItem.worksheetId, 'actualizaciones');
+      
+      batch.update(aforoCaseRef, { preliquidationStatus: 'Aprobada', preliquidationStatusLastUpdate: { by: user.displayName, at: Timestamp.now() } });
+      
+      const updateLog: AforoCaseUpdate = {
+        updatedAt: Timestamp.now(),
+        updatedBy: user.displayName || 'sistema',
+        field: 'preliquidationStatus',
+        oldValue: 'Pendiente',
+        newValue: 'Aprobada',
+        comment: 'Aprobación masiva de preliquidación'
+      };
+      batch.set(doc(updatesSubcollectionRef), updateLog);
+    });
+    await batch.commit();
+    toast({ title: 'Éxito', description: `${selectedRows.length} preliquidaciones aprobadas.` });
+    setSelectedRows([]);
+  };
+
+  const handleSelectAllForPreliquidation = () => {
+    const selectableIds = filteredCases.filter(c => c.revisorStatus === 'Aprobado' && c.preliquidationStatus !== 'Aprobada').map(c => c.id);
+    if (selectedRows.length === selectableIds.length) {
+      setSelectedRows([]);
+    } else {
+      setSelectedRows(selectableIds);
     }
   };
   
+  const handleDeathkey = async () => {
+    if (pinInput !== "192438") {
+        toast({ title: "PIN Incorrecto", variant: "destructive" });
+        return;
+    }
+    if (selectedRows.length === 0) return;
+
+    setIsLoading(true);
+    const batch = writeBatch(db);
+
+    for (const caseId of selectedRows) {
+        const caseItem = filteredCases.find(c => c.id === caseId);
+        if (caseItem && caseItem.worksheetId) {
+            const worksheetRef = doc(db, 'worksheets', caseItem.worksheetId);
+            batch.update(worksheetRef, { worksheetType: 'hoja_de_trabajo' });
+
+            const updatesSubcollectionRef = collection(worksheetRef, 'actualizaciones');
+            const updateLog: AforoCaseUpdate = {
+                updatedAt: Timestamp.now(),
+                updatedBy: user?.displayName || 'Sistema',
+                field: 'worksheetType',
+                oldValue: 'corporate_report',
+                newValue: 'hoja_de_trabajo',
+                comment: 'Caso reclasificado a Hoja de Trabajo via Deathkey.'
+            };
+            batch.set(doc(updatesSubcollectionRef), updateLog);
+        }
+    }
+
+    try {
+        await batch.commit();
+        toast({ title: "Éxito", description: `${selectedRows.length} casos han sido reclasificados.` });
+        setSelectedRows([]);
+        setIsDeathkeyModalOpen(false);
+        setPinInput('');
+    } catch (error) {
+        console.error("Error with Deathkey action:", error);
+        toast({ title: "Error", description: "No se pudieron reclasificar los casos.", variant: "destructive" });
+    } finally {
+        setIsLoading(false);
+    }
+  };
+
+  const handleDuplicateAndRetire = async () => {
+    if (!user || !user.displayName || !caseToDuplicate || !caseToDuplicate.worksheet) {
+        toast({title: 'Error', description: 'No se puede procesar la solicitud. Faltan datos.', variant: 'destructive'});
+        return;
+    }
+    const newNe = newNeForDuplicate.trim().toUpperCase();
+    if (!newNe) {
+        toast({title: 'Error', description: 'El nuevo NE no puede estar vacío.', variant: 'destructive'});
+        return;
+    }
+
+    setSavingState(prev => ({...prev, [caseToDuplicate.id]: true}));
+    
+    const originalCaseRef = doc(db, 'AforoCases', caseToDuplicate.id);
+    const newCaseRef = doc(db, 'AforoCases', newNe);
+    const newWorksheetRef = doc(db, 'worksheets', newNe);
+    
+    const batch = writeBatch(db);
+
+    try {
+        const [newCaseSnap, newWorksheetSnap] = await Promise.all([getDoc(newCaseRef), getDoc(newWorksheetRef)]);
+        if (newCaseSnap.exists() || newWorksheetSnap.exists()) {
+            toast({ title: "Duplicado", description: `Ya existe un registro con el NE ${newNe}.`, variant: "destructive" });
+            setSavingState(prev => ({...prev, [caseToDuplicate.id]: false}));
+            return;
+        }
+        
+        const creationTimestamp = Timestamp.now();
+        const createdByInfo = { by: user.displayName, at: creationTimestamp };
+
+        // 1. Create new worksheet - reset relevant fields
+        const { id: oldId, ne: oldNe, createdAt: oldCreatedAt, lastUpdatedAt: oldLastUpdatedAt, ...worksheetToCopy } = caseToDuplicate.worksheet;
+        const newWorksheetData: Worksheet = {
+            ...worksheetToCopy,
+            id: newNe,
+            ne: newNe,
+            createdAt: creationTimestamp,
+            createdBy: user.email!,
+            lastUpdatedAt: creationTimestamp,
+        };
+        batch.set(newWorksheetRef, newWorksheetData);
+        
+        // 2. Create new case - reset all statuses and dates
+        const newCaseData: Omit<AforoCase, 'id'> = {
+            ne: newNe,
+            executive: caseToDuplicate.executive,
+            consignee: caseToDuplicate.consignee,
+            facturaNumber: caseToDuplicate.facturaNumber,
+            declarationPattern: caseToDuplicate.declarationPattern,
+            merchandise: caseToDuplicate.merchandise,
+            createdBy: user.uid,
+            createdAt: creationTimestamp,
+            aforador: '',
+            assignmentDate: null,
+            aforadorStatus: 'Pendiente ',
+            aforadorStatusLastUpdate: createdByInfo,
+            revisorStatus: 'Pendiente',
+            revisorStatusLastUpdate: createdByInfo,
+            preliquidationStatus: 'Pendiente',
+            preliquidationStatusLastUpdate: createdByInfo,
+            digitacionStatus: 'Pendiente',
+            digitacionStatusLastUpdate: createdByInfo,
+            incidentStatus: 'Pendiente',
+            incidentStatusLastUpdate: createdByInfo,
+            revisorAsignado: '',
+            revisorAsignadoLastUpdate: createdByInfo,
+            digitadorAsignado: '',
+            digitadorAsignadoLastUpdate: createdByInfo,
+            worksheetId: newNe,
+            entregadoAforoAt: null,
+            isArchived: false,
+            executiveComments: [{id: uuidv4(), author: user.displayName, text: `Duplicado del NE: ${caseToDuplicate.ne}. Motivo: ${duplicateReason}`, createdAt: creationTimestamp}],
+        };
+        batch.set(newCaseRef, newCaseData);
+
+        // 3. Update old case
+        batch.update(originalCaseRef, { digitacionStatus: 'TRASLADADO', isArchived: true });
+        
+        // 4. Log the action on the old case's worksheet
+        const originalUpdatesRef = collection(db, 'worksheets', caseToDuplicate.id, 'actualizaciones');
+        const updateLog: AforoCaseUpdate = {
+            updatedAt: Timestamp.now(),
+            updatedBy: user.displayName,
+            field: 'digitacionStatus',
+            oldValue: caseToDuplicate.digitacionStatus,
+            newValue: 'TRASLADADO',
+            comment: `Caso trasladado al nuevo NE: ${newNe}. Motivo: ${duplicateReason}`
+        };
+        batch.set(doc(originalUpdatesRef), updateLog);
+
+        // 5. Log creation on new case's worksheet
+        const newUpdatesRef = collection(db, 'worksheets', newNe, 'actualizaciones');
+        const newCaseLog: AforoCaseUpdate = {
+            updatedAt: creationTimestamp,
+            updatedBy: user.displayName,
+            field: 'creation',
+            oldValue: null,
+            newValue: `duplicated_from_${caseToDuplicate.ne}`,
+            comment: `Caso duplicado desde ${caseToDuplicate.ne}. Motivo: ${duplicateReason}`
+        };
+        batch.set(doc(newUpdatesRef), newCaseLog);
+
+
+        await batch.commit();
+        toast({title: 'Operación Exitosa', description: `El caso ${caseToDuplicate.ne} ha sido duplicado a ${newNe} y retirado.`});
+        setDuplicateAndRetireModalOpen(false);
+    } catch(e) {
+        console.error("Error duplicating and retiring", e);
+        toast({title: 'Error', description: 'No se pudo completar la operación.', variant: 'destructive'});
+    } finally {
+        setSavingState(prev => ({...prev, [caseToDuplicate.id]: false}));
+    }
+  };
+
   const handleOpenPaymentRequest = () => {
     const initialData: InitialDataContext = {
         ne: `SOL-${format(new Date(), 'ddMMyy-HHmmss')}`,
@@ -516,22 +811,22 @@ export default function ExecutivePage() {
     setInitialContextData(initialData);
     setIsRequestPaymentModalOpen(true);
   };
-  
+
+
   const welcomeName = user?.displayName ? user.displayName.split(' ')[0] : 'Usuario';
 
-  if (authLoading || !user || !['ejecutivo', 'coordinadora', 'admin', 'supervisor'].includes(user.role || '')) {
+  if (authLoading || !user) {
     return <div className="min-h-screen flex items-center justify-center bg-background"><Loader2 className="h-12 w-12 animate-spin text-primary" /></div>;
   }
   if (selectedIncidentForDetails) {
     return (<AppShell><div className="py-2 md:py-5"><IncidentReportDetails caseData={selectedIncidentForDetails} onClose={() => setSelectedIncidentForDetails(null)} /></div></AppShell>);
   }
   if (selectedWorksheet) {
-    return (<AppShell><div className="py-2 md:py-5"><WorksheetDetails worksheet={selectedWorksheet} onClose={() => setSelectedWorksheet(null)} /></div></AppShell>);
+    return (<AppShell><div className="py-2 md:py-5"><WorksheetDetails worksheet={selectedWorksheet} aforoCase={allCases.find(c => c.worksheetId === selectedWorksheet.id)} onClose={() => setSelectedWorksheet(null)} /></div></AppShell>);
   }
   
   const caseActions = {
     handleViewWorksheet,
-    setSelectedCaseForDocs,
     setSelectedCaseForQuickRequest,
     setSelectedCaseForPayment,
     setSelectedCaseForPaymentList,
@@ -542,84 +837,144 @@ export default function ExecutivePage() {
     setSelectedIncidentForDetails,
     setSelectedCaseForComment,
     handleSearchPrevio,
+    setCaseToArchive,
+    setCaseToDuplicate,
+    setDuplicateAndRetireModalOpen,
+    setSelectedCaseForProcess,
   };
 
+  const renderTable = () => {
+    if (isLoading) {
+      return <div className="flex justify-center items-center py-10"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>;
+    }
+    if (filteredCases.length === 0 && appliedFilters.isSearchActive) {
+      return (
+        <div className="text-center py-10">
+          <p className="text-muted-foreground">No se encontraron casos con los filtros actuales.</p>
+          {searchHint && (
+            <div className="mt-4 p-4 bg-blue-100 dark:bg-blue-900/30 border border-blue-300 dark:border-blue-700 rounded-md">
+              <p className="text-sm text-blue-800 dark:text-blue-200">
+                Se encontró una coincidencia en la pestaña de <span className="font-semibold">{searchHint.label}</span>.
+              </p>
+              <Button onClick={() => handleTabChange(searchHint.foundIn)} className="mt-2" size="sm">
+                Ir a {searchHint.label}
+              </Button>
+            </div>
+          )}
+        </div>
+      );
+    }
+    if (filteredCases.length === 0 && !appliedFilters.isSearchActive) {
+      return <p className="text-muted-foreground text-center py-10">No hay casos recientes para mostrar. Use la búsqueda para encontrar casos más antiguos.</p>;
+    }
 
+    if (isMobile) {
+      return <MobileCasesList cases={paginatedCases} savingState={savingState} onAutoSave={handleAutoSave} approvePreliquidation={approvePreliquidation} caseActions={caseActions} />;
+    }
+
+    return <ExecutiveCasesTable 
+              cases={paginatedCases} 
+              savingState={savingState}
+              onAutoSave={handleAutoSave}
+              approvePreliquidation={approvePreliquidation}
+              caseActions={caseActions}
+              selectedRows={selectedRows}
+              onSelectRow={setSelectedRows}
+              onSelectAllRows={handleSelectAllForPreliquidation}
+              neFilter={neFilter} setNeFilter={setNeFilter}
+              ejecutivoFilter={ejecutivoFilter} setEjecutivoFilter={setEjecutivoFilter}
+              consignatarioFilter={consignatarioFilter} setConsignatarioFilter={setConsignatarioFilter}
+              facturaFilter={facturaFilter} setFacturaFilter={setFacturaFilter}
+              selectividadFilter={selectividadFilter} setSelectividadFilter={setSelectividadFilter}
+              incidentTypeFilter={incidentTypeFilter} setIncidentTypeFilter={setIncidentTypeFilter}
+              handleSendToFacturacion={handleSendToFacturacion}
+            />;
+  }
   return (
     <>
     <AppShell>
       <div className="py-2 md:py-5 space-y-6">
         <AnnouncementsCarousel />
-        <Card className="w-full mx-auto custom-shadow">
-            <CardHeader>
-                <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-4">
-                    <div>
-                        <CardTitle className="flex items-center gap-2 text-2xl"><Inbox/> Panel Ejecutivo</CardTitle>
-                        <CardDescription>Seguimiento de operaciones, desde la hoja de trabajo hasta la facturación.</CardDescription>
-                    </div>
-                    <div className="flex flex-col sm:flex-row items-center gap-3">
-                         <AlertDialog>
-                            <AlertDialogTrigger asChild>
-                                <Button size="lg" variant="secondary" className="h-12 text-md">
-                                    <Banknote className="mr-2 h-5 w-5" /> Solicitud de Pago General
-                                </Button>
-                            </AlertDialogTrigger>
-                            <AlertDialogContent>
-                                <AlertDialogHeader>
-                                <AlertDialogTitle>¿Está seguro?</AlertDialogTitle>
-                                <AlertDialogDescription>
-                                    Esta acción iniciará una solicitud de pago no vinculada a un Número de Entrada (NE) específico. Se generará un ID único en su lugar.
-                                </AlertDialogDescription>
-                                </AlertDialogHeader>
-                                <AlertDialogFooter>
-                                <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                                <AlertDialogAction onClick={handleOpenPaymentRequest}>Sí, continuar</AlertDialogAction>
-                                </AlertDialogFooter>
-                            </AlertDialogContent>
-                        </AlertDialog>
+        <Tabs defaultValue={activeTab} className="w-full" onValueChange={handleTabChange}>
+            <Card>
+                 <CardHeader>
+                    <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-4">
+                         <div>
+                            <CardTitle className="flex items-center gap-2 text-2xl"><Inbox/> Panel Ejecutivo</CardTitle>
+                            <CardDescription>Seguimiento de operaciones, desde la hoja de trabajo hasta la facturación.</CardDescription>
+                        </div>
+                        <div className="flex flex-col sm:flex-row items-center gap-3">
+                             <AlertDialog>
+                                <AlertDialogTrigger asChild>
+                                    <Button size="lg" variant="secondary" className="h-12 text-md">
+                                        <Banknote className="mr-2 h-5 w-5" /> Solicitud de Pago General
+                                    </Button>
+                                </AlertDialogTrigger>
+                                <AlertDialogContent>
+                                    <AlertDialogHeader>
+                                    <AlertDialogTitle>¿Está seguro?</AlertDialogTitle>
+                                    <AlertDialogDescription>
+                                        Esta acción iniciará una solicitud de pago no vinculada a un Número de Entrada (NE) específico. Se generará un ID único en su lugar.
+                                    </AlertDialogDescription>
+                                    </AlertDialogHeader>
+                                    <AlertDialogFooter>
+                                    <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                                    <AlertDialogAction onClick={handleOpenPaymentRequest}>Sí, continuar</AlertDialogAction>
+                                    </AlertDialogFooter>
+                                </AlertDialogContent>
+                            </AlertDialog>
 
-                        <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                                <Button size="lg" variant="default" className="h-12 text-md">
-                                <Edit className="mr-2 h-5 w-5" />Crear Registro
-                                </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent>
-                                <DropdownMenuLabel>Tipo de Documento</DropdownMenuLabel>
-                                <DropdownMenuSeparator />
-                                <DropdownMenuItem asChild>
-                                    <Link href="/executive/worksheet">
-                                        <FilePlus className="mr-2 h-4 w-4" /> Hoja de Trabajo
-                                    </Link>
-                                </DropdownMenuItem>
-                                <DropdownMenuItem asChild>
-                                    <Link href="/executive/corporate-report">
-                                        <Briefcase className="mr-2 h-4 w-4" /> Reporte Consignatario
-                                    </Link>
-                                </DropdownMenuItem>
-                                <DropdownMenuItem asChild>
-                                    <Link href="/executive/anexos?type=anexo_5">
-                                        <StickyNote className="mr-2 h-4 w-4" /> Anexo 5
-                                    </Link>
-                                </DropdownMenuItem>
-                                 <DropdownMenuItem asChild>
-                                     <Link href="/executive/anexos?type=anexo_7">
-                                        <StickyNote className="mr-2 h-4 w-4" /> Anexo 7
-                                     </Link>
-                                </DropdownMenuItem>
-                            </DropdownMenuContent>
-                        </DropdownMenu>
+                            <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                    <Button size="lg" variant="default" className="h-12 text-md">
+                                    <Edit className="mr-2 h-5 w-5" />Crear Registro
+                                    </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent>
+                                    <DropdownMenuLabel>Tipo de Documento</DropdownMenuLabel>
+                                    <DropdownMenuSeparator />
+                                    <DropdownMenuItem asChild>
+                                        <Link href="/executive/worksheet">
+                                            <FilePlus className="mr-2 h-4 w-4" /> Hoja de Trabajo
+                                        </Link>
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem asChild>
+                                        <Link href="/executive/corporate-report">
+                                            <Briefcase className="mr-2 h-4 w-4" /> Reporte Consignatario
+                                        </Link>
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem asChild>
+                                        <Link href="/executive/anexos?type=anexo_5">
+                                            <StickyNote className="mr-2 h-4 w-4" /> Anexo 5
+                                        </Link>
+                                    </DropdownMenuItem>
+                                     <DropdownMenuItem asChild>
+                                         <Link href="/executive/anexos?type=anexo_7">
+                                            <StickyNote className="mr-2 h-4 w-4" /> Anexo 7
+                                         </Link>
+                                     </DropdownMenuItem>
+                                </DropdownMenuContent>
+                            </DropdownMenu>
 
+                        </div>
                     </div>
-                </div>
-                <div className="border-t pt-4 mt-2">
-                  <div className="flex flex-col gap-4">
-                     <div className="flex flex-wrap items-center justify-between gap-4">
-                         <div className="relative w-full sm:max-w-xs">
+                    <div className="border-t pt-4 mt-2">
+                       <TabsList>
+                            <TabsTrigger value="worksheets">Hojas de Trabajo</TabsTrigger>
+                            <TabsTrigger value="anexos">Anexos</TabsTrigger>
+                            <TabsTrigger value="corporate">Reportes Corporativos</TabsTrigger>
+                        </TabsList>
+                    </div>
+                </CardHeader>
+                 <CardContent>
+                    {/* Filtering UI - Common for all tabs */}
+                    <div className="flex flex-col gap-4">
+                        <div className="flex flex-wrap items-center justify-between gap-4">
+                            <div className="relative w-full sm:max-w-xs">
                             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
                             <Input placeholder="Buscar por NE o Consignatario..." className="pl-10" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
-                         </div>
-                         <div className="flex items-center flex-wrap gap-4">
+                            </div>
+                            <div className="flex items-center flex-wrap gap-4">
                             <Popover>
                                 <PopoverTrigger asChild>
                                     <Button variant="outline" className="w-[200px] justify-start"><ChevronsUpDown className="mr-2 h-4 w-4"/> Filtrar Visibilidad</Button>
@@ -630,10 +985,8 @@ export default function ExecutivePage() {
                                       <label className="flex items-center gap-2 text-sm font-normal"><Checkbox checked={facturadoFilter.facturado} onCheckedChange={(checked) => setFacturadoFilter(f => ({...f, facturado: !!checked}))}/>Facturados</label>
                                     </div>
                                     <div className="grid gap-2 mt-2 pt-2 border-t">
-                                      <div className="flex items-center space-x-2">
-                                        <Switch id="corporate-only-filter" checked={onlyCorporate} onCheckedChange={setOnlyCorporate} />
-                                        <Label htmlFor="corporate-only-filter">Solo Reportes Corporativos</Label>
-                                      </div>
+                                      <label className="flex items-center gap-2 text-sm font-normal"><Checkbox checked={acuseFilter.sinAcuse} onCheckedChange={(checked) => setAcuseFilter(f => ({...f, sinAcuse: !!checked}))}/>Sin Acuse</label>
+                                      <label className="flex items-center gap-2 text-sm font-normal"><Checkbox checked={acuseFilter.conAcuse} onCheckedChange={(checked) => setAcuseFilter(f => ({...f, conAcuse: !!checked}))}/>Con Acuse</label>
                                     </div>
                                 </PopoverContent>
                             </Popover>
@@ -646,9 +999,9 @@ export default function ExecutivePage() {
                                {isExporting ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : <Download className="mr-2 h-4 w-4" />}
                                {isExporting ? 'Exportando...' : 'Exportar'}
                             </Button>
-                         </div>
-                     </div>
-                      <div className="flex flex-wrap items-center gap-4">
+                            </div>
+                        </div>
+                        <div className="flex flex-wrap items-center gap-4">
                         <div className="flex flex-wrap items-center gap-2">
                             <Button variant={dateFilterType === 'range' ? 'default' : 'ghost'} size="sm" onClick={() => setDateFilterType('range')}><CalendarRange className="mr-2 h-4 w-4"/> Rango</Button>
                             <Button variant={dateFilterType === 'month' ? 'default' : 'ghost'} size="sm" onClick={() => setDateFilterType('month')}><Calendar className="mr-2 h-4 w-4"/> Mes</Button>
@@ -661,271 +1014,15 @@ export default function ExecutivePage() {
                                 <Select value={String(selectedYear)} onValueChange={(val) => setSelectedYear(Number(val))}><SelectTrigger className="w-[120px]"><SelectValue /></SelectTrigger><SelectContent>{years.map(y => <SelectItem key={y} value={String(y)}>{y}</SelectItem>)}</SelectContent></Select>
                             </div>
                         )}
-                      </div>
-                  </div>
-                </div>
-            </CardHeader>
-            <CardContent>
-                {isLoading ? <div className="flex justify-center items-center py-10"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>
-                : filteredCases.length === 0 ? <p className="text-muted-foreground text-center py-10">No se encontraron casos con los filtros actuales.</p>
-                : isMobile ? (
-                    <div className="space-y-4">
-                        {filteredCases.map(c => (
-                            <MobileCaseCard
-                                key={c.id}
-                                caseData={c}
-                                savingState={savingState}
-                                caseActions={caseActions}
-                                onAutoSave={handleAutoSave}
-                                approvePreliquidation={approvePreliquidation}
-                            />
-                        ))}
+                        </div>
                     </div>
-                ) : (
-                    <div className="overflow-x-auto table-container rounded-lg border">
-                        <TooltipProvider>
-                        <Table><TableHeader><TableRow>
-                            <TableHead>Acciones</TableHead>
-                            <TableHead>NE</TableHead>
-                            <TableHead>Insignias</TableHead>
-                            <TableHead>Ejecutivo</TableHead>
-                            <TableHead>Consignatario</TableHead>
-                            <TableHead>Factura</TableHead>
-                            <TableHead>Estado Aforador</TableHead>
-                            <TableHead>Estado Revisor</TableHead>
-                            <TableHead>Preliquidación</TableHead>
-                            <TableHead>Estado Digitación</TableHead>
-                            <TableHead>Selectividad</TableHead>
-                            <TableHead>Fecha Despacho</TableHead>
-                            <TableHead>Tipo Incidencia</TableHead>
-                            <TableHead>Facturado</TableHead>
-                        </TableRow></TableHeader>
-                        <TableBody>
-                            {filteredCases.map(c => {
-                                const facturas = c.worksheet?.worksheetType === 'corporate_report' 
-                                    ? (c.worksheet.documents?.filter(d => d.type === 'FACTURA').map(d => d.number) || [])
-                                    : (c.facturaNumber ? c.facturaNumber.split(';').map(f => f.trim()) : []);
-
-                                const firstFactura = facturas[0] || '';
-                                const remainingFacturasCount = facturas.length > 1 ? facturas.length - 1 : 0;
-                                const isPsmt = c.consignee.toUpperCase().trim() === "PSMT NICARAGUA, SOCIEDAD ANONIMA";
-                                const daysUntilDue = c.resaDueDate ? differenceInDays(c.resaDueDate.toDate(), new Date()) : null;
-                                const isResaCritical = daysUntilDue !== null && daysUntilDue < -15;
-
-                                return (
-                                <TableRow key={c.id} className={savingState[c.id] ? "bg-amber-100" : (isResaCritical ? "bg-red-200 hover:bg-red-300" : "")}>
-                                    <TableCell>
-                                      <div className="flex items-center gap-0.5">
-                                        <DropdownMenu>
-                                          <DropdownMenuTrigger asChild><Button variant="ghost" size="sm">Ver</Button></DropdownMenuTrigger>
-                                          <DropdownMenuContent>
-                                            <DropdownMenuItem onSelect={() => handleViewWorksheet(c)} disabled={!c.worksheetId}>
-                                                <BookOpen className="mr-2 h-4 w-4" /> Hoja de Trabajo
-                                            </DropdownMenuItem>
-                                             <DropdownMenuItem onSelect={() => handleSearchPrevio(c.ne)}>
-                                                <Search className="mr-2 h-4 w-4" /> Buscar Previo
-                                            </DropdownMenuItem>
-                                            <DropdownMenuItem onSelect={() => setSelectedCaseForDocs(c)} disabled={!c}>
-                                                <FilePlus className="mr-2 h-4 w-4" /> Docs y Permisos
-                                            </DropdownMenuItem>
-                                            <DropdownMenuItem onSelect={() => setSelectedCaseForQuickRequest(c)} disabled={!c.worksheet}>
-                                                <FilePlus className="mr-2 h-4 w-4" /> Solicitar Previo
-                                            </DropdownMenuItem>
-                                            <DropdownMenuItem onSelect={() => setSelectedCaseForPayment(c)} disabled={!c}>
-                                                <Banknote className="mr-2 h-4 w-4" /> Solicitud de Pago
-                                            </DropdownMenuItem>
-                                            <DropdownMenuItem onSelect={() => setSelectedCaseForPaymentList(c)} disabled={!c}>
-                                                <Banknote className="mr-2 h-4 w-4 text-blue-500" /> Ver Pagos
-                                            </DropdownMenuItem>
-                                            <DropdownMenuItem onSelect={() => setSelectedCaseForResa(c)} disabled={!c}>
-                                                <BellIcon className="mr-2 h-4 w-4 text-orange-500" /> Notificar RESA
-                                            </DropdownMenuItem>
-                                            <DropdownMenuSeparator />
-                                            <DropdownMenuItem onSelect={() => setSelectedCaseForIncident(c)} disabled={!c}>
-                                                <AlertTriangle className="mr-2 h-4 w-4 text-amber-600" /> Reportar Incidencia
-                                            </DropdownMenuItem>
-                                            <DropdownMenuItem onSelect={() => setSelectedCaseForValueDoubt(c)} disabled={!c}>
-                                                <ShieldAlert className="mr-2 h-4 w-4 text-rose-600" /> Reportar Duda de Valor
-                                            </DropdownMenuItem>
-                                            <DropdownMenuSeparator />
-                                            <DropdownMenuItem onSelect={() => setSelectedCaseForHistory(c)} disabled={!c}><History className="mr-2 h-4 w-4" /> Ver Bitácora</DropdownMenuItem>
-                                            {c.incidentReported && (<DropdownMenuItem onSelect={() => handleViewIncidents(c)}><Eye className="mr-2 h-4 w-4" /> Ver Incidencia</DropdownMenuItem>)}
-                                          </DropdownMenuContent>
-                                        </DropdownMenu>
-                                         <Tooltip>
-                                            <TooltipTrigger asChild>
-                                                <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setSelectedCaseForComment(c)}>
-                                                    <MessageSquare className="h-4 w-4" />
-                                                </Button>
-                                            </TooltipTrigger>
-                                            <TooltipContent><p>Añadir/Ver Comentarios</p></TooltipContent>
-                                        </Tooltip>
-                                      </div>
-                                    </TableCell>
-                                    <TableCell className="font-medium">{c.ne}</TableCell>
-                                    <TableCell>
-                                        <StatusBadges caseData={c} />
-                                    </TableCell>
-                                    <TableCell>
-                                        <div className="flex items-center gap-1">
-                                            <span>{c.executive}</span>
-                                            <LastUpdateTooltip lastUpdate={{ by: c.executive, at: c.createdAt }} caseCreation={c.createdAt} />
-                                        </div>
-                                    </TableCell>
-                                    <TableCell>
-                                        {c.consignee.length > 13 ? (
-                                            <Tooltip>
-                                                <TooltipTrigger asChild>
-                                                    <span className="flex items-center gap-1 cursor-help">
-                                                        {`${c.consignee.substring(0, 13)}...`}
-                                                        <Info className="h-4 w-4 text-muted-foreground" />
-                                                    </span>
-                                                </TooltipTrigger>
-                                                <TooltipContent><p>{c.consignee}</p></TooltipContent>
-                                            </Tooltip>
-                                        ) : ( c.consignee )}
-                                    </TableCell>
-                                    <TableCell>
-                                        <div className="flex items-center gap-2">
-                                            <span>{firstFactura}</span>
-                                            {remainingFacturasCount > 0 && (
-                                                <Tooltip>
-                                                    <TooltipTrigger asChild>
-                                                        <Badge variant="secondary" className="cursor-pointer">
-                                                            +{remainingFacturasCount}
-                                                        </Badge>
-                                                    </TooltipTrigger>
-                                                    <TooltipContent>
-                                                        <ul className="list-disc list-inside">
-                                                            {facturas.slice(1).map((f, i) => <li key={i}>{f}</li>)}
-                                                        </ul>
-                                                    </TooltipContent>
-                                                </Tooltip>
-                                            )}
-                                        </div>
-                                    </TableCell>
-                                    <TableCell>
-                                       <div className="flex items-center">
-                                            <Badge variant={getAforadorStatusBadgeVariant(c.aforadorStatus)}>{c.aforadorStatus || 'Pendiente'}</Badge>
-                                            <LastUpdateTooltip lastUpdate={c.aforadorStatusLastUpdate} caseCreation={c.createdAt} />
-                                       </div>
-                                    </TableCell>
-                                    <TableCell>
-                                       <div className="flex items-center">
-                                            <Badge variant={getRevisorStatusBadgeVariant(c.revisorStatus)}>{c.revisorStatus || 'Pendiente'}</Badge>
-                                            <LastUpdateTooltip lastUpdate={c.revisorStatusLastUpdate} caseCreation={c.createdAt}/>
-                                       </div>
-                                    </TableCell>
-                                    <TableCell>
-                                        <div className="flex items-center">
-                                            {c.revisorStatus === 'Aprobado' && c.preliquidationStatus !== 'Aprobada' ? (
-                                                <Button size="sm" onClick={() => approvePreliquidation(c.id)} disabled={savingState[c.id]}>
-                                                    <CheckCircle className="mr-2 h-4 w-4" /> Aprobar
-                                                </Button>
-                                            ) : (
-                                                getPreliquidationStatusBadge(c.preliquidationStatus)
-                                            )}
-                                            <LastUpdateTooltip lastUpdate={c.preliquidationStatusLastUpdate} caseCreation={c.createdAt}/>
-                                        </div>
-                                    </TableCell>
-                                    <TableCell>
-                                        <div className="flex items-center">
-                                            {getDigitacionBadge(c.digitacionStatus, c.declaracionAduanera)}
-                                            <LastUpdateTooltip lastUpdate={c.digitacionStatusLastUpdate} caseCreation={c.createdAt}/>
-                                        </div>
-                                    </TableCell>
-                                     <TableCell>
-                                        <div className="flex items-center gap-2">
-                                            <Select
-                                                value={c.selectividad || ''}
-                                                onValueChange={(value) => handleAutoSave(c.id, 'selectividad', value)}
-                                                disabled={savingState[c.id] || !c.declaracionAduanera}
-                                            >
-                                                <SelectTrigger className="w-[120px]">
-                                                    <SelectValue placeholder="Seleccionar..." />
-                                                </SelectTrigger>
-                                                <SelectContent>
-                                                    <SelectItem value="VERDE">VERDE</SelectItem>
-                                                    <SelectItem value="AMARILLO">AMARILLO</SelectItem>
-                                                    <SelectItem value="ROJO">ROJO</SelectItem>
-                                                </SelectContent>
-                                            </Select>
-                                            {c.selectividad === 'AMARILLO' && (
-                                                <Tooltip>
-                                                    <TooltipTrigger>
-                                                        <Badge variant="secondary" className="cursor-help"><Info className="h-4 w-4" /></Badge>
-                                                    </TooltipTrigger>
-                                                    <TooltipContent>
-                                                        <p>CONSULTA DE VALORES</p>
-                                                    </TooltipContent>
-                                                </Tooltip>
-                                            )}
-                                        </div>
-                                    </TableCell>
-                                    <TableCell>
-                                        <TooltipProvider>
-                                            <Tooltip>
-                                                <TooltipTrigger asChild>
-                                                    <div>
-                                                        <DatePickerWithTime
-                                                            date={(c.fechaDespacho as Timestamp)?.toDate()}
-                                                            onDateChange={(d) => handleAutoSave(c.id, 'fechaDespacho', d ? Timestamp.fromDate(d) : null)}
-                                                            disabled={savingState[c.id] || (c.selectividad !== 'VERDE' && c.selectividad !== 'ROJO')}
-                                                        />
-                                                    </div>
-                                                </TooltipTrigger>
-                                                {(c.selectividad !== 'VERDE' && c.selectividad !== 'ROJO') && (
-                                                    <TooltipContent>
-                                                        <p>Debe seleccionar un estado de selectividad (Verde o Rojo) antes de registrar el despacho.</p>
-                                                    </TooltipContent>
-                                                )}
-                                            </Tooltip>
-                                        </TooltipProvider>
-                                    </TableCell>
-                                    <TableCell>
-                                      <div className="flex items-center">
-                                        {getIncidentTypeDisplay(c)}
-                                        <LastUpdateTooltip lastUpdate={c.incidentStatusLastUpdate} caseCreation={c.createdAt}/>
-                                      </div>
-                                    </TableCell>
-                                    <TableCell>
-                                        <div className="flex items-center justify-center">
-                                            {isPsmt ? (
-                                                <Tooltip>
-                                                    <TooltipTrigger asChild>
-                                                        <div className="inline-block">
-                                                            <Button
-                                                                size="sm"
-                                                                variant="outline"
-                                                                onClick={() => handleSendToFacturacion(c.id)}
-                                                                disabled={savingState[c.id] || !c.fechaDespacho || c.facturacionStatus === 'Facturado'}
-                                                            >
-                                                                <Send className="mr-2 h-4 w-4" />
-                                                                {c.facturacionStatus === 'Enviado a Facturacion' ? 'Re-enviar' : 'Enviar'}
-                                                            </Button>
-                                                        </div>
-                                                    </TooltipTrigger>
-                                                     {!c.fechaDespacho && (
-                                                        <TooltipContent><p>Debe ingresar la fecha de despacho primero.</p></TooltipContent>
-                                                    )}
-                                                </Tooltip>
-                                            ) : (
-                                                <Switch
-                                                    checked={!!c.facturado}
-                                                    onCheckedChange={(checked) => handleAutoSave(c.id, 'facturado', checked)}
-                                                    disabled={savingState[c.id]}
-                                                />
-                                            )}
-                                        </div>
-                                    </TableCell>
-                                </TableRow>
-                            )})}
-                        </TableBody></Table>
-                        </TooltipProvider>
-                    </div>
-                )}
-            </CardContent>
-        </Card>
+                    
+                    <TabsContent value="worksheets" className="mt-6">{renderTable()}</TabsContent>
+                    <TabsContent value="anexos" className="mt-6">{renderTable()}</TabsContent>
+                    <TabsContent value="corporate" className="mt-6">{renderTable()}</TabsContent>
+                </CardContent>
+            </Card>
+        </Tabs>
       </div>
     </AppShell>
     {selectedCaseForDocs && (<ManageDocumentsModal isOpen={!!selectedCaseForDocs} onClose={() => setSelectedCaseForDocs(null)} caseData={selectedCaseForDocs} />)}
@@ -963,6 +1060,21 @@ export default function ExecutivePage() {
             }}
         />
      )}
+     {selectedCaseForProcess && (
+        <StatusProcessModal 
+            isOpen={!!selectedCaseForProcess}
+            onClose={() => setSelectedCaseForProcess(null)}
+            caseData={selectedCaseForProcess}
+        />
+     )}
     </>
   );
+}
+
+export default function ExecutivePage() {
+    return (
+        <Suspense fallback={<div className="min-h-screen flex items-center justify-center bg-background"><Loader2 className="h-12 w-12 animate-spin text-primary" /></div>}>
+            <ExecutivePageContent />
+        </Suspense>
+    );
 }
