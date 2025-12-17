@@ -260,8 +260,8 @@ export function Anexo5Details({ worksheet, onClose }: { worksheet: Worksheet; on
 
             <div className="grid grid-cols-2 gap-x-8 mt-2 print:mt-1">
                 <div className="space-y-4">
-                    <SignatureSection title="ADUANA CENTRAL DE CARGA AEREA" subtitle="Firma y Sello" align="left" className="w-full" />
-                    <SignatureSection title="ADUANA DESTINO" subtitle="Firma y Sello" align="left" className="w-full" />
+                    <SignatureSection title="ADUANA CENTRAL DE CARGA AEREA" subtitle="Firma y Sello" align="left" />
+                    <SignatureSection title="ADUANA DESTINO" subtitle="Firma y Sello" align="left" />
                 </div>
                 <div className="border border-black p-2 flex flex-col justify-between">
                     <p className="text-center font-bold text-sm">TRANSITO</p>
@@ -285,9 +285,7 @@ export function Anexo5Details({ worksheet, onClose }: { worksheet: Worksheet; on
           <Button type="button" onClick={onClose} variant="outline">
           Cerrar
           </Button>
-          <Button type="button" onClick={handlePrint} variant="default">
-          <Printer className="mr-2 h-4 w-4" /> Imprimir
-          </Button>
+          <Anexo5PrintButton />
       </CardFooter>
     </Card>
   );

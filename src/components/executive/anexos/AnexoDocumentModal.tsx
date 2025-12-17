@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useEffect } from 'react';
@@ -9,7 +10,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { anexoDocumentSchema, type AnexoDocumentFormData } from '@/app/executive/anexos/page';
+import { anexoDocumentSchema, type AnexoDocumentFormData } from '@/components/examiner/FormParts/zodSchemas';
 import { v4 as uuidv4 } from 'uuid';
 
 interface AnexoDocumentModalProps {
@@ -17,7 +18,7 @@ interface AnexoDocumentModalProps {
   onClose: () => void;
   onSave: (data: AnexoDocumentFormData) => void;
   documentData: AnexoDocumentFormData | null;
-  worksheetType: 'hoja_de_trabajo' | 'anexo_5' | 'anexo_7';
+  worksheetType: 'hoja_de_trabajo' | 'anexo_5' | 'anexo_7' | 'corporate_report';
 }
 
 export function AnexoDocumentModal({ isOpen, onClose, onSave, documentData, worksheetType }: AnexoDocumentModalProps) {

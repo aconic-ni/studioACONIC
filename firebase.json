@@ -72,5 +72,8 @@
   "storage": {
     "rules": "storage.rules"
   },
-  "extensions": {}
+  "extensions": {},
+  "database": {
+    "rules": "database.rules.json"
+  }
 }

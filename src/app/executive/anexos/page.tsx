@@ -29,24 +29,9 @@ import Link from 'next/link';
 import { AnexoDocumentModal } from '@/components/executive/anexos/AnexoDocumentModal';
 import { DatePicker } from '@/components/reports/DatePicker';
 import { calculateDueDate } from '@/lib/date-utils';
+import { anexoDocumentSchema, type AnexoDocumentFormData } from '@/components/examiner/FormParts/zodSchemas';
 
 // Zod Schema Definition
-export const anexoDocumentSchema = z.object({
-    id: z.string(),
-    cantidad: z.coerce.number().optional(),
-    origen: z.string().optional(),
-    um: z.string().optional(),
-    sac: z.string().optional(),
-    peso: z.coerce.number().optional(),
-    descripcion: z.string().min(1, "Descripción es requerida."),
-    linea: z.string().optional(),
-    guia: z.string().optional(),
-    bulto: z.coerce.number().optional(),
-    total: z.coerce.number().optional(),
-});
-export type AnexoDocumentFormData = z.infer<typeof anexoDocumentSchema>;
-
-
 const anexoSchema = z.object({
   worksheetType: z.enum(['hoja_de_trabajo', 'anexo_5', 'anexo_7', 'corporate_report']).default('anexo_5'),
   ne: z.string().min(1, "El campo NE es requerido."),
@@ -652,5 +637,3 @@ export default function AnexoPage() {
         </AppShell>
     )
 }
-
-    
