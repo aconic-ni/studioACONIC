@@ -9,7 +9,7 @@ import { Loader2, Search, FileSpreadsheet, Inbox } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { db } from '@/lib/firebase';
-import { collection, query, where, onSnapshot, orderBy, doc, getDoc, getDocs, collectionGroup } from 'firebase/firestore';
+import { collection, query, where, onSnapshot, orderBy, doc, getDoc, getDocs, collectionGroup, Timestamp } from 'firebase/firestore';
 import type { Worksheet, WorksheetWithCase } from '@/types';
 import { useToast } from '@/hooks/use-toast';
 import { AforadorCasesTable } from '@/components/aforador/AforadorCasesTable';
@@ -36,8 +36,7 @@ export default function AforadorPage() {
 
     const aforoMetadataQuery = query(
       collectionGroup(db, 'aforo'),
-      where('aforadorId', '==', user.uid),
-      orderBy('aforadorAssignedAt', 'desc')
+      where('aforadorId', '==', user.uid)
     );
 
     const unsubscribe = onSnapshot(aforoMetadataQuery, async (snapshot) => {
@@ -55,7 +54,7 @@ export default function AforadorPage() {
       
       const worksheetDocs = await Promise.all(worksheetPromises);
       
-      const casesData: Worksheet[] = [];
+      let casesData: Worksheet[] = [];
       for (let i = 0; i < worksheetDocs.length; i++) {
         const wsDoc = worksheetDocs[i];
         if (wsDoc && wsDoc.exists()) {
@@ -69,6 +68,13 @@ export default function AforadorPage() {
         }
       }
       
+      // Sort on the client side
+      casesData.sort((a, b) => {
+          const timeA = (a as any).aforo?.aforadorAssignedAt instanceof Timestamp ? (a as any).aforo.aforadorAssignedAt.toMillis() : 0;
+          const timeB = (b as any).aforo?.aforadorAssignedAt instanceof Timestamp ? (b as any).aforo.aforadorAssignedAt.toMillis() : 0;
+          return timeB - timeA;
+      });
+
       setCases(casesData);
       setIsLoading(false);
 

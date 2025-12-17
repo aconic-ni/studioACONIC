@@ -8,6 +8,8 @@ import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { Eye } from 'lucide-react';
 import { WorksheetDetailModal } from '../reporter/WorksheetDetailModal';
+import { Timestamp } from 'firebase/firestore';
+
 
 interface AforadorCasesTableProps {
   cases: Worksheet[];
@@ -37,6 +39,7 @@ export function AforadorCasesTable({ cases, onRefresh }: AforadorCasesTableProps
         <TableBody>
           {cases.map((c) => {
             const aforoData = (c as any).aforo;
+            const assignedAt = aforoData?.aforadorAssignedAt;
             return (
             <TableRow key={c.id}>
               <TableCell>
@@ -47,7 +50,7 @@ export function AforadorCasesTable({ cases, onRefresh }: AforadorCasesTableProps
               <TableCell className="font-medium">{c.ne}</TableCell>
               <TableCell>{c.consignee}</TableCell>
               <TableCell>{c.patternRegime || 'N/A'}</TableCell>
-              <TableCell>{aforoData?.aforadorAssignedAt ? format(aforoData.aforadorAssignedAt.toDate(), 'dd/MM/yyyy HH:mm', { locale: es }) : 'N/A'}</TableCell>
+              <TableCell>{assignedAt instanceof Timestamp ? format(assignedAt.toDate(), 'dd/MM/yyyy HH:mm', { locale: es }) : 'N/A'}</TableCell>
             </TableRow>
           )})}
         </TableBody>

@@ -2,6 +2,22 @@
 {
   "indexes": [
     {
+      "collectionGroup": "aforo",
+      "queryScope": "COLLECTION_GROUP",
+      "fields": [
+        { "fieldPath": "aforadorId", "order": "ASCENDING" },
+        { "fieldPath": "aforadorAssignedAt", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "aforo",
+      "queryScope": "COLLECTION_GROUP",
+      "fields": [
+        { "fieldPath": "revisorId", "order": "ASCENDING" },
+        { "fieldPath": "revisorAssignedAt", "order": "DESCENDING" }
+      ]
+    },
+    {
       "collectionGroup": "actualizaciones",
       "queryScope": "COLLECTION",
       "fields": [
@@ -180,21 +196,17 @@
           "order": "DESCENDING"
         }
       ]
-    },
+    }
+  ],
+  "fieldOverrides": [
     {
-      "collectionGroup": "aforo",
-      "queryScope": "COLLECTION_GROUP",
-      "fields": [
-        { "fieldPath": "aforadorId", "order": "ASCENDING" },
-        { "fieldPath": "aforadorAssignedAt", "order": "DESCENDING" }
-      ]
-    },
-    {
-      "collectionGroup": "aforo",
-      "queryScope": "COLLECTION_GROUP",
-      "fields": [
-        { "fieldPath": "revisorId", "order": "ASCENDING" },
-        { "fieldPath": "revisorAssignedAt", "order": "DESCENDING" }
+      "collectionGroup": "worksheets",
+      "fieldPath": "aforadorId",
+      "indexes": [
+        {
+          "order": "ASCENDING",
+          "queryScope": "COLLECTION"
+        }
       ]
     }
   ]
