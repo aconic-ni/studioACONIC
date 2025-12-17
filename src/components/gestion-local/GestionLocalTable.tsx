@@ -37,6 +37,7 @@ import * as XLSX from 'xlsx';
 import { Label } from '../ui/label';
 import { Switch } from '../ui/switch';
 import { CompleteDigitizationModal } from '../reporter/CompleteDigitizationModal';
+import { AssignmentTypeBadge } from './AssignmentTypeBadge';
 
 interface GestionLocalTableProps {
   worksheets: Worksheet[];
@@ -47,6 +48,7 @@ interface GestionLocalTableProps {
   onComment: (worksheet: Worksheet) => void;
   onView: (worksheet: Worksheet) => void;
   isLoading: boolean;
+  onRefresh: () => void;
 }
 
 export function GestionLocalTable({ worksheets, setWorksheets, selectedRows, setSelectedRows, onAssign, onComment, onView, isLoading }: GestionLocalTableProps) {
@@ -442,6 +444,7 @@ export function GestionLocalTable({ worksheets, setWorksheets, selectedRows, set
                 onCheckedChange={handleSelectAll}
               />
             </TableHead>
+            <TableHead>Tipo</TableHead>
             <TableHead>Acciones</TableHead>
             <TableHead>NE</TableHead>
             <TableHead>Consignatario</TableHead>
@@ -465,6 +468,9 @@ export function GestionLocalTable({ worksheets, setWorksheets, selectedRows, set
                   checked={selectedRows.includes(ws.id)}
                   onCheckedChange={() => handleSelectRow(ws.id)}
                 />
+              </TableCell>
+              <TableCell>
+                  <AssignmentTypeBadge assignmentDate={aforoData?.assignmentDate} digitadorAssignedAt={aforoData?.digitadorAssignedAt} />
               </TableCell>
               <TableCell>
                 <DropdownMenu>
