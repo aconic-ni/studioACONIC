@@ -9,8 +9,8 @@ import { Loader2, Search, FileSpreadsheet, ListChecks, Printer, ClipboardList } 
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { db } from '@/lib/firebase';
-import { collectionGroup, query, where, onSnapshot, orderBy, doc, getDoc } from 'firebase/firestore';
-import type { WorksheetWithCase, Worksheet } from '@/types';
+import { collection, query, where, onSnapshot, orderBy, doc, getDoc } from 'firebase/firestore';
+import type { WorksheetWithCase, Worksheet, AforoCase } from '@/types';
 import { useToast } from '@/hooks/use-toast';
 import { AforadorCasesTable } from '@/components/aforador/AforadorCasesTable';
 import { DailySummaryModal } from '@/components/aforador/DailySummaryModal';
@@ -33,44 +33,52 @@ export default function AforadorPage() {
   const fetchCases = useCallback(() => {
     if (!user?.displayName) return;
     setIsLoading(true);
-
+  
+    // Query AforoCases directly. This is more secure and performant.
     const q = query(
-      collectionGroup(db, 'aforo'),
+      collection(db, 'AforoCases'),
       where('aforador', '==', user.displayName),
-      orderBy('aforadorAssignedAt', 'desc')
+      orderBy('assignmentDate', 'desc')
     );
+  
+    const unsubscribe = onSnapshot(q, async (snapshot) => {
+        const aforoCasesData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as AforoCase));
+        
+        const worksheetIds = aforoCasesData
+            .map(c => c.worksheetId)
+            .filter((id): id is string => !!id);
 
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-        const promises = snapshot.docs.map(async (docSnapshot) => {
-            const aforoData = docSnapshot.data();
-            const worksheetRef = docSnapshot.ref.parent.parent; 
-            if (worksheetRef) {
-                const worksheetSnap = await getDoc(worksheetRef);
-                if (worksheetSnap.exists()) {
-                    const worksheetData = worksheetSnap.data() as Worksheet;
-                    return {
-                        id: worksheetRef.id,
-                        ...worksheetData,
-                        aforo: aforoData,
-                        worksheet: { id: worksheetRef.id, ...worksheetData }
-                    } as WorksheetWithCase;
-                }
+        let worksheetsMap = new Map<string, Worksheet>();
+        if (worksheetIds.length > 0) {
+            // Firestore 'in' query is limited to 30 elements
+            const worksheetPromises = [];
+            for (let i = 0; i < worksheetIds.length; i += 30) {
+                const chunk = worksheetIds.slice(i, i + 30);
+                const wsQuery = query(collection(db, 'worksheets'), where('id', 'in', chunk));
+                worksheetPromises.push(getDocs(wsQuery));
             }
-            return null;
-        });
+            const worksheetSnapshots = await Promise.all(worksheetPromises);
+            worksheetSnapshots.forEach(snap => {
+                snap.forEach(doc => {
+                    worksheetsMap.set(doc.id, { id: doc.id, ...doc.data() } as Worksheet);
+                });
+            });
+        }
+        
+        const combinedData = aforoCasesData.map(caseItem => ({
+            ...caseItem,
+            worksheet: caseItem.worksheetId ? worksheetsMap.get(caseItem.worksheetId) || null : null
+        } as WorksheetWithCase));
 
-        Promise.all(promises).then(fetchedCases => {
-            const validCases = fetchedCases.filter(c => c !== null) as WorksheetWithCase[];
-            setCases(validCases);
-            setIsLoading(false);
-        });
-
+        setCases(combinedData);
+        setIsLoading(false);
+  
     }, (error) => {
         console.error("Error fetching aforador cases:", error);
         toast({ title: "Error", description: "No se pudieron cargar los casos asignados.", variant: "destructive" });
         setIsLoading(false);
     });
-
+  
     return unsubscribe;
   }, [user?.displayName, toast]);
 
@@ -88,9 +96,8 @@ export default function AforadorPage() {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     return cases.filter(c => {
-        const aforoData = (c as any).aforo;
-        const lastUpdateDate = aforoData?.aforadorStatusLastUpdate?.at?.toDate();
-        return aforoData?.aforadorStatus === 'En revisión' && 
+        const lastUpdateDate = c.aforadorStatusLastUpdate?.at?.toDate();
+        return c.aforadorStatus === 'En revisión' && 
                lastUpdateDate && lastUpdateDate >= today;
     });
   }, [cases]);

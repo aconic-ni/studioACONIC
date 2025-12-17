@@ -72,35 +72,42 @@ export default function AgenteCasosPage() {
 
     setIsLoading(true);
     
+    // Query AforoCases directly for better performance and security rule compliance.
     const q = query(
-        collectionGroup(db, "aforo"),
-        where("revisor", "==", user.displayName),
-        orderBy("revisorAssignedAt", "desc")
+        collection(db, "AforoCases"),
+        where("revisorAsignado", "==", user.displayName),
+        orderBy("revisorAsignadoLastUpdate.at", "desc")
     );
 
     const unsubscribe = onSnapshot(q, async (snapshot) => {
-        const promises = snapshot.docs.map(async (aforoDoc) => {
-            const aforoData = aforoDoc.data();
-            const worksheetRef = aforoDoc.ref.parent.parent;
-            if (worksheetRef) {
-                const wsSnap = await getDoc(worksheetRef);
-                if (wsSnap.exists()) {
-                    const wsData = wsSnap.data() as Worksheet;
-                    
-                    const caseData: WorksheetWithCase = {
-                        id: wsSnap.id,
-                        ...(aforoData as Partial<AforoCase>), // Spread aforo data
-                        ...wsData, // Spread worksheet data
-                        worksheet: { id: wsSnap.id, ...wsData } // Keep worksheet nested
-                    };
-                    return caseData;
-                }
-            }
-            return null;
-        });
+        const aforoCasesData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as AforoCase));
+        
+        const worksheetIds = aforoCasesData
+            .map(c => c.worksheetId)
+            .filter((id): id is string => !!id);
 
-        const fetchedCases = (await Promise.all(promises)).filter(c => c !== null) as WorksheetWithCase[];
-        setAllCases(fetchedCases);
+        let worksheetsMap = new Map<string, Worksheet>();
+        if (worksheetIds.length > 0) {
+            const worksheetPromises = [];
+            for (let i = 0; i < worksheetIds.length; i += 30) {
+                const chunk = worksheetIds.slice(i, i + 30);
+                const wsQuery = query(collection(db, 'worksheets'), where('id', 'in', chunk));
+                worksheetPromises.push(getDocs(wsQuery));
+            }
+            const worksheetSnapshots = await Promise.all(worksheetPromises);
+            worksheetSnapshots.forEach(snap => {
+                snap.forEach(doc => {
+                    worksheetsMap.set(doc.id, { id: doc.id, ...doc.data() } as Worksheet);
+                });
+            });
+        }
+        
+        const combinedData = aforoCasesData.map(caseItem => ({
+            ...caseItem,
+            worksheet: caseItem.worksheetId ? worksheetsMap.get(caseItem.worksheetId) || null : null
+        } as WorksheetWithCase));
+
+        setAllCases(combinedData);
         setIsLoading(false);
     }, (error) => {
         console.error("Error fetching assigned cases:", error);
@@ -149,7 +156,7 @@ export default function AgenteCasosPage() {
 
     if (start && end) {
         dateFiltered = cases.filter(c => {
-            const caseDate = (c.revisorAssignedAt as Timestamp)?.toDate();
+            const caseDate = (c.revisorAsignadoLastUpdate?.at as Timestamp)?.toDate();
             return caseDate && caseDate >= start! && caseDate <= end!;
         });
     }
@@ -180,16 +187,16 @@ export default function AgenteCasosPage() {
 
     selectedRows.forEach(caseId => {
         const originalCase = allCases.find(c => c.id === caseId);
-        if (!originalCase?.worksheet?.id) return;
+        if (!originalCase?.id) return;
         
-        const aforoMetadataRef = doc(db, 'worksheets', originalCase.worksheet.id, 'aforo', 'metadata');
-        const updatesSubcollectionRef = collection(db, 'worksheets', originalCase.worksheet.id, 'actualizaciones');
+        const aforoCaseRef = doc(db, 'AforoCases', originalCase.id);
+        const updatesSubcollectionRef = collection(db, 'AforoCases', originalCase.id, 'actualizaciones');
         
-        batch.set(aforoMetadataRef, {
+        batch.update(aforoCaseRef, {
             revisorStatus: newStatus,
             observacionRevisor: comment,
             revisorStatusLastUpdate: { by: user.displayName, at: Timestamp.now() }
-        }, { merge: true });
+        });
 
         const updateLog: Omit<AforoCaseUpdate, 'updatedAt'> & { updatedAt: any } = {
             updatedAt: serverTimestamp(),
