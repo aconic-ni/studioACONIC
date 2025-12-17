@@ -42,11 +42,20 @@ export default function AuthorizePage() {
       return usersToEnrich;
     }
 
-    // Get all potential group members in one query
     const allGroupMemberIds = new Set<string>();
     enrichedUsers.forEach(u => {
-      u.visibilityGroup?.forEach(memberId => allGroupMemberIds.add(memberId));
+      u.visibilityGroup?.forEach(member => {
+        // The member can be a string (uid) or an object {uid, ...}
+        const memberId = typeof member === 'string' ? member : member.uid;
+        if (memberId) {
+            allGroupMemberIds.add(memberId);
+        }
+      });
     });
+
+    if (allGroupMemberIds.size === 0) {
+        return enrichedUsers;
+    }
 
     const membersQuery = query(collection(db, 'users'), where(documentId(), 'in', Array.from(allGroupMemberIds)));
     const membersSnapshot = await getDocs(membersQuery);
@@ -57,7 +66,8 @@ export default function AuthorizePage() {
         return {
           ...u,
           visibilityGroup: u.visibilityGroup
-            .map(memberId => {
+            .map(member => {
+              const memberId = typeof member === 'string' ? member : member.uid;
               const memberData = membersMap.get(memberId);
               return memberData ? { uid: memberId, displayName: memberData.displayName, email: memberData.email } : null;
             })
@@ -239,3 +249,5 @@ export default function AuthorizePage() {
     </>
   );
 }
+
+    

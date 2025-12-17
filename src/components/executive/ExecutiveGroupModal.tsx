@@ -72,22 +72,18 @@ export function ExecutiveGroupModal({ isOpen, onClose, allUsers, onGroupUpdated,
     
     const batch = writeBatch(db);
     
-    // The group data should be an array of UIDs
     const newGroupMemberUids = groupMembers.map(m => m.uid);
 
-    // Identify users who were in the old group but are no longer in the new one
     const originalGroupUids = currentUser.visibilityGroup?.map(member => typeof member === 'string' ? member : member.uid) || [];
     const allPreviouslyAffectedUids = Array.from(new Set([currentUser.uid, ...originalGroupUids]));
     
     const usersToRemoveFromGroup = allPreviouslyAffectedUids.filter(uid => !newGroupMemberUids.includes(uid));
 
-    // Update all members of the new group to have the same list of UIDs
     newGroupMemberUids.forEach(uid => {
       const userRef = doc(db, 'users', uid);
       batch.update(userRef, { visibilityGroup: newGroupMemberUids });
     });
 
-    // Clear the group for users who were removed
     usersToRemoveFromGroup.forEach(uid => {
         const userRef = doc(db, 'users', uid);
         batch.update(userRef, { visibilityGroup: [] });
@@ -185,3 +181,5 @@ export function ExecutiveGroupModal({ isOpen, onClose, allUsers, onGroupUpdated,
     </Dialog>
   );
 }
+
+    

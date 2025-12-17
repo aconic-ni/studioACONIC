@@ -1,5 +1,4 @@
 
-
 "use client";
 
 import { useState, useCallback, useEffect } from 'react';
@@ -23,7 +22,7 @@ interface UserManagementTableProps {
   initialUsers: AppUser[];
 }
 
-const userRoles: UserRole[] = ['admin', 'coordinadora', 'ejecutivo', 'gestor', 'aforador', 'agente', 'supervisor', 'digitador', 'revisor', 'calificador', 'autorevisor', 'autorevisor_plus', 'invitado', 'facturador'];
+const userRoles: UserRole[] = ['admin', 'coordinadora', 'ejecutivo', 'gestor', 'aforador', 'agente', 'supervisor', 'digitador', 'revisor', 'calificador', 'autorevisor', 'autorevisor_plus', 'invitado', 'facturador', 'legal'];
 
 export function UserManagementTable({ initialUsers }: UserManagementTableProps) {
   const { user: adminUser } = useAuth();
@@ -180,8 +179,3 @@ export function UserManagementTable({ initialUsers }: UserManagementTableProps) 
     </div>
   );
 }
-
-
-
-
-

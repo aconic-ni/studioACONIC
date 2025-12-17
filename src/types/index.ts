@@ -43,7 +43,7 @@ export interface AppUser {
   isStaticUser?: boolean;
   hasReportsAccess?: boolean; // For CustomsReports
   hasPaymentAccess?: boolean; // For databasePay
-  visibilityGroup?: { uid: string; displayName: string; email: string; }[]; // For executive groups - stores UIDs and names/emails
+  visibilityGroup?: (string | { uid: string; displayName: string; email: string; })[];
   canReviewUserEmails?: string[]; // For autorevisor_plus
   consigneeDirectory?: { name: string, createdAt: Timestamp }[]; // Subcollection
   agentLicense?: string;
@@ -587,3 +587,5 @@ export interface Remision {
   totalCases: number;
   cases: RemisionCase[];
 }
+
+    
