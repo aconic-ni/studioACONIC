@@ -2,7 +2,7 @@
 "use client";
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { db } from '@/lib/firebase';
-import { collection, query, where, onSnapshot, Timestamp, orderBy, getDocs, QueryConstraint, getDoc, writeBatch, doc } from 'firebase/firestore';
+import { collection, query, where, onSnapshot, Timestamp, orderBy, getDocs, QueryConstraint, getDoc, writeBatch, doc, collectionGroup } from 'firebase/firestore';
 import { useAuth } from '@/context/AuthContext';
 import { AppShell } from '@/components/layout/AppShell';
 import { Loader2, Inbox, Eye, Search, Calendar, CalendarDays, CalendarRange, BookOpen, AlertTriangle, History, CheckSquare } from 'lucide-react';
@@ -11,7 +11,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import type { AforoCase, AforoCaseStatus, PreliquidationStatus, DigitacionStatus, Worksheet, AforoCaseUpdate } from '@/types';
+import type { AforoCase, AforoCaseStatus, PreliquidationStatus, DigitacionStatus, Worksheet, AforoCaseUpdate, WorksheetWithCase } from '@/types';
 import { format, startOfDay, endOfDay, startOfMonth, endOfMonth } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { ObservationModal } from '@/components/reporter/ObservationModal';
@@ -44,8 +44,8 @@ const years = Array.from({ length: 5 }, (_, i) => currentYear - i);
 export default function AgenteCasosPage() {
   const { user, loading: authLoading } = useAuth();
   const isMobile = useIsMobile();
-  const [allCases, setAllCases] = useState<AforoCase[]>([]);
-  const [filteredCases, setFilteredCases] = useState<AforoCase[]>([]);
+  const [allCases, setAllCases] = useState<WorksheetWithCase[]>([]);
+  const [filteredCases, setFilteredCases] = useState<WorksheetWithCase[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [selectedCaseForAction, setSelectedCaseForAction] = useState<AforoCase | null>(null);
   const [isObservationModalOpen, setIsObservationModalOpen] = useState(false);
@@ -71,24 +71,48 @@ export default function AgenteCasosPage() {
     }
 
     setIsLoading(true);
-    try {
-        const q = query(
-            collection(db, "AforoCases"),
-            where("revisorAsignado", "==", user.displayName),
-            orderBy("createdAt", "desc")
-        );
-        const snapshot = await getDocs(q);
-        const fetchedCases = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as AforoCase));
+    
+    const q = query(
+        collectionGroup(db, "aforo"),
+        where("revisor", "==", user.displayName),
+        orderBy("revisorAssignedAt", "desc")
+    );
+
+    const unsubscribe = onSnapshot(q, async (snapshot) => {
+        const promises = snapshot.docs.map(async (doc) => {
+            const aforoData = doc.data();
+            const worksheetRef = doc.ref.parent.parent;
+            if (worksheetRef) {
+                const wsSnap = await getDoc(worksheetRef);
+                if (wsSnap.exists()) {
+                    const wsData = wsSnap.data() as Worksheet;
+                    return {
+                        id: wsSnap.id,
+                        ...aforoData, // Spread aforo data here
+                        worksheet: { id: wsSnap.id, ...wsData }
+                    } as WorksheetWithCase;
+                }
+            }
+            return null;
+        });
+
+        const fetchedCases = (await Promise.all(promises)).filter(c => c !== null) as WorksheetWithCase[];
         setAllCases(fetchedCases);
-    } catch (error) {
-        console.error("Error fetching assigned cases:", error);
-    } finally {
         setIsLoading(false);
-    }
-  }, [user]);
+    }, (error) => {
+        console.error("Error fetching assigned cases:", error);
+        toast({ title: "Error", description: "No se pudieron cargar los casos asignados.", variant: "destructive" });
+        setIsLoading(false);
+    });
+
+    return unsubscribe;
+  }, [user, toast]);
 
   useEffect(() => {
-    fetchData();
+    const unsub = fetchData();
+    return () => {
+        unsub.then(u => u && u());
+    };
   }, [fetchData]);
 
   const applyFilters = useCallback(() => {
@@ -119,7 +143,7 @@ export default function AgenteCasosPage() {
 
     if (start && end) {
         dateFiltered = cases.filter(c => {
-            const caseDate = c.assignmentDate?.toDate();
+            const caseDate = (c.revisorAssignedAt as Timestamp)?.toDate();
             return caseDate && caseDate >= start! && caseDate <= end!;
         });
     }
@@ -149,18 +173,20 @@ export default function AgenteCasosPage() {
     const comment = "Aprobado masivamente por agente aduanero.";
 
     selectedRows.forEach(caseId => {
-        const caseRef = doc(db, 'AforoCases', caseId);
         const originalCase = allCases.find(c => c.id === caseId);
+        if (!originalCase?.worksheet?.id) return;
         
-        batch.update(caseRef, {
+        const aforoMetadataRef = doc(db, 'worksheets', originalCase.worksheet.id, 'aforo', 'metadata');
+        const updatesSubcollectionRef = collection(db, 'worksheets', originalCase.worksheet.id, 'actualizaciones');
+        
+        batch.set(aforoMetadataRef, {
             revisorStatus: newStatus,
             observacionRevisor: comment,
             revisorStatusLastUpdate: { by: user.displayName, at: Timestamp.now() }
-        });
+        }, { merge: true });
 
-        const updatesSubcollectionRef = collection(caseRef, 'actualizaciones');
-        const updateLog: AforoCaseUpdate = {
-            updatedAt: Timestamp.now(),
+        const updateLog: Omit<AforoCaseUpdate, 'updatedAt'> & { updatedAt: any } = {
+            updatedAt: serverTimestamp(),
             updatedBy: user.displayName,
             field: 'status_change',
             oldValue: originalCase?.revisorStatus || 'Pendiente',

@@ -9,8 +9,8 @@ import { Loader2, Search, FileSpreadsheet, ListChecks, Printer, ClipboardList } 
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { db } from '@/lib/firebase';
-import { collection, query, where, onSnapshot, orderBy } from 'firebase/firestore';
-import type { WorksheetWithCase } from '@/types';
+import { collectionGroup, query, where, onSnapshot, orderBy } from 'firebase/firestore';
+import type { WorksheetWithCase, Worksheet } from '@/types';
 import { useToast } from '@/hooks/use-toast';
 import { AforadorCasesTable } from '@/components/aforador/AforadorCasesTable';
 import { DailySummaryModal } from '@/components/aforador/DailySummaryModal';
@@ -35,19 +35,36 @@ export default function AforadorPage() {
     setIsLoading(true);
 
     const q = query(
-        collection(db, 'worksheets'),
-        where('aforador', '==', user.displayName),
-        orderBy('createdAt', 'desc')
+      collectionGroup(db, 'aforo'),
+      where('aforador', '==', user.displayName),
+      orderBy('aforadorAssignedAt', 'desc')
     );
 
     const unsubscribe = onSnapshot(q, (snapshot) => {
-        const fetchedCases = snapshot.docs.map(doc => ({
-            id: doc.id,
-            ...(doc.data() as any), // Casting to any to add worksheet prop
-            worksheet: { id: doc.id, ...doc.data() }
-        } as WorksheetWithCase));
-        setCases(fetchedCases);
-        setIsLoading(false);
+        const promises = snapshot.docs.map(async (doc) => {
+            const aforoData = doc.data();
+            const worksheetRef = doc.ref.parent.parent; // This should be the worksheet document
+            if (worksheetRef) {
+                const worksheetSnap = await getDoc(worksheetRef);
+                if (worksheetSnap.exists()) {
+                    const worksheetData = worksheetSnap.data() as Worksheet;
+                    return {
+                        id: worksheetRef.id,
+                        ...worksheetData,
+                        aforo: aforoData, // Attach the aforo data
+                        worksheet: { id: worksheetRef.id, ...worksheetData } // For compatibility
+                    } as WorksheetWithCase;
+                }
+            }
+            return null;
+        });
+
+        Promise.all(promises).then(fetchedCases => {
+            const validCases = fetchedCases.filter(c => c !== null) as WorksheetWithCase[];
+            setCases(validCases);
+            setIsLoading(false);
+        });
+
     }, (error) => {
         console.error("Error fetching aforador cases:", error);
         toast({ title: "Error", description: "No se pudieron cargar los casos asignados.", variant: "destructive" });
@@ -71,8 +88,9 @@ export default function AforadorPage() {
     today.setHours(0, 0, 0, 0);
     return cases.filter(c => {
         const aforoData = (c as any).aforo;
+        const lastUpdateDate = aforoData?.aforadorStatusLastUpdate?.at?.toDate();
         return aforoData?.aforadorStatus === 'En revisión' && 
-               aforoData?.aforadorStatusLastUpdate?.at.toDate() >= today;
+               lastUpdateDate && lastUpdateDate >= today;
     });
   }, [cases]);
 
@@ -146,4 +164,3 @@ export default function AforadorPage() {
     </>
   );
 }
-
