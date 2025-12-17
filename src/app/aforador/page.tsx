@@ -21,7 +21,7 @@ export default function AforadorPage() {
   const { user, loading: authLoading } = useAuth();
   const router = useRouter();
   const { toast } = useToast();
-  const [cases, setCases] = useState<Worksheet[]>([]);
+  const [cases, setCases] = useState<WorksheetWithCase[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isSummaryModalOpen, setIsSummaryModalOpen] = useState(false);
 
@@ -60,15 +60,17 @@ export default function AforadorPage() {
       
       const worksheetDocs = await Promise.all(worksheetPromises);
       
-      let casesData: Worksheet[] = [];
+      let casesData: WorksheetWithCase[] = [];
       for (let i = 0; i < worksheetDocs.length; i++) {
         const wsDoc = worksheetDocs[i];
         if (wsDoc && wsDoc.exists()) {
             const wsData = { id: wsDoc.id, ...wsDoc.data() } as Worksheet;
             const aforoData = snapshot.docs[i].data();
             
-            const combinedData: Worksheet & { aforo?: any } = wsData;
-            combinedData.aforo = aforoData;
+            const combinedData: WorksheetWithCase = {
+                ...(wsData as any),
+                aforo: aforoData
+            };
             
             casesData.push(combinedData);
         }
@@ -76,8 +78,8 @@ export default function AforadorPage() {
       
       // Sort on the client side
       casesData.sort((a, b) => {
-          const timeA = (a as any).aforo?.aforadorAssignedAt instanceof Timestamp ? (a as any).aforo.aforadorAssignedAt.toMillis() : 0;
-          const timeB = (b as any).aforo?.aforadorAssignedAt instanceof Timestamp ? (b as any).aforo.aforadorAssignedAt.toMillis() : 0;
+          const timeA = (a.aforo as any)?.aforadorAssignedAt instanceof Timestamp ? (a.aforo as any).aforadorAssignedAt.toMillis() : 0;
+          const timeB = (b.aforo as any)?.aforadorAssignedAt instanceof Timestamp ? (b.aforo as any).aforadorAssignedAt.toMillis() : 0;
           return timeB - timeA;
       });
 
@@ -116,7 +118,7 @@ export default function AforadorPage() {
         const lastUpdateDate = aforoData?.aforadorStatusLastUpdate?.at?.toDate();
         return aforoData?.aforadorStatus === 'En revisión' && 
                lastUpdateDate && lastUpdateDate >= today;
-    }).map(c => c as WorksheetWithCase);
+    }).map(c => c);
   }, [cases]);
 
   if (authLoading || !user) {

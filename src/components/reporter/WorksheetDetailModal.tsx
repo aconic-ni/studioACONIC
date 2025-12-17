@@ -1,15 +1,15 @@
+
 "use client";
 
 import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { WorksheetDetails } from '../executive/WorksheetDetails';
-import { Anexo5Details } from '../executive/anexos/Anexo5Details';
-import type { Worksheet } from '@/types';
+import type { Worksheet, WorksheetWithCase } from '@/types';
 
 interface WorksheetDetailModalProps {
   isOpen: boolean;
   onClose: () => void;
-  worksheet: Worksheet | null;
+  worksheet: Worksheet | WorksheetWithCase | null;
 }
 
 export function WorksheetDetailModal({ isOpen, onClose, worksheet }: WorksheetDetailModalProps) {
@@ -20,7 +20,11 @@ export function WorksheetDetailModal({ isOpen, onClose, worksheet }: WorksheetDe
       <DialogContent className="max-w-4xl p-0 h-[90vh] flex flex-col">
         <ScrollArea className="flex-grow">
           <div className="p-6">
-            <WorksheetDetails worksheet={worksheet} onClose={onClose} />
+            <WorksheetDetails 
+              worksheet={worksheet as Worksheet} 
+              aforoCase={'aforo' in worksheet ? (worksheet as any).aforo : null}
+              onClose={onClose} 
+            />
           </div>
         </ScrollArea>
       </DialogContent>

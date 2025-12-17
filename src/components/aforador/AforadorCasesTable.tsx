@@ -1,7 +1,7 @@
 
 "use client";
 import React, { useState, useMemo } from 'react';
-import type { Worksheet } from '@/types';
+import type { Worksheet, WorksheetWithCase } from '@/types';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
 import { format } from 'date-fns';
@@ -14,11 +14,11 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 
 
 interface AforadorCasesTableProps {
-  cases: Worksheet[];
+  cases: WorksheetWithCase[];
 }
 
 export function AforadorCasesTable({ cases }: AforadorCasesTableProps) {
-  const [worksheetToView, setWorksheetToView] = useState<Worksheet | null>(null);
+  const [worksheetToView, setWorksheetToView] = useState<WorksheetWithCase | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
 
