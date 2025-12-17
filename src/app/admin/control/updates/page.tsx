@@ -473,22 +473,14 @@ function BitacoraMigrator() {
 
             for (const caseData of casesWithWorksheet) {
                 try {
-                    if (!caseData.id || !caseData.worksheetId) {
-                        continue; // Skip if essential IDs are missing
-                    }
-
+                    if (!caseData.id) continue;
+                    
                     const sourceUpdatesRef = collection(db, 'AforoCases', caseData.id, 'actualizaciones');
                     const sourceSnapshot = await getDocs(sourceUpdatesRef);
                     
                     if (!sourceSnapshot.empty) {
                         casesWithLogsCount++;
-                        
-                        const targetUpdatesRef = collection(db, 'worksheets', caseData.worksheetId, 'aforo', 'actualizaciones');
-                        const targetSnapshot = await getDocs(targetUpdatesRef);
-                        
-                        if (targetSnapshot.empty) {
-                           totalLogsToMigrate += sourceSnapshot.size;
-                        }
+                        totalLogsToMigrate += sourceSnapshot.size;
                     }
                 } catch(e) {
                     console.warn(`Could not process case ${caseData.id} for stats:`, e);
