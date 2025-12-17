@@ -58,7 +58,7 @@ export const roleConfig: Record<UserRole, RoleConfig> = {
     navLinks: ['dbPrevios', 'photos', 'agenteCasos'],
   },
   digitador: {
-    home: '/thereporter',
+    home: '/gestionlocal',
     navLinks: ['reportsAforo', 'photos'],
   },
   revisor: {
@@ -106,7 +106,7 @@ export const navLinkDetails: Record<NavLink, { href: string; label: string; icon
   agenteCasos: { href: '/agente/casos', label: 'Gestión de Casos', icon: Briefcase },
   supervisor: { href: '/supervisor', label: 'Panel Supervisor', icon: Users },
   executive: { href: '/executive', label: 'Módulo Ejecutivo', icon: Briefcase },
-  reporter: { href: '/thereporter', label: 'Módulo Aforador', icon: Search },
+  reporter: { href: '/gestionlocal', label: 'Módulo Aforador', icon: Search },
   facturacion: { href: '/facturacion', label: 'Facturación', icon: FileDigit },
   legal: { href: '/legal', label: 'Módulo Legal', icon: Scale },
   legalRequest: { href: '/legal/request', label: 'Solicitud Legal', icon: Scale },

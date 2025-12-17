@@ -23,8 +23,9 @@ export function AforadorCasesTable({ cases, onRefresh }: AforadorCasesTableProps
   const { user } = useAuth();
   const { toast } = useToast();
   const [positions, setPositions] = useState<{ [key: string]: string }>({});
-  const [savingState, setSavingState = useState<{ [key: string]: boolean }>({});
-  const [worksheetToView, setWorksheetToView = useState<WorksheetWithCase['worksheet'] | null>(null);
+  const [savingState, setSavingState] = useState<{ [key: string]: boolean }>({});
+  const [worksheetToView, setWorksheetToView] = useState<WorksheetWithCase['worksheet'] | null>(null);
+
 
   const handlePositionChange = (caseId: string, value: string) => {
     setPositions(prev => ({ ...prev, [caseId]: value }));
@@ -155,4 +156,3 @@ export function AforadorCasesTable({ cases, onRefresh }: AforadorCasesTableProps
     </>
   );
 }
-
