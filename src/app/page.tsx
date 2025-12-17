@@ -3,12 +3,14 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Loader2 } from 'lucide-react';
-import { LoginModal } from '@/components/auth/LoginModal';
 import { useAuth } from '@/context/AuthContext';
 import { Button } from '@/components/ui/button';
 import { roleConfig } from '@/lib/roles';
 import type { UserRole } from '@/types';
 import Image from 'next/image';
+import dynamic from 'next/dynamic';
+
+const LoginModal = dynamic(() => import('@/components/auth/LoginModal').then(mod => mod.LoginModal), { ssr: false });
 
 export default function HomePage() {
   const { user, loading } = useAuth();
@@ -90,12 +92,14 @@ export default function HomePage() {
             </Button>
       </main>
       
-      <LoginModal
-        isOpen={isLoginModalOpen}
-        onClose={handleModalClose}
-        onLoginSuccess={handleLoginSuccess}
-        targetSystem="examiner"
-      />
+      {isLoginModalOpen && (
+        <LoginModal
+          isOpen={isLoginModalOpen}
+          onClose={handleModalClose}
+          onLoginSuccess={handleLoginSuccess}
+          targetSystem="examiner"
+        />
+      )}
 
        <footer className="text-center text-sm text-blue-300 py-4">
         Stvaer © 2025 for ACONIC

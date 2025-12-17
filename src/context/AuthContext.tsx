@@ -1,3 +1,4 @@
+
 "use client";
 import type React from 'react';
 import { createContext, useContext, useEffect, useState, useCallback } from 'react';
@@ -7,6 +8,7 @@ import { db } from '@/lib/firebase'; // Keep for firestore access
 import { doc, getDoc, setDoc, serverTimestamp, collection, getDocs, query, where, documentId } from 'firebase/firestore';
 import type { AppUser, UserRole } from '@/types';
 import { useFirebaseApp } from './FirebaseAppContext';
+import { useRouter } from 'next/navigation';
 
 interface AuthContextType {
   user: AppUser | null;
@@ -24,6 +26,7 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }
   const [isProfileComplete, setIsProfileComplete] = useState(false);
   const { isFirebaseInitialized } = useFirebaseApp();
   const auth = useFirebaseAuth(); // Get auth instance via hook
+  const router = useRouter();
 
   const checkUserProfile = useCallback(async (firebaseUser: FirebaseUser) => {
     if (firebaseUser.isAnonymous) {
@@ -147,6 +150,7 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }
       await firebaseSignOut(auth);
       setUser(null);
       setIsProfileComplete(false);
+      router.push('/'); // Redirect to home page
     } catch (error) {
       console.error("Error signing out: ", error);
     } finally {
