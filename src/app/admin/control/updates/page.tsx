@@ -465,16 +465,35 @@ function BitacoraMigrator() {
     const fetchStats = useCallback(async () => {
         setIsLoading(true);
         try {
-            const q = query(collectionGroup(db, 'actualizaciones'), where('__name__', '>=', 'AforoCases/'), where('__name__', '<', 'AforoCases0'));
-            const snapshot = await getCountFromServer(q);
-            const totalLogs = snapshot.data().count;
+            const aforoCasesSnapshot = await getDocs(query(collection(db, 'AforoCases'), where('worksheetId', '!=', null)));
+            const casesWithWorksheet = aforoCasesSnapshot.docs;
+            
+            let casesWithLogsCount = 0;
+            let totalLogsToMigrate = 0;
 
-            const casesWithLogsSnapshot = await getDocs(query(collection(db, 'AforoCases'), where('worksheetId', '!=', null)));
-            const casesWithLogs = casesWithLogsSnapshot.docs.length;
+            for (const caseDoc of casesWithWorksheet) {
+                const worksheetId = caseDoc.data().worksheetId;
+                if (worksheetId) {
+                    const sourceUpdatesRef = collection(db, 'AforoCases', caseDoc.id, 'actualizaciones');
+                    const targetUpdatesRef = collection(db, 'worksheets', worksheetId, 'aforo', 'actualizaciones');
+                    
+                    const [sourceSnapshot, targetSnapshot] = await Promise.all([
+                        getDocs(sourceUpdatesRef),
+                        getDocs(targetUpdatesRef)
+                    ]);
+                    
+                    if (!sourceSnapshot.empty) {
+                        casesWithLogsCount++;
+                        if (targetSnapshot.empty) {
+                           totalLogsToMigrate += sourceSnapshot.size;
+                        }
+                    }
+                }
+            }
 
             setStats({
-                casesWithLogs: casesWithLogs,
-                logsToMigrate: totalLogs,
+                casesWithLogs: casesWithLogsCount,
+                logsToMigrate: totalLogsToMigrate,
             });
 
         } catch (error) {
@@ -582,7 +601,7 @@ export default function UpdatesAdminPage() {
         <Tabs defaultValue="sync">
             <TabsList>
                 <TabsTrigger value="sync">Herramientas de Datos</TabsTrigger>
-                <TabsTrigger value="stats" disabled>Estadísticas de Actividad (Próximamente)</TabsTrigger>
+                <TabsTrigger value="stats">Estadísticas de Actividad</TabsTrigger>
             </TabsList>
             <TabsContent value="sync" className="mt-4 grid gap-6">
                 <BitacoraMigrator />
@@ -592,7 +611,7 @@ export default function UpdatesAdminPage() {
                 <TotalPosicionesMigrator />
             </TabsContent>
             <TabsContent value="stats" className="mt-4">
-                <p>Módulo de estadísticas en desarrollo.</p>
+                 <p>Módulo de estadísticas en desarrollo.</p>
             </TabsContent>
         </Tabs>
       </div>
