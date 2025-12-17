@@ -65,7 +65,7 @@ export default function AgenteCasosPage() {
   const [selectedRows, setSelectedRows] = useState<string[]>([]);
 
   const fetchData = useCallback(async () => {
-    if (!user || !user.uid) {
+    if (!user || !user.displayName) {
         setIsLoading(false);
         return;
     }
@@ -74,7 +74,7 @@ export default function AgenteCasosPage() {
     
     const aforoMetadataQuery = query(
       collectionGroup(db, 'aforo'),
-      where('revisorId', '==', user.uid),
+      where('revisor', '==', user.displayName),
       orderBy('revisorAssignedAt', 'desc')
     );
 

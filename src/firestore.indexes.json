@@ -1,0 +1,202 @@
+
+{
+  "indexes": [
+    {
+      "collectionGroup": "aforo",
+      "queryScope": "COLLECTION_GROUP",
+      "fields": [
+        { "fieldPath": "aforador", "order": "ASCENDING" },
+        { "fieldPath": "aforadorAssignedAt", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "aforo",
+      "queryScope": "COLLECTION_GROUP",
+      "fields": [
+        { "fieldPath": "revisor", "order": "ASCENDING" },
+        { "fieldPath": "revisorAssignedAt", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "actualizaciones",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "newValue",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "updatedAt",
+          "order": "DESCENDING"
+        },
+        {
+          "fieldPath": "__name__",
+          "order": "DESCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "adminAuditLog",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "docId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "timestamp",
+          "order": "DESCENDING"
+        },
+        {
+          "fieldPath": "__name__",
+          "order": "DESCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "examenesPrevios",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "completedAt",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "lastUpdated",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "__name__",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "examenesPrevios",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "isArchived",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "ne",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "__name__",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "Memorandum",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "examNe",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "savedAt",
+          "order": "DESCENDING"
+        },
+        {
+          "fieldPath": "__name__",
+          "order": "DESCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "Memorandum",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "savedBy",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "examDate",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "__name__",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "Memorandum",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "savedBy",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "examDate",
+          "order": "DESCENDING"
+        },
+        {
+          "fieldPath": "__name__",
+          "order": "DESCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "SolicitudCheques",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "examNe",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "savedAt",
+          "order": "DESCENDING"
+        },
+        {
+          "fieldPath": "__name__",
+          "order": "DESCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "SolicitudCheques",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "savedBy",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "examDate",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "__name__",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "SolicitudCheques",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "savedBy",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "examDate",
+          "order": "DESCENDING"
+        },
+        {
+          "fieldPath": "__name__",
+          "order": "DESCENDING"
+        }
+      ]
+    }
+  ],
+  "fieldOverrides": []
+}

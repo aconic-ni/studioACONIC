@@ -31,12 +31,12 @@ export default function AforadorPage() {
   }, [user, authLoading, router]);
 
   const fetchCases = useCallback(() => {
-    if (!user?.uid) return;
+    if (!user?.displayName) return;
     setIsLoading(true);
 
     const aforoMetadataQuery = query(
       collectionGroup(db, 'aforo'),
-      where('aforadorId', '==', user.uid)
+      where('aforador', '==', user.displayName)
     );
 
     const unsubscribe = onSnapshot(aforoMetadataQuery, async (snapshot) => {
@@ -90,7 +90,7 @@ export default function AforadorPage() {
     });
   
     return unsubscribe;
-  }, [user?.uid, toast]);
+  }, [user?.displayName, toast]);
 
 
   useEffect(() => {
@@ -170,7 +170,7 @@ export default function AforadorPage() {
                     ) : cases.length === 0 ? (
                         <div className="text-center py-10 text-muted-foreground">No tiene casos asignados pendientes.</div>
                     ) : (
-                        <AforadorCasesTable cases={cases} onRefresh={fetchCases} />
+                        <AforadorCasesTable cases={cases} />
                     )}
                 </CardContent>
             </Card>

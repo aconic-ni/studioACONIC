@@ -13,10 +13,9 @@ import { Timestamp } from 'firebase/firestore';
 
 interface AforadorCasesTableProps {
   cases: Worksheet[];
-  onRefresh: () => void;
 }
 
-export function AforadorCasesTable({ cases, onRefresh }: AforadorCasesTableProps) {
+export function AforadorCasesTable({ cases }: AforadorCasesTableProps) {
   const [worksheetToView, setWorksheetToView] = useState<Worksheet | null>(null);
 
   if (cases.length === 0) {
