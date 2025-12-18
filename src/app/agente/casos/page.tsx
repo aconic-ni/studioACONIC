@@ -1,4 +1,3 @@
-
 "use client";
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { db } from '@/lib/firebase';
@@ -84,13 +83,15 @@ export default function AgenteCasosPage() {
             setIsLoading(false);
             return;
         }
+        
+        const worksheetIds = snapshot.docs.map(doc => doc.ref.parent.parent?.id).filter(Boolean);
+        if (worksheetIds.length === 0) {
+            setAllCases([]);
+            setIsLoading(false);
+            return;
+        }
 
-        const worksheetPromises = snapshot.docs.map(docSnapshot => {
-            const parentRef = docSnapshot.ref.parent.parent;
-            if (!parentRef) return null;
-            return getDoc(parentRef);
-        });
-
+        const worksheetPromises = worksheetIds.map(id => getDoc(doc(db, 'worksheets', id!)));
         const worksheetDocs = await Promise.all(worksheetPromises);
         
         const casesData: WorksheetWithCase[] = [];
@@ -98,14 +99,17 @@ export default function AgenteCasosPage() {
             const wsDoc = worksheetDocs[i];
             if (wsDoc && wsDoc.exists()) {
                 const wsData = { id: wsDoc.id, ...wsDoc.data() } as Worksheet;
-                const aforoData = snapshot.docs[i].data() as Omit<WorksheetWithCase, 'worksheet'>;
+                const aforoData = snapshot.docs.find(d => d.ref.parent.parent?.id === wsDoc.id)?.data();
                 
-                const combinedData: WorksheetWithCase = {
-                    ...aforoData,
-                    worksheet: wsData,
-                };
-
-                casesData.push(combinedData);
+                if (aforoData) {
+                    const combinedData: WorksheetWithCase = {
+                        ...aforoData,
+                        ...wsData, // merge worksheet data at top level
+                        id: wsDoc.id, // Ensure worksheet ID is the main ID
+                        worksheet: wsData, // Keep nested worksheet for detailed views if needed
+                    };
+                    casesData.push(combinedData);
+                }
             }
         }
         
@@ -198,7 +202,7 @@ export default function AgenteCasosPage() {
         batch.update(aforoMetadataRef, {
             revisorStatus: newStatus,
             observacionRevisor: comment,
-            revisorStatusLastUpdate: { by: user.displayName, at: Timestamp.now() }
+            revisorStatusLastUpdate: { by: user.displayName, at: serverTimestamp() }
         });
 
         const updateLog: Omit<AforoCaseUpdate, 'updatedAt'> & { updatedAt: any } = {
