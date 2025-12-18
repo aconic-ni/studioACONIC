@@ -1,10 +1,9 @@
-
 "use client";
 
 import React, { useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { db } from '@/lib/firebase';
-import { collection, query, onSnapshot, orderBy, getDoc, doc, getDocs, where } from 'firebase/firestore';
+import { collection, query, onSnapshot, orderBy, getDoc, doc, getDocs, where, collectionGroup } from 'firebase/firestore';
 import type { Worksheet, AforoCaseUpdate } from '@/types';
 import { AppShell } from '@/components/layout/AppShell';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -38,40 +37,75 @@ export default function GestionLocalPage() {
   const [pinInput, setPinInput] = useState('');
 
 
-  const fetchWorksheets = useCallback(() => {
+ const fetchWorksheets = useCallback(() => {
     if (!user) return;
     setIsLoading(true);
 
-    const q = query(
-        collection(db, 'worksheets'), 
+    const worksheetsQuery = query(
+        collection(db, 'worksheets'),
         where('worksheetType', 'in', ['hoja_de_trabajo', null]),
         orderBy('createdAt', 'desc')
     );
 
-    const unsubscribe = onSnapshot(q, async (snapshot) => {
-      const fetchedWorksheetsPromises = snapshot.docs.map(async (docSnapshot) => {
-        const worksheetData = { id: docSnapshot.id, ...docSnapshot.data() } as Worksheet;
-        
-        const aforoRef = doc(db, `worksheets/${docSnapshot.id}/aforo/metadata`);
-        const aforoSnap = await getDoc(aforoRef);
-        if (aforoSnap.exists()) {
-          (worksheetData as any).aforo = aforoSnap.data();
-        }
-        
-        return worksheetData;
-      });
+    const aforoQuery = query(
+        collectionGroup(db, 'aforo'),
+        where('__name__', '==', 'metadata')
+    );
 
-      const fetchedWorksheets = await Promise.all(fetchedWorksheetsPromises);
-      setWorksheets(fetchedWorksheets);
-      setIsLoading(false);
-    }, (error) => {
-      console.error("Error fetching worksheets:", error);
-      toast({ title: "Error", description: "No se pudieron cargar las hojas de trabajo.", variant: "destructive" });
-      setIsLoading(false);
+    let unsubWorksheets: () => void;
+    let unsubAforo: () => void;
+    
+    let worksheetsData: Map<string, Worksheet> = new Map();
+    let aforoData: Map<string, any> = new Map();
+
+    const combineData = () => {
+        if (worksheetsData.size > 0 && aforoData.size > 0) {
+            const combined = Array.from(worksheetsData.values()).map(ws => {
+                const aforo = aforoData.get(ws.id);
+                return aforo ? { ...ws, aforo } : ws;
+            });
+            setWorksheets(combined);
+            setIsLoading(false);
+        } else if(worksheetsData.size > 0 && aforoData.size === 0) {
+            setWorksheets(Array.from(worksheetsData.values()));
+            setIsLoading(false);
+        }
+    };
+
+    getDocs(worksheetsQuery).then(wsSnapshot => {
+        const fetchedWorksheets: Map<string, Worksheet> = new Map();
+        wsSnapshot.forEach(doc => {
+            fetchedWorksheets.set(doc.id, { id: doc.id, ...doc.data() } as Worksheet);
+        });
+        worksheetsData = fetchedWorksheets;
+        if(worksheetsData.size === 0) setIsLoading(false);
+        
+        // After fetching worksheets, set up the real-time listener for aforo data
+        unsubAforo = onSnapshot(aforoQuery, (aforoSnapshot) => {
+            const fetchedAforoData: Map<string, any> = new Map();
+            aforoSnapshot.forEach(doc => {
+                const parentId = doc.ref.parent.parent?.id;
+                if (parentId) {
+                    fetchedAforoData.set(parentId, doc.data());
+                }
+            });
+            aforoData = fetchedAforoData;
+            combineData();
+        }, (error) => {
+            console.error("Error fetching aforo data:", error);
+            toast({ title: "Error", description: "No se pudieron cargar los datos de aforo en tiempo real.", variant: "destructive" });
+        });
+    }).catch(error => {
+        console.error("Error fetching worksheets:", error);
+        toast({ title: "Error", description: "No se pudieron cargar las hojas de trabajo.", variant: "destructive" });
+        setIsLoading(false);
     });
 
-    return unsubscribe;
-  }, [user, toast]);
+    return () => {
+        if (unsubWorksheets) unsubWorksheets();
+        if (unsubAforo) unsubAforo();
+    };
+}, [user, toast]);
 
   useEffect(() => {
     const unsubscribe = fetchWorksheets();
