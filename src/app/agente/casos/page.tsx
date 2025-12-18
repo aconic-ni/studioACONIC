@@ -10,7 +10,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import type { AforoCaseStatus, PreliquidationStatus, DigitacionStatus, Worksheet, AforoCaseUpdate, WorksheetWithCase } from '@/types';
+import type { AforoCase, AforoCaseStatus, PreliquidationStatus, DigitacionStatus, Worksheet, AforoCaseUpdate, WorksheetWithCase } from '@/types';
 import { format, startOfDay, endOfDay, startOfMonth, endOfMonth } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { ObservationModal } from '@/components/reporter/ObservationModal';
@@ -99,14 +99,22 @@ export default function AgenteCasosPage() {
             const wsDoc = worksheetDocs[i];
             if (wsDoc && wsDoc.exists()) {
                 const wsData = { id: wsDoc.id, ...wsDoc.data() } as Worksheet;
-                const aforoData = snapshot.docs.find(d => d.ref.parent.parent?.id === wsDoc.id)?.data();
+                const aforoData = snapshot.docs.find(d => d.ref.parent.parent?.id === wsDoc.id)?.data() as AforoCase;
                 
                 if (aforoData) {
                     const combinedData: WorksheetWithCase = {
+                        // All properties from AforoCase are expected at the top level
                         ...aforoData,
-                        ...wsData, // merge worksheet data at top level
-                        id: wsDoc.id, // Ensure worksheet ID is the main ID
-                        worksheet: wsData, // Keep nested worksheet for detailed views if needed
+                        // Worksheet data is nested
+                        worksheet: wsData,
+                        // Ensure top-level properties that might be duplicated in wsData are sourced from aforoData
+                        id: aforoData.id,
+                        ne: aforoData.ne,
+                        consignee: aforoData.consignee,
+                        executive: aforoData.executive,
+                        merchandise: aforoData.merchandise,
+                        declarationPattern: aforoData.declarationPattern,
+                        assignmentDate: aforoData.assignmentDate,
                     };
                     casesData.push(combinedData);
                 }
@@ -194,10 +202,10 @@ export default function AgenteCasosPage() {
 
     selectedRows.forEach(caseId => {
         const originalCase = allCases.find(c => c.id === caseId);
-        if (!originalCase?.id) return;
+        if (!originalCase?.id || !originalCase.worksheetId) return;
         
-        const aforoMetadataRef = doc(db, 'worksheets', originalCase.id, 'aforo', 'metadata');
-        const updatesSubcollectionRef = collection(db, 'worksheets', originalCase.id, 'actualizaciones');
+        const aforoMetadataRef = doc(db, 'worksheets', originalCase.worksheetId, 'aforo', 'metadata');
+        const updatesSubcollectionRef = collection(db, 'worksheets', originalCase.worksheetId, 'actualizaciones');
         
         batch.update(aforoMetadataRef, {
             revisorStatus: newStatus,
@@ -253,7 +261,11 @@ export default function AgenteCasosPage() {
 
 
   const handleViewWorksheet = (caseItem: WorksheetWithCase) => {
-    setWorksheetToView(caseItem.worksheet);
+    if (caseItem.worksheet) {
+        setWorksheetToView(caseItem.worksheet);
+    } else {
+        toast({ title: 'Error', description: 'No hay una hoja de trabajo asociada para ver.' });
+    }
   };
 
   const getStatusBadgeVariant = (status?: AforoCaseStatus) => {
