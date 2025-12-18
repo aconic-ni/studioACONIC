@@ -1,3 +1,4 @@
+
 "use client";
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { db } from '@/lib/firebase';
@@ -91,35 +92,38 @@ export default function AgenteCasosPage() {
             return;
         }
 
-        const worksheetPromises = worksheetIds.map(id => getDoc(doc(db, 'worksheets', id!)));
-        const worksheetDocs = await Promise.all(worksheetPromises);
-        
-        const casesData: WorksheetWithCase[] = [];
-        for (let i = 0; i < worksheetDocs.length; i++) {
-            const wsDoc = worksheetDocs[i];
-            if (wsDoc && wsDoc.exists()) {
-                const wsData = { id: wsDoc.id, ...wsDoc.data() } as Worksheet;
-                const aforoData = snapshot.docs.find(d => d.ref.parent.parent?.id === wsDoc.id)?.data() as AforoCase;
-                
-                if (aforoData) {
-                    const combinedData: WorksheetWithCase = {
-                        // All properties from AforoCase are expected at the top level
-                        ...aforoData,
-                        // Worksheet data is nested
-                        worksheet: wsData,
-                        // Ensure top-level properties that might be duplicated in wsData are sourced from aforoData
-                        id: aforoData.id,
-                        ne: aforoData.ne,
-                        consignee: aforoData.consignee,
-                        executive: aforoData.executive,
-                        merchandise: aforoData.merchandise,
-                        declarationPattern: aforoData.declarationPattern,
-                        assignmentDate: aforoData.assignmentDate,
-                    };
-                    casesData.push(combinedData);
-                }
-            }
+        // Fetch all worksheets in a single query
+        const worksheetPromises = [];
+        for(let i = 0; i < worksheetIds.length; i += 30) {
+            const chunk = worksheetIds.slice(i, i + 30);
+            const wsQuery = query(collection(db, 'worksheets'), where(documentId(), 'in', chunk));
+            worksheetPromises.push(getDocs(wsQuery));
         }
+        
+        const worksheetSnapshots = await Promise.all(worksheetPromises);
+        const worksheetsMap = new Map<string, Worksheet>();
+        worksheetSnapshots.forEach(snap => snap.forEach(doc => worksheetsMap.set(doc.id, { id: doc.id, ...doc.data() } as Worksheet)));
+        
+        const aforoDataMap = new Map<string, any>();
+        snapshot.docs.forEach(doc => {
+            const parentId = doc.ref.parent.parent?.id;
+            if (parentId) {
+                aforoDataMap.set(parentId, doc.data());
+            }
+        });
+
+        const casesData: WorksheetWithCase[] = Array.from(worksheetsMap.entries()).map(([wsId, wsData]) => {
+            const aforoData = aforoDataMap.get(wsId) || {};
+            return {
+                ...wsData,
+                ...aforoData,
+                worksheet: wsData,
+                id: wsId,
+                ne: wsData.ne,
+                consignee: wsData.consignee,
+                executive: wsData.executive,
+            } as WorksheetWithCase;
+        });
         
         setAllCases(casesData);
         setIsLoading(false);
@@ -171,7 +175,7 @@ export default function AgenteCasosPage() {
 
     if (start && end) {
         dateFiltered = cases.filter(c => {
-            const caseDate = (c.revisorAssignedAt as Timestamp)?.toDate();
+            const caseDate = (c.revisorAsignadoLastUpdate?.at as Timestamp)?.toDate();
             return caseDate && caseDate >= start! && caseDate <= end!;
         });
     }
@@ -204,8 +208,8 @@ export default function AgenteCasosPage() {
         const originalCase = allCases.find(c => c.id === caseId);
         if (!originalCase?.id || !originalCase.worksheetId) return;
         
-        const aforoMetadataRef = doc(db, 'worksheets', originalCase.worksheetId, 'aforo', 'metadata');
-        const updatesSubcollectionRef = collection(db, 'worksheets', originalCase.worksheetId, 'actualizaciones');
+        const aforoMetadataRef = doc(db, 'worksheets', originalCase.id, 'aforo', 'metadata');
+        const updatesSubcollectionRef = collection(db, 'worksheets', originalCase.id, 'actualizaciones');
         
         batch.update(aforoMetadataRef, {
             revisorStatus: newStatus,
@@ -468,3 +472,4 @@ export default function AgenteCasosPage() {
     </AppShell>
   );
 }
+
