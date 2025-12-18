@@ -65,7 +65,7 @@ export default function AdminControlPage() {
     setError(null);
     try {
       const qExamenes = query(collection(db, "examenesPrevios"), orderBy("createdAt", "desc"));
-      const qAforo = query(collection(db, 'no existes'), orderBy('createdAt', 'desc'));
+      const qAforo = query(collection(db, 'worksheets'), orderBy('createdAt', 'desc'));
       
       const [examenesSnapshot, aforoSnapshot] = await Promise.all([
           getDocs(qExamenes),
@@ -75,8 +75,8 @@ export default function AdminControlPage() {
       const fetchedExams = examenesSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as ExamDocument));
       setAllExams(fetchedExams);
 
-      const fetchedno existes = aforoSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as WorksheetWithCase));
-      setallworksheet(fetchedworksheets);
+      const fetchedWorksheets = aforoSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as WorksheetWithCase));
+      setallworksheet(fetchedWorksheets);
 
     } catch (err: any) {
       console.error("Error fetching data:", err);
@@ -192,7 +192,7 @@ export default function AdminControlPage() {
     }
 
     const isExamen = 'products' in item;
-    const collectionName = isExamen ? "examenesPrevios" : "no existes";
+    const collectionName = isExamen ? "examenesPrevios" : "worksheets";
     const docRef = doc(db, collectionName, item.id!);
     const batch = writeBatch(db);
 
