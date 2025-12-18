@@ -1,4 +1,3 @@
-
 "use client";
 import React, { useEffect, useState, useMemo, useCallback, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
@@ -11,13 +10,15 @@ import { Loader2, FilePlus, Search, Edit, Eye, History, PlusSquare, UserCheck, I
 import { db } from '@/lib/firebase';
 import { collection, query, where, onSnapshot, orderBy, Timestamp, doc, getDoc, updateDoc, writeBatch, addDoc, getDocs, collectionGroup, serverTimestamp, setDoc } from 'firebase/firestore';
 import type { Worksheet, AforoCase, AforadorStatus, AforoCaseStatus, DigitacionStatus, WorksheetWithCase, AforoCaseUpdate, PreliquidationStatus, IncidentType, LastUpdateInfo, ExecutiveComment, InitialDataContext, AppUser, SolicitudRecord, ExamDocument, FacturacionStatus } from '@/types';
-import { format, toDate, isSameDay, startOfDay, endOfDay, differenceInDays, startOfMonth, endOfMonth } from 'date-fns';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { format, toDate, isSameDay, startOfDay, endOfDay, startOfMonth, endOfMonth, differenceInDays } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { Input } from '@/components/ui/input';
 import { AforoCaseHistoryModal } from '@/components/reporter/AforoCaseHistoryModal';
 import { IncidentReportModal } from '@/components/reporter/IncidentReportModal';
 import { Badge } from '@/components/ui/badge';
 import { IncidentReportDetails } from '@/components/reporter/IncidentReportDetails';
+import { ManageDocumentsModal } from '@/components/executive/ManageDocumentsModal';
 import { ValueDoubtModal } from '@/components/executive/ValueDoubtModal';
 import { DatePickerWithTime } from '@/components/reports/DatePickerWithTime';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -644,7 +645,7 @@ function ExecutivePageContent() {
   };
 
   const handleSelectAllForPreliquidation = () => {
-    const selectableIds = filteredCases.filter(c => c.revisorStatus === 'Aprobado' && c.preliquidationStatus !== 'Aprobada').map(c => c.id);
+    const selectableIds = filteredCases.filter(c => ((c as any).aforo || c).revisorStatus === 'Aprobado' && ((c as any).aforo || c).preliquidationStatus !== 'Aprobada').map(c => c.id);
     if (selectedRows.length === selectableIds.length) {
       setSelectedRows([]);
     } else {
@@ -1118,5 +1119,3 @@ export default function ExecutivePage() {
         </Suspense>
     );
 }
-
-    

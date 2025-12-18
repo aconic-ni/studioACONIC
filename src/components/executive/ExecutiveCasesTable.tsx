@@ -1,4 +1,3 @@
-
 "use client";
 import React from 'react';
 import type { AforoCase, AforoCaseStatus, DigitacionStatus, PreliquidationStatus, WorksheetWithCase } from '@/types';
@@ -294,7 +293,12 @@ export function ExecutiveCasesTable({
                                 </Tooltip>
                             </TooltipProvider>
                         </TableCell>
-                        <TableCell>{getIncidentTypeDisplay(c)}</TableCell>
+                        <TableCell>
+                          <div className="flex items-center">
+                            {getIncidentTypeDisplay(c)}
+                            <LastUpdateTooltip lastUpdate={c.incidentStatusLastUpdate} caseCreation={c.createdAt}/>
+                          </div>
+                        </TableCell>
                         <TableCell>
                             <div className="flex items-center justify-center">
                                 {isPsmt ? (<Button size="sm" variant="outline" onClick={() => handleSendToFacturacion(c.id)} disabled={savingState[c.id] || !c.fechaDespacho || c.facturacionStatus === 'Facturado'}><Send className="mr-2 h-4 w-4" />{c.facturacionStatus === 'Enviado a Facturacion' ? 'Re-enviar' : 'Enviar'}</Button>)

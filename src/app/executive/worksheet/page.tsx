@@ -141,18 +141,18 @@ function WorksheetForm() {
   const { toast } = useToast();
   const router = useRouter();
   const searchParams = useSearchParams();
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [groupMembers, setGroupMembers] = useState<AppUser[]>([]);
-  const [aforadores, setAforadores] = useState<AppUser[]>([]);
-  const [entryCustomsOpen, setEntryCustomsOpen] = useState(false);
-  const [dispatchCustomsOpen, setDispatchCustomsOpen] = useState(false);
+  const [isSubmitting, setIsSubmitting = useState(false);
+  const [groupMembers, setGroupMembers = useState<AppUser[]>([]);
+  const [aforadores, setAforadores = useState<AppUser[]>([]);
+  const [entryCustomsOpen, setEntryCustomsOpen = useState(false);
+  const [dispatchCustomsOpen, setDispatchCustomsOpen = useState(false);
   const { setCaseToAssignAforador } = useAppContext();
-  const [editingPermit, setEditingPermit] = useState<{ permit: Partial<RequiredPermit>, index: number } | null>(null);
-  const [pendingPermitData, setPendingPermitData] = useState<Partial<RequiredPermit> | null>(null);
-  const [editingWorksheetId, setEditingWorksheetId] = useState<string | null>(null);
-  const [originalWorksheet, setOriginalWorksheet] = useState<Worksheet | null>(null);
-  const [tlcNumberInput, setTlcNumberInput] = useState('');
-  const [isTransportDocOriginal, setIsTransportDocOriginal] = useState(false);
+  const [editingPermit, setEditingPermit = useState<{ permit: Partial<RequiredPermit>, index: number } | null>(null);
+  const [pendingPermitData, setPendingPermitData = useState<Partial<RequiredPermit> | null>(null);
+  const [editingWorksheetId, setEditingWorksheetId = useState<string | null>(null);
+  const [originalWorksheet, setOriginalWorksheet = useState<Worksheet | null>(null);
+  const [tlcNumberInput, setTlcNumberInput = useState('');
+  const [isTransportDocOriginal, setIsTransportDocOriginal = useState(false);
 
 
   const form = useForm<WorksheetFormData>({
@@ -219,18 +219,18 @@ function WorksheetForm() {
   const watchEntryCustoms = aduanaToShortCode[form.watch('entryCustoms')];
   const watchDispatchCustoms = aduanaToShortCode[form.watch('dispatchCustoms')];
   
-  const [facturaPopoverOpen, setFacturaPopoverOpen] = useState(false);
-  const [facturaNumberInput, setFacturaNumberInput] = useState('');
-  const [facturaIsOriginal, setFacturaIsOriginal] = useState(false);
+  const [facturaPopoverOpen, setFacturaPopoverOpen = useState(false);
+  const [facturaNumberInput, setFacturaNumberInput = useState('');
+  const [facturaIsOriginal, setFacturaIsOriginal = useState(false);
 
-  const [docType, setDocType] = useState('');
-  const [docNumber, setDocNumber] = useState('');
-  const [isOriginal, setIsOriginal] = useState(false);
+  const [docType, setDocType = useState('');
+  const [docNumber, setDocNumber = useState('');
+  const [isOriginal, setIsOriginal = useState(false);
 
-  const [permitName, setPermitName] = useState('');
-  const [otherPermitName, setOtherPermitName] = useState('');
-  const [permitStatus, setPermitStatus] = useState<DocumentStatus>('Pendiente');
-  const [selectedFacturaForPermit, setSelectedFacturaForPermit] = useState('');
+  const [permitName, setPermitName = useState('');
+  const [otherPermitName, setOtherPermitName = useState('');
+  const [permitStatus, setPermitStatus = useState<DocumentStatus>('Pendiente');
+  const [selectedFacturaForPermit, setSelectedFacturaForPermit = useState('');
 
 
   const watchedFacturaNumber = form.watch('facturaNumber');
@@ -415,7 +415,7 @@ function WorksheetForm() {
 
 
   const onSubmit = async (data: WorksheetFormData) => {
-    if (!user || !user.displayName) {
+    if (!user || !user.displayName || !user.email) {
       toast({ title: 'Error', description: 'Debe estar autenticado.', variant: 'destructive'});
       return;
     }
@@ -428,18 +428,28 @@ function WorksheetForm() {
     
     if (editingWorksheetId) {
         const worksheetDocRef = doc(db, 'worksheets', editingWorksheetId);
-        const logRef = doc(collection(db, 'worksheets', editingWorksheetId, 'actualizaciones'));
+        const aforoCaseDocRef = doc(db, 'AforoCases', editingWorksheetId);
+        const batch = writeBatch(db);
         
         try {
-            const updatedWorksheetData = { 
+            const updatedWorksheetData: Partial<Worksheet> = { 
                 ...data, 
                 eta: data.eta ? Timestamp.fromDate(data.eta) : null,
                 lastUpdatedAt: Timestamp.now(),
                 createdBy: originalWorksheet?.createdBy || user.email,
             };
-    
-            await updateDoc(worksheetDocRef, updatedWorksheetData);
+            batch.update(worksheetDocRef, updatedWorksheetData);
+            
+            const aforoCaseUpdate: Partial<AforoCase> = {
+                executive: data.executive,
+                consignee: data.consignee,
+                facturaNumber: data.facturaNumber,
+                merchandise: data.description,
+                aforador: data.aforador || '',
+            }
+            batch.update(aforoCaseDocRef, aforoCaseUpdate);
 
+            const logRef = doc(collection(aforoCaseDocRef, 'actualizaciones'));
             const updateLog: AforoCaseUpdate = {
               updatedAt: Timestamp.now(),
               updatedBy: user.displayName,
@@ -448,8 +458,9 @@ function WorksheetForm() {
               newValue: 'worksheet_updated',
               comment: `Hoja de trabajo modificada por ${user.displayName}.`,
             };
-            await setDoc(logRef, updateLog);
+            batch.set(logRef, updateLog);
             
+            await batch.commit();
             toast({ title: "Hoja de Trabajo Actualizada", description: `El registro para el NE ${editingWorksheetId} ha sido guardado.` });
             router.push('/executive');
     
@@ -488,7 +499,7 @@ function WorksheetForm() {
             ne: neTrimmed, 
             eta: data.eta ? Timestamp.fromDate(data.eta) : null, 
             createdAt: creationTimestamp, 
-            createdBy: user.email!, 
+            createdBy: user.email,
             requiredPermits: data.requiredPermits || [], 
             lastUpdatedAt: creationTimestamp 
         };
@@ -640,7 +651,7 @@ function WorksheetForm() {
                                     </SelectTrigger>
                                 </FormControl>
                                 <SelectContent>
-                                    {aforadores.map((aforador) => (
+                                    {aforadores.map(aforador => (
                                     <SelectItem key={aforador.uid} value={aforador.displayName || aforador.email!}>
                                         {aforador.displayName || aforador.email}
                                     </SelectItem>
@@ -661,7 +672,7 @@ function WorksheetForm() {
                             <FormItem className="flex flex-col">
                                 <FormLabel>ETA (Fecha Estimada de Arribo)</FormLabel>
                                 <FormControl>
-                                    <DatePicker date={field.value ?? undefined} onDateChange={(date) => field.onChange(date)} />
+                                    <DatePicker date={field.value ?? undefined} onDateChange={date => field.onChange(date)} />
                                 </FormControl>
                                 <FormMessage />
                             </FormItem>
@@ -732,7 +743,7 @@ function WorksheetForm() {
                                             >
                                             {field.value
                                                 ? aduanas.find(
-                                                    (aduana) => aduana.value === field.value
+                                                    aduana => aduana.value === field.value
                                                 )?.label
                                                 : "Seleccionar aduana..."}
                                             <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
@@ -745,7 +756,7 @@ function WorksheetForm() {
                                             <CommandList>
                                             <CommandEmpty>No se encontró aduana.</CommandEmpty>
                                             <CommandGroup>
-                                                {aduanas.map((aduana) => (
+                                                {aduanas.map(aduana => (
                                                 <CommandItem
                                                     value={aduana.label}
                                                     key={aduana.value}
@@ -797,7 +808,7 @@ function WorksheetForm() {
                                         >
                                         {field.value
                                             ? aduanas.find(
-                                                (aduana) => aduana.value === field.value
+                                                aduana => aduana.value === field.value
                                             )?.label
                                             : "Seleccionar aduana..."}
                                         <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
@@ -810,7 +821,7 @@ function WorksheetForm() {
                                         <CommandList>
                                         <CommandEmpty>No se encontró aduana.</CommandEmpty>
                                         <CommandGroup>
-                                        {aduanas.map((aduana) => (
+                                        {aduanas.map(aduana => (
                                             <CommandItem
                                             value={aduana.label}
                                             key={aduana.value}
@@ -846,7 +857,7 @@ function WorksheetForm() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-4 border-t">
                 <FormField control={form.control} name="transportMode" render={({ field }) => (
                      <FormItem className="space-y-3"><FormLabel>Modo de Transporte</FormLabel><FormControl>
-                        <RadioGroup onValueChange={field.onChange} defaultValue={field.value ?? ""} className="flex flex-wrap gap-4">
+                        <RadioGroup onValueChange={field.onChange} value={field.value ?? ""} className="flex flex-wrap gap-4">
                             <FormItem className="flex items-center space-x-2"><FormControl><RadioGroupItem value="aereo" /></FormControl><FormLabel className="font-normal">Aéreo</FormLabel></FormItem>
                             <FormItem className="flex items-center space-x-2"><FormControl><RadioGroupItem value="maritimo" /></FormControl><FormLabel className="font-normal">Marítimo</FormLabel></FormItem>
                             <FormItem className="flex items-center space-x-2"><FormControl><RadioGroupItem value="frontera" /></FormControl><FormLabel className="font-normal">Frontera</FormLabel></FormItem>
@@ -971,7 +982,7 @@ function WorksheetForm() {
                             <Switch
                                 id={`isCopy-${field.id}`}
                                 checked={!field.isCopy}
-                                onCheckedChange={(checked) => {
+                                onCheckedChange={checked => {
                                     const newIsCopy = !checked;
                                     updateDocField(index, { ...field, isCopy: newIsCopy });
                                 }}
@@ -1007,7 +1018,7 @@ function WorksheetForm() {
                              </Select>
                          </div>
                         <div><Label>Estado</Label>
-                            <RadioGroup value={permitStatus} onValueChange={(v: any) => setPermitStatus(v)} className="flex gap-4 pt-2">
+                            <RadioGroup value={permitStatus} onValueChange={v => setPermitStatus(v)} className="flex gap-4 pt-2">
                                 <FormItem className="flex items-center space-x-2"><FormControl><RadioGroupItem value="Pendiente"/></FormControl><FormLabel className="font-normal">Pendiente</FormLabel></FormItem>
                                 <FormItem className="flex items-center space-x-2"><FormControl><RadioGroupItem value="En Trámite"/></FormControl><FormLabel className="font-normal">En Trámite</FormLabel></FormItem>
                                 <FormItem className="flex items-center space-x-2"><FormControl><RadioGroupItem value="Entregado"/></FormControl><FormLabel className="font-normal">Entregado</FormLabel></FormItem>
@@ -1111,7 +1122,7 @@ function WorksheetForm() {
                                                 >
                                                     {field.value
                                                         ? tiposDeclaracion.find(
-                                                            (tipo) => tipo.value === field.value
+                                                            tipo => tipo.value === field.value
                                                         )?.value
                                                         : "Seleccionar..."}
                                                     <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
@@ -1198,7 +1209,7 @@ function WorksheetForm() {
             isOpen={!!editingPermit}
             onClose={() => setEditingPermit(null)}
             permit={editingPermit.permit}
-            onSave={(updatedDetails) => handleSavePermitDetails(editingPermit.index, updatedDetails)}
+            onSave={updatedDetails => handleSavePermitDetails(editingPermit.index, updatedDetails)}
         />
     )}
     </>
