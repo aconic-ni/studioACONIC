@@ -20,7 +20,7 @@ interface AforadorCasesTableProps {
 export function AforadorCasesTable({ cases }: AforadorCasesTableProps) {
   const [worksheetToView, setWorksheetToView] = useState<WorksheetWithCase | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
-  const [itemsPerPage, setItemsPerPage] = useState(10);
+  const [itemsPerPage, setItemsPerPage] = useState(20);
 
   const paginatedCases = useMemo(() => {
     const startIndex = (currentPage - 1) * itemsPerPage;
@@ -64,7 +64,7 @@ export function AforadorCasesTable({ cases }: AforadorCasesTableProps) {
               </TableCell>
               <TableCell className="font-medium">{c.ne}</TableCell>
               <TableCell>{c.consignee}</TableCell>
-              <TableCell>{c.patternRegime || 'N/A'}</TableCell>
+              <TableCell>{c.worksheet?.patternRegime || 'N/A'}</TableCell>
               <TableCell>{assignedAt instanceof Timestamp ? format(assignedAt.toDate(), 'dd/MM/yyyy HH:mm', { locale: es }) : 'N/A'}</TableCell>
             </TableRow>
           )})}
@@ -87,7 +87,7 @@ export function AforadorCasesTable({ cases }: AforadorCasesTableProps) {
                     <SelectValue placeholder={itemsPerPage} />
                 </SelectTrigger>
                 <SelectContent side="top">
-                    {[10, 20, 30, 50].map((pageSize) => (
+                    {[20, 30, 50].map((pageSize) => (
                     <SelectItem key={pageSize} value={`${pageSize}`}>
                         {pageSize}
                     </SelectItem>

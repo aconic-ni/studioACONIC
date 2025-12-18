@@ -9,13 +9,12 @@ import { Loader2, Search, FileSpreadsheet, Inbox } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { db } from '@/lib/firebase';
-import { collection, query, where, onSnapshot, orderBy, doc, getDoc, getDocs, collectionGroup, Timestamp } from 'firebase/firestore';
+import { collection, query, where, onSnapshot, orderBy, doc, getDoc, getDocs, collectionGroup, Timestamp, limit } from 'firebase/firestore';
 import type { Worksheet, WorksheetWithCase } from '@/types';
 import { useToast } from '@/hooks/use-toast';
 import { AforadorCasesTable } from '@/components/aforador/AforadorCasesTable';
 import { DailySummaryModal } from '@/components/aforador/DailySummaryModal';
 import Link from 'next/link';
-import { startOfDay, endOfDay } from 'date-fns';
 
 export default function AforadorPage() {
   const { user, loading: authLoading } = useAuth();
@@ -35,14 +34,11 @@ export default function AforadorPage() {
     if (!user?.displayName) return;
     setIsLoading(true);
 
-    const todayStart = startOfDay(new Date());
-    const todayEnd = endOfDay(new Date());
-
     const aforoMetadataQuery = query(
       collectionGroup(db, 'aforo'),
       where('aforador', '==', user.displayName),
-      where('assignmentDate', '>=', todayStart),
-      where('assignmentDate', '<=', todayEnd)
+      orderBy('aforadorAssignedAt', 'desc'),
+      limit(50) // Limit to the most recent 50 assignments for this user
     );
 
     const unsubscribe = onSnapshot(aforoMetadataQuery, async (snapshot) => {
@@ -52,37 +48,47 @@ export default function AforadorPage() {
         return;
       }
       
-      const worksheetPromises = snapshot.docs.map(docSnapshot => {
-        const parentRef = docSnapshot.ref.parent.parent; 
-        if (!parentRef) return Promise.resolve(null);
-        return getDoc(parentRef);
-      });
-      
-      const worksheetDocs = await Promise.all(worksheetPromises);
-      
-      let casesData: WorksheetWithCase[] = [];
-      for (let i = 0; i < worksheetDocs.length; i++) {
-        const wsDoc = worksheetDocs[i];
-        if (wsDoc && wsDoc.exists()) {
-            const wsData = { id: wsDoc.id, ...wsDoc.data() } as Worksheet;
-            const aforoData = snapshot.docs[i].data();
-            
-            const combinedData: WorksheetWithCase = {
-                ...(wsData as any),
-                ...aforoData
-            };
-            
-            casesData.push(combinedData);
-        }
+      const worksheetIds = snapshot.docs.map(doc => doc.ref.parent.parent?.id).filter(Boolean);
+      if (worksheetIds.length === 0) {
+        setCases([]);
+        setIsLoading(false);
+        return;
+      }
+
+      const worksheetPromises = [];
+      for(let i = 0; i < worksheetIds.length; i += 30) {
+          const chunk = worksheetIds.slice(i, i + 30) as string[];
+          const wsQuery = query(collection(db, 'worksheets'), where(documentId(), 'in', chunk));
+          worksheetPromises.push(getDocs(wsQuery));
       }
       
-      // Sort on the client side
-      casesData.sort((a, b) => {
-          const timeA = (a.assignmentDate as any) instanceof Timestamp ? (a.assignmentDate as any).toMillis() : 0;
-          const timeB = (b.assignmentDate as any) instanceof Timestamp ? (b.assignmentDate as any).toMillis() : 0;
-          return timeB - timeA;
+      const worksheetSnapshots = await Promise.all(worksheetPromises);
+      const worksheetsMap = new Map<string, Worksheet>();
+      worksheetSnapshots.forEach(snap => snap.forEach(doc => worksheetsMap.set(doc.id, { id: doc.id, ...doc.data() } as Worksheet)));
+      
+      const aforoDataMap = new Map<string, any>();
+      snapshot.docs.forEach(doc => {
+          const parentId = doc.ref.parent.parent?.id;
+          if (parentId) {
+              aforoDataMap.set(parentId, doc.data());
+          }
       });
 
+      const casesData: WorksheetWithCase[] = [];
+      for (const wsId of worksheetIds) {
+          const wsData = worksheetsMap.get(wsId as string);
+          const aforoData = aforoDataMap.get(wsId as string);
+          if (wsData && aforoData) {
+               const combinedData: WorksheetWithCase = {
+                  ...wsData, 
+                  id: wsData.id,
+                  ...aforoData,
+                  worksheet: wsData,
+               };
+              casesData.push(combinedData);
+          }
+      }
+      
       setCases(casesData);
       setIsLoading(false);
 
@@ -160,7 +166,7 @@ export default function AforadorPage() {
                 <CardHeader>
                     <div className="flex justify-between items-center">
                         <CardTitle className="text-xl flex items-center gap-2">
-                            <Inbox /> Mis Casos Asignados de Hoy
+                            <Inbox /> Mis Casos Asignados
                         </CardTitle>
                          <Button onClick={() => setIsSummaryModalOpen(true)} variant="secondary">
                             Resumen Diario
