@@ -1,3 +1,4 @@
+
 "use client";
 import React, { useEffect, useState, useMemo, useCallback, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
@@ -6,13 +7,12 @@ import { useAuth } from '@/context/AuthContext';
 import { AppShell } from '@/components/layout/AppShell';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Loader2, FilePlus, Banknote, Bell as BellIcon, Edit, KeyRound, Copy, Archive } from 'lucide-react';
+import { Loader2, FilePlus, Search, Edit, Eye, History, PlusSquare, UserCheck, Inbox, AlertTriangle, Download, ChevronsUpDown, Info, CheckCircle, CalendarRange, Calendar, CalendarDays, ShieldAlert, BookOpen, FileCheck2, MessageSquare, View, Banknote, Bell as BellIcon, RefreshCw, Send, StickyNote, Scale, Briefcase, KeyRound, Copy, Archive } from 'lucide-react';
 import { db } from '@/lib/firebase';
 import { collection, query, where, onSnapshot, orderBy, Timestamp, doc, getDoc, updateDoc, writeBatch, addDoc, getDocs, collectionGroup, serverTimestamp, setDoc } from 'firebase/firestore';
-import type { Worksheet, AforoCase, WorksheetWithCase, AforoCaseUpdate, AppUser, SolicitudRecord, InitialDataContext } from '@/types';
+import type { Worksheet, AforoCase, AforadorStatus, AforoCaseStatus, DigitacionStatus, WorksheetWithCase, AforoCaseUpdate, PreliquidationStatus, IncidentType, LastUpdateInfo, ExecutiveComment, InitialDataContext, AppUser, SolicitudRecord, ExamDocument, FacturacionStatus } from '@/types';
 import { isSameDay, startOfDay, endOfDay } from 'date-fns';
 import { useToast } from '@/hooks/use-toast';
-import type { DateRange } from 'react-day-picker';
 import { AforoCaseHistoryModal } from '@/components/reporter/AforoCaseHistoryModal';
 import { IncidentReportModal } from '@/components/reporter/IncidentReportModal';
 import { IncidentReportDetails } from '@/components/reporter/IncidentReportDetails';
@@ -30,7 +30,6 @@ import { MobileCasesList } from '@/components/executive/MobileCasesList';
 import { useAppContext } from '@/context/AppContext';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { ViewIncidentsModal } from '@/components/executive/ViewIncidentsModal';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { StatusProcessModal } from '@/components/executive/StatusProcessModal';
 import { Textarea } from '@/components/ui/textarea';
 import { ExecutiveCasesTable } from '@/components/executive/ExecutiveCasesTable';
@@ -279,6 +278,7 @@ function ExecutivePageContent() {
         const [newCaseSnap, newWorksheetSnap] = await Promise.all([getDoc(newCaseRef), getDoc(newWorksheetRef)]);
         if (newCaseSnap.exists() || newWorksheetSnap.exists()) {
             toast({ title: "Duplicado", description: `Ya existe un registro con el NE ${newNe}.`, variant: "destructive" });
+            setSavingState(prev => ({...prev, [caseItem.id]: false}));
             return;
         }
 
@@ -293,11 +293,11 @@ function ExecutivePageContent() {
         batch.update(doc(db,'AforoCases',caseItem.id),{digitacionStatus:'TRASLADADO',isArchived:true});
         
         const originalUpdatesRef=collection(db,'worksheets',caseItem.id,'actualizaciones');
-        const updateLog:AforoCaseUpdate={updatedAt:Timestamp.now(),updatedBy:user.displayName!,field:'digitacionStatus',oldValue:caseItem.digitacionStatus,newValue:'TRASLADADO',comment:`Caso trasladado al nuevo NE: ${newNe}. Motivo: ${duplicateReason}`};
+        const updateLog:AforoCaseUpdate={updatedAt:Timestamp.now(),updatedBy:user!.displayName!,field:'digitacionStatus',oldValue:caseItem.digitacionStatus,newValue:'TRASLADADO',comment:`Caso trasladado al nuevo NE: ${newNe}. Motivo: ${duplicateReason}`};
         batch.set(doc(originalUpdatesRef),updateLog);
         
         const newUpdatesRef=collection(db,'worksheets',newNe,'actualizaciones');
-        const newCaseLog:AforoCaseUpdate={updatedAt:creationTimestamp,updatedBy:user.displayName!,field:'creation',oldValue:null,newValue:`duplicated_from_${caseItem.ne}`,comment:`Caso duplicado desde ${caseItem.ne}. Motivo: ${duplicateReason}`};
+        const newCaseLog:AforoCaseUpdate={updatedAt:creationTimestamp,updatedBy:user!.displayName!,field:'creation',oldValue:null,newValue:`duplicated_from_${caseItem.ne}`,comment:`Caso duplicado desde ${caseItem.ne}. Motivo: ${duplicateReason}`};
         batch.set(doc(newUpdatesRef),newCaseLog);
         
         await batch.commit();
@@ -338,6 +338,60 @@ function ExecutivePageContent() {
     }
   };
   
+  const clearFilters = () => {
+    setSearchTerm('');
+    setFacturadoFilter({ facturado: false, noFacturado: true });
+    setAcuseFilter({ conAcuse: false, sinAcuse: true });
+    setPreliquidationFilter(false);
+    setDateRangeInput(undefined);
+    setAppliedFilters({ searchTerm: '', facturado: false, noFacturado: true, conAcuse: false, sinAcuse: true, preliquidation: false, dateFilterType: 'range', dateRange: undefined, isSearchActive: false });
+    setCurrentPage(1);
+    setSearchHint(null);
+  };
+
+  const handleOpenPaymentRequest = () => {
+    const initialData: InitialDataContext = {
+      ne: `SOL-${Date.now()}`,
+      manager: user?.displayName || 'N/A',
+      date: new Date(),
+      recipient: 'Contabilidad',
+      isMemorandum: false,
+    };
+    setInitialContextData(initialData);
+    setIsRequestPaymentModalOpen(true);
+  };
+  
+  const approvePreliquidation = (caseId: string) => {
+    handleAutoSave(caseId, 'preliquidationStatus', 'Aprobada');
+  };
+
+  const renderTable = () => {
+    return isMobile ? (
+        <MobileCasesList
+          cases={paginatedCases}
+          savingState={savingState}
+          onAutoSave={handleAutoSave}
+          approvePreliquidation={approvePreliquidation}
+          caseActions={caseActions}
+        />
+      ) : (
+        <ExecutiveCasesTable
+          cases={paginatedCases}
+          savingState={savingState}
+          onAutoSave={handleAutoSave}
+          approvePreliquidation={approvePreliquidation}
+          caseActions={caseActions}
+          selectedRows={selectedRows}
+          onSelectRow={setSelectedRows}
+          onSelectAllRows={() => {}}
+          columnFilters={columnFilters}
+          setColumnFilters={setColumnFilters}
+          handleSendToFacturacion={handleSendToFacturacion}
+          onSearch={handleSearch}
+        />
+      );
+  }
+
   if (authLoading || !user) return <div className="min-h-screen flex items-center justify-center bg-background"><Loader2 className="h-12 w-12 animate-spin text-primary" /></div>;
 
   return (
@@ -362,7 +416,7 @@ function ExecutivePageContent() {
                                 </AlertDialogTrigger>
                                 <AlertDialogContent>
                                     <AlertDialogHeader><AlertDialogTitle>¿Está seguro?</AlertDialogTitle><AlertDialogDescription>Esta acción iniciará una solicitud de pago no vinculada a un Número de Entrada (NE) específico. Se generará un ID único en su lugar.</AlertDialogDescription></AlertDialogHeader>
-                                    <AlertDialogFooter><AlertDialogCancel>Cancelar</AlertDialogCancel><AlertDialogAction onClick={() => { const initialData: InitialDataContext = { ne: `SOL-${format(new Date(), 'ddMMyy-HHmmss')}`, manager: user?.displayName || 'Usuario Desconocido', date: new Date(), recipient: '', isMemorandum: false, }; setInitialContextData(initialData); setIsRequestPaymentModalOpen(true);}}>Sí, continuar</AlertDialogAction></AlertDialogFooter>
+                                    <AlertDialogFooter><AlertDialogCancel>Cancelar</AlertDialogCancel><AlertDialogAction onClick={handleOpenPaymentRequest}>Sí, continuar</AlertDialogAction></AlertDialogFooter>
                                 </AlertDialogContent>
                             </AlertDialog>
                             <DropdownMenu>
@@ -381,7 +435,7 @@ function ExecutivePageContent() {
                 </CardHeader>
                 <CardContent>
                     <ExecutiveFilters
-                        activeTab={activeTab}
+                        activeTab={activeTab as TabValue}
                         searchTerm={searchTerm}
                         setSearchTerm={setSearchTerm}
                         facturadoFilter={facturadoFilter}
