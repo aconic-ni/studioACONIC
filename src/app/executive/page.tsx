@@ -2,15 +2,16 @@
 "use client";
 import React, { useEffect, useState, useMemo, useCallback, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
+import Link from 'next/link';
 import { useAuth } from '@/context/AuthContext';
 import { AppShell } from '@/components/layout/AppShell';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Loader2, RefreshCw } from 'lucide-react';
+import { Loader2, RefreshCw, KeyRound, Copy, Archive } from 'lucide-react';
 import { db } from '@/lib/firebase';
 import { collection, query, where, onSnapshot, orderBy, Timestamp, doc, getDoc, updateDoc, writeBatch, addDoc, getDocs, collectionGroup, serverTimestamp, setDoc } from 'firebase/firestore';
-import type { Worksheet, AforoCase, WorksheetWithCase, AforoCaseUpdate, AppUser, SolicitudRecord } from '@/types';
-import { startOfDay, endOfDay, startOfMonth, endOfMonth, isSameDay } from 'date-fns';
+import type { Worksheet, AforoCase, WorksheetWithCase, AforoCaseUpdate, AppUser, SolicitudRecord, InitialDataContext } from '@/types';
+import { isSameDay, startOfDay, endOfDay, startOfMonth, endOfMonth } from 'date-fns';
 import { useToast } from '@/hooks/use-toast';
 import type { DateRange } from 'react-day-picker';
 
@@ -217,7 +218,12 @@ function ExecutivePageContent() {
     else if (appliedFilters.facturado && !appliedFilters.noFacturado) finalFiltered = finalFiltered.filter(c => c.facturado === true);
     if (appliedFilters.conAcuse && !appliedFilters.sinAcuse) finalFiltered = finalFiltered.filter(c => c.entregadoAforoAt);
     else if (appliedFilters.sinAcuse && !appliedFilters.conAcuse) finalFiltered = finalFiltered.filter(c => !c.entregadoAforoAt);
-    if (appliedFilters.preliquidation) finalFiltered = finalFiltered.filter(c => { const aforoData = (c as any).aforo || c; return aforoData.revisorStatus === 'Aprobado' && aforoData.preliquidationStatus !== 'Aprobada'; });
+    if (appliedFilters.preliquidation) {
+      finalFiltered = finalFiltered.filter(c => {
+          const aforoData = (c as any).aforo || c;
+          return aforoData.revisorStatus === 'Aprobado' && aforoData.preliquidationStatus !== 'Aprobada';
+      });
+    }
     if (appliedFilters.dateRange?.from) {
         const start = startOfDay(appliedFilters.dateRange.from);
         const end = appliedFilters.dateRange.to ? endOfDay(appliedFilters.dateRange.to) : endOfDay(start);
@@ -245,7 +251,7 @@ function ExecutivePageContent() {
         }
       } else { setSearchHint(null); }
 
-    return finalFiltered.sort((a, b) => (b.createdAt?.toMillis() ?? 0) - (a.createdAt?.toMillis() ?? 0));
+    return finalFiltered;
   }, [allCases, appliedFilters, activeTab, columnFilters]);
 
   const totalPages = Math.ceil(filteredCases.length / itemsPerPage);
@@ -297,7 +303,8 @@ function ExecutivePageContent() {
                   onSelectAllRows={() => { const selectableIds = filteredCases.filter(c => ((c as any).aforo || c).revisorStatus === 'Aprobado' && ((c as any).aforo || c).preliquidationStatus !== 'Aprobada').map(c => c.id); if (selectedRows.length === selectableIds.length) { setSelectedRows([]); } else { setSelectedRows(selectableIds); } }}
                   columnFilters={columnFilters}
                   setColumnFilters={setColumnFilters}
-                  handleSendToFacturacion={(id) => { if (!user || !user.displayName) return; setSavingState(prev => ({...prev, [id]: true})); updateDoc(doc(db, 'AforoCases', id), { facturacionStatus: 'Enviado a Facturacion', enviadoAFacturacionAt: Timestamp.now(), facturadorAsignado: 'Alvaro Gonzalez', facturadorAsignadoAt: Timestamp.now() }).then(() => toast({ title: 'Enviado a Facturación' })).catch(() => toast({title: 'Error'})).finally(()=> setSavingState(prev => ({...prev, [id]: false})))}}
+                  onSearch={handleSearch}
+                  handleSendToFacturacion={handleSendToFacturacion}
                 />
               ) : (
                 <p className="text-muted-foreground text-center py-10">No se encontraron casos con los filtros actuales.</p>
@@ -348,7 +355,12 @@ function ExecutivePageContent() {
                 <div><Label htmlFor="new-ne">Nuevo NE</Label><Input id="new-ne" value={newNeForDuplicate} onChange={e => setNewNeForDuplicate(e.target.value)} placeholder="Ingrese el nuevo NE" /></div>
                 <div><Label htmlFor="reason">Motivo</Label><Textarea id="reason" value={duplicateReason} onChange={e => setDuplicateReason(e.target.value)} placeholder="Explique brevemente el motivo de la duplicación" /></div>
             </div>
-            <DialogFooter><Button variant="outline" onClick={() => setDuplicateAndRetireModalOpen(false)}>Cancelar</Button><Button onClick={()=>{if (modalState.duplicate) { const newNe = newNeForDuplicate.trim().toUpperCase(); if (!newNe || !duplicateReason) { toast({title:'Error', description:'Nuevo NE y motivo son requeridos', variant:'destructive'}); return; } setSavingState(p=>({...p, [modalState.duplicate!.id]: true})); const batch=writeBatch(db); const newCaseRef = doc(db,'AforoCases',newNe); const newWorksheetRef=doc(db,'worksheets',newNe); getDoc(newCaseRef).then(snap=>{if(snap.exists()){toast({title:'Error', description:'El nuevo NE ya existe'});return;const creationTimestamp=Timestamp.now();const createdByInfo={by:user!.displayName,at:creationTimestamp};const {id:oldId,ne:oldNe,createdAt:oldCreatedAt,lastUpdatedAt:oldLastUpdatedAt,...worksheetToCopy}=modalState.duplicate!.worksheet!;const newWorksheetData:Worksheet={...worksheetToCopy,id:newNe,ne:newNe,createdAt:creationTimestamp,createdBy:user!.email!,lastUpdatedAt:creationTimestamp};batch.set(newWorksheetRef,newWorksheetData);const newCaseData:Omit<AforoCase,'id'>={ne:newNe,executive:modalState.duplicate!.executive,consignee:modalState.duplicate!.consignee,facturaNumber:modalState.duplicate!.facturaNumber,declarationPattern:modalState.duplicate!.declarationPattern,merchandise:modalState.duplicate!.merchandise,createdBy:user!.uid,createdAt:creationTimestamp,aforador:'',assignmentDate:null,aforadorStatus:'Pendiente ',aforadorStatusLastUpdate:createdByInfo,revisorStatus:'Pendiente',revisorStatusLastUpdate:createdByInfo,preliquidationStatus:'Pendiente',preliquidationStatusLastUpdate:createdByInfo,digitacionStatus:'Pendiente',digitacionStatusLastUpdate:createdByInfo,incidentStatus:'Pendiente',incidentStatusLastUpdate:createdByInfo,revisorAsignado:'',revisorAsignadoLastUpdate:createdByInfo,digitadorAsignado:'',digitadorAsignadoLastUpdate:createdByInfo,worksheetId:newNe,entregadoAforoAt:null,isArchived:false,executiveComments:[{id:uuidv4(),author:user!.displayName!,text:`Duplicado del NE: ${modalState.duplicate!.ne}. Motivo: ${duplicateReason}`,createdAt:creationTimestamp}]};batch.set(newCaseRef,newCaseData);batch.update(doc(db,'AforoCases',modalState.duplicate!.id),{digitacionStatus:'TRASLADADO',isArchived:true});const originalUpdatesRef=collection(db,'worksheets',modalState.duplicate!.id,'actualizaciones');const updateLog:AforoCaseUpdate={updatedAt:Timestamp.now(),updatedBy:user!.displayName!,field:'digitacionStatus',oldValue:modalState.duplicate!.digitacionStatus,newValue:'TRASLADADO',comment:`Caso trasladado al nuevo NE: ${newNe}. Motivo: ${duplicateReason}`};batch.set(doc(originalUpdatesRef),updateLog);const newUpdatesRef=collection(db,'worksheets',newNe,'actualizaciones');const newCaseLog:AforoCaseUpdate={updatedAt:creationTimestamp,updatedBy:user!.displayName!,field:'creation',oldValue:null,newValue:`duplicated_from_${modalState.duplicate!.ne}`,comment:`Caso duplicado desde ${modalState.duplicate!.ne}. Motivo: ${duplicateReason}`};batch.set(doc(newUpdatesRef),newCaseLog);batch.commit().then(()=>{toast({title:'Éxito'});setDuplicateAndRetireModalOpen(false);}).catch(e=>{toast({title:'Error',description:e.message})}).finally(()=>setSavingState(p=>({...p,[modalState.duplicate!.id]:false})))}})}} disabled={savingState[modalState.duplicate?.id || '']}>Duplicar y Retirar</Button></DialogFooter>
+            <DialogFooter>
+                <Button variant="outline" onClick={() => setDuplicateAndRetireModalOpen(false)}>Cancelar</Button>
+                <Button onClick={handleDuplicateAndRetire} disabled={savingState[modalState.duplicate?.id || '']}>
+                  Duplicar y Retirar
+                </Button>
+            </DialogFooter>
         </DialogContent>
       </Dialog>
       
@@ -356,7 +368,7 @@ function ExecutivePageContent() {
         <DialogContent>
             <DialogHeader><DialogTitle>Confirmar Acción "Deathkey"</DialogTitle><DialogDescription>Esta acción reclasificará {selectedRows.length} caso(s) a "Reporte Corporativo", excluyéndolos de la lógica de Aforo. Es irreversible. Ingrese el PIN para confirmar.</DialogDescription></DialogHeader>
             <div className="py-4 space-y-2"><Label htmlFor="pin-input" className="flex items-center gap-2"><KeyRound/>PIN de Seguridad</Label><Input id="pin-input" type="password" value={pinInput} onChange={(e) => setPinInput(e.target.value)} placeholder="PIN de 6 dígitos"/></div>
-            <DialogFooter><Button variant="outline" onClick={() => setModalState(p => ({...p, deathkey: false}))}>Cancelar</Button><Button variant="destructive" onClick={()=>{if(pinInput!=='192438'){toast({title:'Error',variant:'destructive'});return;}if(selectedRows.length===0)return;setIsLoading(true);const batch=writeBatch(db);selectedRows.forEach(id=>{const item=allCases.find(c=>c.id===id);if(item&&item.worksheetId){const wsRef=doc(db,'worksheets',item.worksheetId);batch.update(wsRef,{worksheetType:'corporate_report'});const updatesRef=collection(wsRef,'actualizaciones');const log:AforoCaseUpdate={updatedAt:Timestamp.now(),updatedBy:user!.displayName!,field:'worksheetType',oldValue:'hoja_de_trabajo',newValue:'corporate_report',comment:'Caso reclasificado a Reporte Corporativo via Deathkey.'};batch.set(doc(updatesRef),log);}});batch.commit().then(()=>{toast({title:'Éxito'});setSelectedRows([]);setModalState(p=>({...p,deathkey:false}));setPinInput('');}).catch(e=>{toast({title:'Error',variant:'destructive'})}).finally(()=>setIsLoading(false));}} disabled={isLoading}>{isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin"/>}Confirmar y Ejecutar</Button></DialogFooter>
+            <DialogFooter><Button variant="outline" onClick={() => setModalState(p => ({...p, deathkey: false}))}>Cancelar</Button><Button variant="destructive" onClick={handleDeathkey} disabled={isLoading}>{isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin"/>}Confirmar y Ejecutar</Button></DialogFooter>
         </DialogContent>
       </Dialog>
 
@@ -371,5 +383,3 @@ export default function ExecutivePage() {
         </Suspense>
     );
 }
-
-```
