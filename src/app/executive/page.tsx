@@ -11,7 +11,7 @@ import { Loader2, FilePlus, Edit, Inbox, Banknote, StickyNote, Briefcase, Archiv
 import { db } from '@/lib/firebase';
 import { collection, query, where, onSnapshot, orderBy, Timestamp, doc, getDoc, updateDoc, writeBatch, addDoc, getDocs, collectionGroup, serverTimestamp, setDoc } from 'firebase/firestore';
 import type { Worksheet, AforoCase, WorksheetWithCase, AforoCaseUpdate, InitialDataContext, AppUser, SolicitudRecord, ExamDocument } from '@/types';
-import { format } from 'date-fns';
+import { format, isSameDay, startOfDay, endOfDay } from 'date-fns';
 import { useToast } from '@/hooks/use-toast';
 import type { DateRange } from 'react-day-picker';
 import { WorksheetDetails } from '@/components/executive/WorksheetDetails';
@@ -34,10 +34,17 @@ import { Input } from '@/components/ui/input';
 import { IncidentReportDetails } from '@/components/reporter/IncidentReportDetails';
 import { ValueDoubtModal } from '@/components/executive/ValueDoubtModal';
 import { AforoCaseHistoryModal } from '@/components/reporter/AforoCaseHistoryModal';
-
 import { ExecutiveFilters } from '@/components/executive/ExecutiveFilters';
 import { ExecutiveCasesTable } from '@/components/executive/ExecutiveCasesTable';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 
 type DateFilterType = 'range' | 'month' | 'today';
@@ -265,12 +272,11 @@ function ExecutivePageContent() {
   };
 
   const handleDuplicateAndRetire = async () => {
-    const caseItem = modalState.duplicate;
-    if (!user || !user.displayName || !caseItem || !caseItem.worksheet) { return; }
+    if (!user || !user.displayName || !modalState.duplicate || !modalState.duplicate.worksheet) { return; }
     const newNe = newNeForDuplicate.trim().toUpperCase();
     if (!newNe || !duplicateReason) { toast({title:'Error', description:'Nuevo NE y motivo son requeridos', variant:'destructive'}); return; }
 
-    setSavingState(prev => ({...prev, [caseItem.id]: true}));
+    setSavingState(prev => ({...prev, [modalState.duplicate!.id]: true}));
     const batch = writeBatch(db);
     const newCaseRef = doc(db,'AforoCases',newNe);
     const newWorksheetRef=doc(db,'worksheets',newNe);
@@ -279,35 +285,35 @@ function ExecutivePageContent() {
         const newCaseSnap = await getDoc(newCaseRef);
         if (newCaseSnap.exists()) {
             toast({ title: "Duplicado", description: `Ya existe un registro con el NE ${newNe}.`, variant: "destructive" });
-            setSavingState(prev => ({...prev, [caseItem.id]: false}));
+            setSavingState(prev => ({...prev, [modalState.duplicate!.id]: false}));
             return;
         }
 
         const creationTimestamp=Timestamp.now();
         const createdByInfo={by:user.displayName,at:creationTimestamp};
-        const {id:oldId, ne:oldNe, createdAt:oldCreatedAt, lastUpdatedAt:oldLastUpdatedAt, ...worksheetToCopy}=caseItem.worksheet;
+        const {id:oldId, ne:oldNe, createdAt:oldCreatedAt, lastUpdatedAt:oldLastUpdatedAt, ...worksheetToCopy}=modalState.duplicate.worksheet;
         const newWorksheetData:Worksheet={...worksheetToCopy, id:newNe, ne:newNe, createdAt:creationTimestamp, createdBy:user.email!, lastUpdatedAt:creationTimestamp};
         batch.set(newWorksheetRef, newWorksheetData);
         
-        const newCaseData:Omit<AforoCase,'id'>={ne:newNe,executive:caseItem.executive,consignee:caseItem.consignee,facturaNumber:caseItem.facturaNumber,declarationPattern:caseItem.declarationPattern,merchandise:caseItem.merchandise,createdBy:user.uid,createdAt:creationTimestamp,aforador:'',assignmentDate:null,aforadorStatus:'Pendiente ',aforadorStatusLastUpdate:createdByInfo,revisorStatus:'Pendiente',revisorStatusLastUpdate:createdByInfo,preliquidationStatus:'Pendiente',preliquidationStatusLastUpdate:createdByInfo,digitacionStatus:'Pendiente',digitacionStatusLastUpdate:createdByInfo,incidentStatus:'Pendiente',incidentStatusLastUpdate:createdByInfo,revisorAsignado:'',revisorAsignadoLastUpdate:createdByInfo,digitadorAsignado:'',digitadorAsignadoLastUpdate:createdByInfo,worksheetId:newNe,entregadoAforoAt:null,isArchived:false,executiveComments:[{id:uuidv4(),author:user.displayName!,text:`Duplicado del NE: ${caseItem.ne}. Motivo: ${duplicateReason}`,createdAt:creationTimestamp}]};
+        const newCaseData:Omit<AforoCase,'id'>={ne:newNe,executive:modalState.duplicate.executive,consignee:modalState.duplicate.consignee,facturaNumber:modalState.duplicate.facturaNumber,declarationPattern:modalState.duplicate.declarationPattern,merchandise:modalState.duplicate.merchandise,createdBy:user.uid,createdAt:creationTimestamp,aforador:'',assignmentDate:null,aforadorStatus:'Pendiente ',aforadorStatusLastUpdate:createdByInfo,revisorStatus:'Pendiente',revisorStatusLastUpdate:createdByInfo,preliquidationStatus:'Pendiente',preliquidationStatusLastUpdate:createdByInfo,digitacionStatus:'Pendiente',digitacionStatusLastUpdate:createdByInfo,incidentStatus:'Pendiente',incidentStatusLastUpdate:createdByInfo,revisorAsignado:'',revisorAsignadoLastUpdate:createdByInfo,digitadorAsignado:'',digitadorAsignadoLastUpdate:createdByInfo,worksheetId:newNe,entregadoAforoAt:null,isArchived:false,executiveComments:[{id:uuidv4(),author:user.displayName!,text:`Duplicado del NE: ${modalState.duplicate.ne}. Motivo: ${duplicateReason}`,createdAt:creationTimestamp}]};
         batch.set(newCaseRef, newCaseData);
-        batch.update(doc(db,'AforoCases',caseItem.id),{digitacionStatus:'TRASLADADO',isArchived:true});
+        batch.update(doc(db,'AforoCases',modalState.duplicate.id),{digitacionStatus:'TRASLADADO',isArchived:true});
         
-        const originalUpdatesRef=collection(db,'worksheets',caseItem.id,'actualizaciones');
-        const updateLog:AforoCaseUpdate={updatedAt:Timestamp.now(),updatedBy:user!.displayName!,field:'digitacionStatus',oldValue:caseItem.digitacionStatus,newValue:'TRASLADADO',comment:`Caso trasladado al nuevo NE: ${newNe}. Motivo: ${duplicateReason}`};
+        const originalUpdatesRef=collection(db,'worksheets',modalState.duplicate.id,'actualizaciones');
+        const updateLog:AforoCaseUpdate={updatedAt:Timestamp.now(),updatedBy:user!.displayName!,field:'digitacionStatus',oldValue:modalState.duplicate.digitacionStatus,newValue:'TRASLADADO',comment:`Caso trasladado al nuevo NE: ${newNe}. Motivo: ${duplicateReason}`};
         batch.set(doc(originalUpdatesRef),updateLog);
         
         const newUpdatesRef=collection(db,'worksheets',newNe,'actualizaciones');
-        const newCaseLog:AforoCaseUpdate={updatedAt:creationTimestamp,updatedBy:user!.displayName!,field:'creation',oldValue:null,newValue:`duplicated_from_${caseItem.ne}`,comment:`Caso duplicado desde ${caseItem.ne}. Motivo: ${duplicateReason}`};
+        const newCaseLog:AforoCaseUpdate={updatedAt:creationTimestamp,updatedBy:user!.displayName!,field:'creation',oldValue:null,newValue:`duplicated_from_${modalState.duplicate.ne}`,comment:`Caso duplicado desde ${modalState.duplicate.ne}. Motivo: ${duplicateReason}`};
         batch.set(doc(newUpdatesRef),newCaseLog);
         
         await batch.commit();
-        toast({title:'Éxito', description:`El caso ${caseItem.ne} fue duplicado a ${newNe} y retirado.`});
+        toast({title:'Éxito', description:`El caso ${caseToDuplicate.ne} fue duplicado a ${newNe} y retirado.`});
         setDuplicateAndRetireModalOpen(false);
     } catch(e) {
         toast({title:'Error',description:'No se pudo duplicar el caso.',variant:'destructive'})
     } finally {
-        setSavingState(prev => ({...prev, [caseItem.id]: false}));
+        setSavingState(prev => ({...prev, [modalState.duplicate!.id]: false}));
     }
   };
 
