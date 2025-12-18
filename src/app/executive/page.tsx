@@ -1,3 +1,4 @@
+
 "use client";
 import React, { useEffect, useState, useMemo, useCallback, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
@@ -6,11 +7,27 @@ import { useAuth } from '@/context/AuthContext';
 import { AppShell } from '@/components/layout/AppShell';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Loader2, FilePlus, Edit, Inbox, Banknote, StickyNote, Briefcase, Archive, Copy, KeyRound, Search, ChevronsUpDown, Info, CalendarRange, Calendar, CalendarDays } from 'lucide-react';
+import { Loader2, FilePlus, Edit, Inbox, Banknote, StickyNote, Briefcase, Archive, Copy, KeyRound, Search, ChevronsUpDown, Info, CalendarRange, Calendar, CalendarDays, AlertTriangle, FileCheck2, MessageSquare, View, Bell as BellIcon, RefreshCw, Send, Scale, BookOpen } from 'lucide-react';
 import { db } from '@/lib/firebase';
 import { collection, query, where, onSnapshot, orderBy, Timestamp, doc, getDoc, updateDoc, writeBatch, addDoc, getDocs, collectionGroup, serverTimestamp, setDoc } from 'firebase/firestore';
-import type { Worksheet, AforoCase, WorksheetWithCase, AforoCaseUpdate, InitialDataContext, AppUser, SolicitudRecord, ExamDocument } from '@/types';
+import type { Worksheet, AforoCase, AforadorStatus, AforoCaseStatus, DigitacionStatus, WorksheetWithCase, AforoCaseUpdate, PreliquidationStatus, IncidentType, LastUpdateInfo, ExecutiveComment, InitialDataContext, AppUser, SolicitudRecord, ExamDocument, FacturacionStatus } from '@/types';
+import { format, toDate, isSameDay, startOfDay, endOfDay, differenceInDays } from 'date-fns';
+import { es } from 'date-fns/locale';
+import { Input } from '@/components/ui/input';
+import { AforoCaseHistoryModal } from '@/components/reporter/AforoCaseHistoryModal';
+import { IncidentReportModal } from '@/components/reporter/IncidentReportModal';
+import { Badge } from '@/components/ui/badge';
+import { IncidentReportDetails } from '@/components/reporter/IncidentReportDetails';
+import { ValueDoubtModal } from '@/components/executive/ValueDoubtModal';
+import { DatePickerWithTime } from '@/components/reports/DatePickerWithTime';
+import { Checkbox } from '@/components/ui/checkbox';
+import { downloadExecutiveReportAsExcel } from '@/lib/fileExporter';
+import { downloadCorporateReportAsExcel } from '@/lib/fileExporterCorporateReport';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { useToast } from '@/hooks/use-toast';
+import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuLabel } from '@/components/ui/dropdown-menu';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Tooltip, TooltipProvider, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip';
 import type { DateRange } from 'react-day-picker';
 import { WorksheetDetails } from '@/components/executive/WorksheetDetails';
 import { ExecutiveCommentModal } from '@/components/executive/ExecutiveCommentModal';
@@ -20,41 +37,34 @@ import { PaymentListModal } from '@/components/executive/PaymentListModal';
 import { AnnouncementsCarousel } from '@/components/executive/AnnouncementsCarousel';
 import { AssignUserModal } from '@/components/reporter/AssignUserModal';
 import { ResaNotificationModal } from '@/components/executive/ResaNotificationModal';
-import { IncidentReportDetails } from '@/components/reporter/IncidentReportDetails';
-import { ValueDoubtModal } from '@/components/executive/ValueDoubtModal';
-import { AforoCaseHistoryModal } from '@/components/reporter/AforoCaseHistoryModal';
-import { ExecutiveFilters } from '@/components/executive/ExecutiveFilters';
-import { ExecutiveCasesTable } from '@/components/executive/ExecutiveCasesTable';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
+import { useIsMobile } from '@/hooks/use-mobile';
+import { StatusBadges } from '@/components/executive/StatusBadges';
+import { useAppContext } from '@/context/AppContext';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { ViewIncidentsModal } from '@/components/executive/ViewIncidentsModal';
+import { Switch } from '@/components/ui/switch';
+import { Label } from '@/components/ui/label';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { StatusProcessModal } from '@/components/executive/StatusProcessModal';
 import { Textarea } from '@/components/ui/textarea';
+import { ExecutiveFilters } from '@/components/executive/ExecutiveFilters';
+import { ExecutiveCasesTable } from '@/components/executive/ExecutiveCasesTable';
 import { v4 as uuidv4 } from 'uuid';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
-import { Label } from '@/components/ui/label';
-import { Input } from '@/components/ui/input';
-import { IncidentReportModal } from '@/components/reporter/IncidentReportModal';
-
 
 type DateFilterType = 'range' | 'month' | 'today';
+
+
+const months = [
+    { value: 0, label: 'Enero' }, { value: 1, label: 'Febrero' }, { value: 2, label: 'Marzo' },
+    { value: 3, label: 'Abril' }, { value: 4, label: 'Mayo' }, { value: 5, label: 'Junio' },
+    { value: 6, label: 'Julio' }, { value: 7, label: 'Agosto' }, { value: 8, label: 'Septiembre' },
+    { value: 9, 'label': 'Octubre' }, { value: 10, label: 'Noviembre' }, { value: 11, label: 'Diciembre' }
+];
+
+const currentYear = new Date().getFullYear();
+const years = Array.from({ length: 5 }, (_, i) => currentYear - i);
+
 type TabValue = 'worksheets' | 'anexos' | 'corporate';
 
 function ExecutivePageContent() {
@@ -209,11 +219,12 @@ function ExecutivePageContent() {
     if (!newNe || !duplicateReason) { toast({title:'Error', description:'Nuevo NE y motivo son requeridos', variant:'destructive'}); return; }
 
     setSavingState(prev => ({...prev, [modalState.duplicate!.id]: true}));
+    
     const newWorksheetRef = doc(db, 'worksheets', newNe);
     const originalWorksheetRef = doc(db, 'worksheets', modalState.duplicate.id);
     const newAforoMetaRef = doc(newWorksheetRef, 'aforo', 'metadata');
     const originalAforoMetaRef = doc(originalWorksheetRef, 'aforo', 'metadata');
-
+    
     try {
         const newWsSnap = await getDoc(newWorksheetRef);
         if (newWsSnap.exists()) {
@@ -232,7 +243,6 @@ function ExecutivePageContent() {
         const newCaseData: Omit<AforoCase, 'id'> = { ne: newNe, executive: modalState.duplicate.executive, consignee: modalState.duplicate.consignee, facturaNumber: modalState.duplicate.facturaNumber, declarationPattern: modalState.duplicate.declarationPattern, merchandise: modalState.duplicate.merchandise, createdBy: user.uid, createdAt: creationTimestamp, aforador: '', assignmentDate: null, aforadorStatus: 'Pendiente ', aforadorStatusLastUpdate: createdByInfo, revisorStatus: 'Pendiente', revisorStatusLastUpdate: createdByInfo, preliquidationStatus: 'Pendiente', preliquidationStatusLastUpdate: createdByInfo, digitacionStatus: 'Pendiente', digitacionStatusLastUpdate: createdByInfo, incidentStatus: 'Pendiente', incidentStatusLastUpdate: createdByInfo, revisorAsignado: '', revisorAsignadoLastUpdate: createdByInfo, digitadorAsignado: '', digitadorAsignadoLastUpdate: createdByInfo, worksheetId: newNe, entregadoAforoAt: null, isArchived: false, executiveComments: [{id: uuidv4(), author: user.displayName, text: `Duplicado del NE: ${modalState.duplicate.ne}. Motivo: ${duplicateReason}`, createdAt: creationTimestamp }] };
         batch.set(newAforoMetaRef, newCaseData);
         
-        batch.update(originalWorksheetRef, { isArchived: true });
         batch.update(originalAforoMetaRef, { digitacionStatus: 'TRASLADADO', isArchived: true });
         
         const originalUpdatesRef = collection(originalWorksheetRef, 'actualizaciones');
@@ -244,7 +254,7 @@ function ExecutivePageContent() {
         batch.set(doc(newUpdatesRef), newCaseLog);
 
         await batch.commit();
-        toast({ title: 'Éxito', description: `El caso ${caseToDuplicate.ne} fue duplicado a ${newNe} y retirado.` });
+        toast({ title: 'Éxito', description: `El caso ${modalState.duplicate.ne} fue duplicado a ${newNe} y retirado.` });
         setDuplicateAndRetireModalOpen(false);
     } catch (e) {
         toast({ title: 'Error', description: 'No se pudo duplicar el caso.', variant: 'destructive' });
@@ -375,7 +385,6 @@ function ExecutivePageContent() {
       <AppShell>
         <div className="py-2 md:py-5 space-y-6">
           <AnnouncementsCarousel />
-          <Tabs defaultValue={activeTab} className="w-full" onValueChange={handleTabChange}>
             <Card>
                 <CardHeader>
                     <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-4">
@@ -409,47 +418,48 @@ function ExecutivePageContent() {
                     </div>
                 </CardHeader>
                 <CardContent>
-                    <TabsList className="mb-4">
-                       <TabsTrigger value="worksheets">Hojas de Trabajo</TabsTrigger>
-                       <TabsTrigger value="anexos">Anexos</TabsTrigger>
-                       <TabsTrigger value="corporate">Reportes Corporativos</TabsTrigger>
-                   </TabsList>
-                   <ExecutiveFilters
-                       activeTab={activeTab as TabValue}
-                       searchTerm={searchTerm}
-                       setSearchTerm={setSearchTerm}
-                       facturadoFilter={facturadoFilter}
-                       setFacturadoFilter={setFacturadoFilter}
-                       acuseFilter={acuseFilter}
-                       setAcuseFilter={setAcuseFilter}
-                       preliquidationFilter={preliquidationFilter}
-                       setPreliquidationFilter={setPreliquidationFilter}
-                       dateFilterType={dateFilterType}
-                       setDateFilterType={setDateFilterType}
-                       dateRangeInput={dateRangeInput}
-                       setDateRangeInput={setDateRangeInput}
-                       setAppliedFilters={setAppliedFilters}
-                       setCurrentPage={setCurrentPage}
-                       isExporting={isExporting}
-                       allCasesCount={allCases.length}
-                       searchHint={searchHint}
-                       clearFilters={clearFilters}
-                   />
-                    <TabsContent value="worksheets" className="mt-6">
-                        <ExecutiveCasesTable cases={paginatedCases} savingState={savingState} onAutoSave={handleAutoSave} approvePreliquidation={approvePreliquidation} caseActions={caseActions} selectedRows={selectedRows} onSelectRow={setSelectedRows} onSelectAllRows={()=>{}} columnFilters={columnFilters} setColumnFilters={setColumnFilters} handleSendToFacturacion={handleSendToFacturacion} onSearch={handleSearch} />
-                    </TabsContent>
-                    <TabsContent value="anexos" className="mt-6">
-                        <ExecutiveCasesTable cases={paginatedCases} savingState={savingState} onAutoSave={handleAutoSave} approvePreliquidation={approvePreliquidation} caseActions={caseActions} selectedRows={selectedRows} onSelectRow={setSelectedRows} onSelectAllRows={()=>{}} columnFilters={columnFilters} setColumnFilters={setColumnFilters} handleSendToFacturacion={handleSendToFacturacion} onSearch={handleSearch} />
-                    </TabsContent>
-                    <TabsContent value="corporate" className="mt-6">
-                        <ExecutiveCasesTable cases={paginatedCases} savingState={savingState} onAutoSave={handleAutoSave} approvePreliquidation={approvePreliquidation} caseActions={caseActions} selectedRows={selectedRows} onSelectRow={setSelectedRows} onSelectAllRows={()=>{}} columnFilters={columnFilters} setColumnFilters={setColumnFilters} handleSendToFacturacion={handleSendToFacturacion} onSearch={handleSearch} />
-                    </TabsContent>
+                    <Tabs defaultValue={activeTab} className="w-full" onValueChange={handleTabChange}>
+                         <TabsList className="mb-4">
+                           <TabsTrigger value="worksheets">Hojas de Trabajo</TabsTrigger>
+                           <TabsTrigger value="anexos">Anexos</TabsTrigger>
+                           <TabsTrigger value="corporate">Reportes Corporativos</TabsTrigger>
+                       </TabsList>
+                       <ExecutiveFilters
+                           activeTab={activeTab as TabValue}
+                           searchTerm={searchTerm}
+                           setSearchTerm={setSearchTerm}
+                           facturadoFilter={facturadoFilter}
+                           setFacturadoFilter={setFacturadoFilter}
+                           acuseFilter={acuseFilter}
+                           setAcuseFilter={setAcuseFilter}
+                           preliquidationFilter={preliquidationFilter}
+                           setPreliquidationFilter={setPreliquidationFilter}
+                           dateFilterType={dateFilterType}
+                           setDateFilterType={setDateFilterType}
+                           dateRangeInput={dateRangeInput}
+                           setDateRangeInput={setDateRangeInput}
+                           setAppliedFilters={setAppliedFilters}
+                           setCurrentPage={setCurrentPage}
+                           isExporting={isExporting}
+                           allCasesCount={allCases.length}
+                           searchHint={searchHint}
+                           clearFilters={clearFilters}
+                       />
+                        <TabsContent value="worksheets" className="mt-6">
+                            <ExecutiveCasesTable cases={paginatedCases} savingState={savingState} onAutoSave={handleAutoSave} approvePreliquidation={approvePreliquidation} caseActions={caseActions} selectedRows={selectedRows} onSelectRow={setSelectedRows} onSelectAllRows={()=>{}} columnFilters={columnFilters} setColumnFilters={setColumnFilters} handleSendToFacturacion={handleSendToFacturacion} onSearch={handleSearch} />
+                        </TabsContent>
+                        <TabsContent value="anexos" className="mt-6">
+                            <ExecutiveCasesTable cases={paginatedCases} savingState={savingState} onAutoSave={handleAutoSave} approvePreliquidation={approvePreliquidation} caseActions={caseActions} selectedRows={selectedRows} onSelectRow={setSelectedRows} onSelectAllRows={()=>{}} columnFilters={columnFilters} setColumnFilters={setColumnFilters} handleSendToFacturacion={handleSendToFacturacion} onSearch={handleSearch} />
+                        </TabsContent>
+                        <TabsContent value="corporate" className="mt-6">
+                            <ExecutiveCasesTable cases={paginatedCases} savingState={savingState} onAutoSave={handleAutoSave} approvePreliquidation={approvePreliquidation} caseActions={caseActions} selectedRows={selectedRows} onSelectRow={setSelectedRows} onSelectAllRows={()=>{}} columnFilters={columnFilters} setColumnFilters={setColumnFilters} handleSendToFacturacion={handleSendToFacturacion} onSearch={handleSearch} />
+                        </TabsContent>
+                    </Tabs>
                 </CardContent>
             </Card>
-        </Tabs>
-      </div>
-    </AppShell>
-    {modalState.history && (<AforoCaseHistoryModal isOpen={!!modalState.history} onClose={() => setModalState(p => ({...p, history: null}))} caseData={modalState.history} />)}
+        </div>
+      </AppShell>
+      {modalState.history && (<AforoCaseHistoryModal isOpen={!!modalState.history} onClose={() => setModalState(p => ({...p, history: null}))} caseData={modalState.history} />)}
     {modalState.incident && (<IncidentReportModal isOpen={!!modalState.incident} onClose={() => setModalState(p => ({...p, incident: null}))} caseData={modalState.incident} />)}
     {modalState.valueDoubt && (<ValueDoubtModal isOpen={!!modalState.valueDoubt} onClose={() => setModalState(p => ({...p, valueDoubt: null}))} caseData={modalState.valueDoubt} />)}
     {modalState.incidentDetails && (<IncidentReportDetails caseData={modalState.incidentDetails} onClose={() => setModalState(p => ({...p, incidentDetails: null}))}/>)}
@@ -473,7 +483,7 @@ function ExecutivePageContent() {
                 </DialogDescription>
             </DialogHeader>
             <div className="py-4 space-y-4">
-                <div><Label htmlFor="new-ne">Nuevo NE</Label><Input id="new-ne" value={newNeForDuplicate} onChange={e => setNewNeForDuplicateState(e.target.value)} placeholder="Ingrese el nuevo NE" /></div>
+                <div><Label htmlFor="new-ne">Nuevo NE</Label><Input id="new-ne" value={newNeForDuplicate} onChange={e => setNewNeForDuplicate(e.target.value)} placeholder="Ingrese el nuevo NE" /></div>
                 <div><Label htmlFor="reason">Motivo</Label><Textarea id="reason" value={duplicateReason} onChange={e => setDuplicateReason(e.target.value)} placeholder="Explique brevemente el motivo de la duplicación" /></div>
             </div>
             <DialogFooter><Button variant="outline" onClick={() => setDuplicateAndRetireModalOpen(false)}>Cancelar</Button><Button onClick={handleDuplicateAndRetire} disabled={savingState[caseToDuplicate?.id || '']}>Duplicar y Retirar</Button></DialogFooter>
