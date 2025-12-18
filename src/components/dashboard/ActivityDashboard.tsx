@@ -1,6 +1,6 @@
+
 "use client";
 import { useState, useMemo } from 'react';
-import type { CombinedActivityLog } from '@/app/admin/control/updates/page';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { DatePickerWithRange } from '@/components/reports/DatePickerWithRange';
@@ -12,6 +12,11 @@ import { AforoPieChartCard } from './AforoPieChartCard';
 import { Users, Activity, ArrowLeft } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
+
+export type CombinedActivityLog = {
+    user: string;
+    date: Date;
+};
 
 interface ActivityDashboardProps {
     allLogs: CombinedActivityLog[];
