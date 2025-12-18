@@ -2,7 +2,7 @@
 "use client";
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { db } from '@/lib/firebase';
-import { collection, query, where, onSnapshot, Timestamp, orderBy, getDocs, QueryConstraint, getDoc, writeBatch, doc, collectionGroup, serverTimestamp } from 'firebase/firestore';
+import { collection, query, where, onSnapshot, Timestamp, orderBy, getDocs, QueryConstraint, getDoc, writeBatch, doc, collectionGroup, serverTimestamp, documentId } from 'firebase/firestore';
 import { useAuth } from '@/context/AuthContext';
 import { AppShell } from '@/components/layout/AppShell';
 import { Loader2, Inbox, Eye, Search, Calendar, CalendarDays, CalendarRange, BookOpen, AlertTriangle, History, CheckSquare } from 'lucide-react';
@@ -85,14 +85,13 @@ export default function AgenteCasosPage() {
             return;
         }
         
-        const worksheetIds = snapshot.docs.map(doc => doc.ref.parent.parent?.id).filter(Boolean);
+        const worksheetIds = snapshot.docs.map(doc => doc.ref.parent.parent?.id).filter(Boolean) as string[];
         if (worksheetIds.length === 0) {
             setAllCases([]);
             setIsLoading(false);
             return;
         }
 
-        // Fetch all worksheets in a single query
         const worksheetPromises = [];
         for(let i = 0; i < worksheetIds.length; i += 30) {
             const chunk = worksheetIds.slice(i, i + 30);
@@ -111,19 +110,28 @@ export default function AgenteCasosPage() {
                 aforoDataMap.set(parentId, doc.data());
             }
         });
-
-        const casesData: WorksheetWithCase[] = Array.from(worksheetsMap.entries()).map(([wsId, wsData]) => {
-            const aforoData = aforoDataMap.get(wsId) || {};
-            return {
-                ...wsData,
-                ...aforoData,
-                worksheet: wsData,
-                id: wsId,
-                ne: wsData.ne,
-                consignee: wsData.consignee,
-                executive: wsData.executive,
-            } as WorksheetWithCase;
-        });
+        
+        const casesData: WorksheetWithCase[] = [];
+        for (const wsDoc of worksheetSnapshots.flatMap(s => s.docs)) {
+            const wsData = wsDoc.data() as Worksheet;
+            const aforoData = aforoDataMap.get(wsDoc.id);
+            
+            if (aforoData) {
+                const combinedData: WorksheetWithCase = {
+                    ...aforoData,
+                    ...wsData,
+                    worksheet: wsData,
+                    id: wsDoc.id,
+                    ne: wsData.ne,
+                    consignee: wsData.consignee,
+                    executive: wsData.executive,
+                    declarationPattern: aforoData.declarationPattern || wsData.patternRegime || '',
+                    merchandise: aforoData.merchandise || wsData.description || '',
+                    assignmentDate: aforoData.assignmentDate || null,
+                };
+                casesData.push(combinedData);
+            }
+        }
         
         setAllCases(casesData);
         setIsLoading(false);
@@ -472,4 +480,3 @@ export default function AgenteCasosPage() {
     </AppShell>
   );
 }
-
