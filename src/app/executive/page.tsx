@@ -11,6 +11,7 @@ import { Loader2, FilePlus, Edit, Inbox, Banknote, StickyNote, Briefcase, Archiv
 import { db } from '@/lib/firebase';
 import { collection, query, where, onSnapshot, orderBy, Timestamp, doc, getDoc, updateDoc, writeBatch, addDoc, getDocs, collectionGroup, serverTimestamp, setDoc, documentId } from 'firebase/firestore';
 import type { Worksheet, AforoCase, AforadorStatus, AforoCaseStatus, DigitacionStatus, WorksheetWithCase, AforoCaseUpdate, PreliquidationStatus, IncidentType, LastUpdateInfo, ExecutiveComment, InitialDataContext, AppUser, SolicitudRecord, ExamDocument, FacturacionStatus } from '@/types';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { format, toDate, isSameDay, startOfDay, endOfDay, differenceInDays, startOfMonth, endOfMonth } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { AforoCaseHistoryModal } from '@/components/reporter/AforoCaseHistoryModal';
@@ -93,9 +94,10 @@ function ExecutivePageContent() {
   const [searchTerm, setSearchTerm] = useState('');
   const [facturadoFilter, setFacturadoFilter] = useState({ facturado: false, noFacturado: true });
   const [acuseFilter, setAcuseFilter] = useState({ conAcuse: false, sinAcuse: true });
+  const [preliquidationFilter, setPreliquidationFilter] = useState(false);
   const [dateFilterType, setDateFilterType] = useState<DateFilterType>('range');
   const [dateRangeInput, setDateRangeInput] = useState<DateRange | undefined>();
-  const [appliedFilters, setAppliedFilters] = useState({ searchTerm: '', facturado: false, noFacturado: true, conAcuse: false, sinAcuse: true, dateFilterType: 'range' as DateFilterType, dateRange: undefined as DateRange | undefined, isSearchActive: false });
+  const [appliedFilters, setAppliedFilters] = useState({ searchTerm: '', facturado: false, noFacturado: true, conAcuse: false, sinAcuse: true, preliquidation: false, dateFilterType: 'range' as DateFilterType, dateRange: undefined as DateRange | undefined, isSearchActive: false });
   const [columnFilters, setColumnFilters] = useState({ ne: '', ejecutivo: '', consignatario: '', factura: '', selectividad: '', incidentType: '' });
   const [savingState, setSavingState] = useState<{ [key: string]: boolean }>({});
   const [newNeForDuplicate, setNewNeForDuplicateState] = useState('');
@@ -340,6 +342,9 @@ function ExecutivePageContent() {
       else if (appliedFilters.facturado && !appliedFilters.noFacturado) finalFiltered = finalFiltered.filter(c => c.facturado === true);
       if (appliedFilters.conAcuse && !appliedFilters.sinAcuse) finalFiltered = finalFiltered.filter(c => c.entregadoAforoAt);
       else if (appliedFilters.sinAcuse && !appliedFilters.conAcuse) finalFiltered = finalFiltered.filter(c => !c.entregadoAforoAt);
+       if (appliedFilters.preliquidation) {
+            finalFiltered = finalFiltered.filter(c => c.revisorStatus === 'Aprobado' && c.preliquidationStatus !== 'Aprobada');
+        }
       
       if (appliedFilters.dateRange?.from) { finalFiltered = finalFiltered.filter(item => item.createdAt?.toDate() >= appliedFilters.dateRange!.from! && item.createdAt?.toDate() <= (appliedFilters.dateRange!.to ? appliedFilters.dateRange!.to : appliedFilters.dateRange!.from!)); }
       
@@ -368,7 +373,7 @@ function ExecutivePageContent() {
     
     setSearchHint(null);
     return tabFiltered.slice(0, 15);
-  }, [allCases, appliedFilters, activeTab, columnFilters, acuseFilter]);
+  }, [allCases, appliedFilters, activeTab, columnFilters, acuseFilter, preliquidationFilter]);
 
   const totalPages = Math.ceil(filteredCases.length / itemsPerPage);
   const paginatedCases = appliedFilters.isSearchActive ? filteredCases.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage) : filteredCases;
@@ -382,7 +387,7 @@ function ExecutivePageContent() {
     setSelectedCaseForIncident: (c: AforoCase) => setModalState(prev => ({...prev, incident: c})),
     setSelectedCaseForValueDoubt: (c: AforoCase) => setModalState(prev => ({...prev, valueDoubt: c})),
     setSelectedCaseForHistory: (c: AforoCase) => setModalState(prev => ({...prev, history: c})),
-    setSelectedIncidentForDetails: (c: AforoCase) => setModalState(prev => ({...prev, incidentDetails: c})),
+    handleViewIncidents: (c: AforoCase) => handleViewIncidents(c),
     setSelectedCaseForComment: (c: AforoCase) => setModalState(prev => ({...prev, comment: c})),
     handleSearchPrevio: (ne: string) => router.push(`/database?ne=${ne}`),
     setCaseToArchive: (c: WorksheetWithCase) => setModalState(prev => ({...prev, archive: c})),
@@ -402,15 +407,17 @@ function ExecutivePageContent() {
         dateRange = { from: today, to: today };
     }
 
-    setAppliedFilters({ searchTerm, ...facturadoFilter, ...acuseFilter, dateFilterType, dateRange, isSearchActive: true });
+    setAppliedFilters({ searchTerm, ...facturadoFilter, ...acuseFilter, preliquidation: preliquidationFilter, dateFilterType, dateRange, isSearchActive: true });
     setCurrentPage(1);
   };
   const clearFilters = () => {
     setSearchTerm('');
     setFacturadoFilter({ facturado: false, noFacturado: true });
     setAcuseFilter({ conAcuse: false, sinAcuse: true });
+    setPreliquidationFilter(false);
     setDateRangeInput(undefined);
-    setAppliedFilters({ searchTerm: '', facturado: false, noFacturado: true, conAcuse: false, sinAcuse: true, dateFilterType: 'range', dateRange: undefined, isSearchActive: false });
+    setColumnFilters({ ne: '', ejecutivo: '', consignatario: '', factura: '', selectividad: '', incidentType: '' });
+    setAppliedFilters({ searchTerm: '', facturado: false, noFacturado: true, conAcuse: false, sinAcuse: true, preliquidation: false, dateFilterType: 'range', dateRange: undefined, isSearchActive: false });
     setCurrentPage(1);
     setSearchHint(null);
   };
@@ -426,9 +433,41 @@ function ExecutivePageContent() {
     if (c.hasValueDoubt) types.push('Duda de Valor');
     return types.length > 0 ? types.join(' / ') : 'N/A';
   };
+  const handleViewIncidents = (caseItem: AforoCase) => {
+    const hasRectificacion = caseItem.incidentType === 'Rectificacion';
+    const hasDuda = caseItem.hasValueDoubt;
+    if (hasRectificacion && hasDuda) {
+        setModalState(prev => ({...prev, viewIncidents: caseItem}));
+    } else if (hasRectificacion) {
+        setModalState(prev => ({...prev, incidentDetails: caseItem}));
+    } else if (hasDuda) {
+        setModalState(prev => ({...prev, valueDoubt: caseItem}));
+    } else {
+        toast({ title: "Sin Incidencias", description: "Este caso no tiene incidencias reportadas.", variant: "default" });
+    }
+  };
+
+  const handleSendToFacturacion = async (caseId: string) => {
+    if (!user || !user.displayName) return;
+
+    setSavingState(prev => ({...prev, [caseId]: true}));
+    
+    const aforoMetadataRef = doc(db, 'worksheets', caseId, 'aforo', 'metadata');
+    try {
+        await updateDoc(aforoMetadataRef, {
+            facturacionStatus: 'Enviado a Facturacion',
+            enviadoAFacturacionAt: Timestamp.now(),
+            facturadorAsignado: 'Alvaro Gonzalez',
+            facturadorAsignadoAt: Timestamp.now(),
+        });
+        toast({ title: 'Enviado a Facturación', description: 'El caso ha sido remitido al módulo de facturación y asignado a Alvaro Gonzalez.' });
+    } catch (e) {
+        toast({ title: 'Error', description: 'No se pudo enviar el caso a facturación.', variant: 'destructive'});
+    } finally {
+        setSavingState(prev => ({...prev, [caseId]: false}));
+    }
+  }
   
-
-
   if (authLoading || !user) return <div className="min-h-screen flex items-center justify-center bg-background"><Loader2 className="h-12 w-12 animate-spin text-primary" /></div>;
   if (modalState.incidentDetails) {
       return <AppShell><div className="py-2 md:py-5"><IncidentReportDetails caseData={modalState.incidentDetails} onClose={() => setModalState(prev => ({...prev, incidentDetails: null}))}/></div></AppShell>;
@@ -490,6 +529,8 @@ function ExecutivePageContent() {
                            setFacturadoFilter={setFacturadoFilter}
                            acuseFilter={acuseFilter}
                            setAcuseFilter={setAcuseFilter}
+                           preliquidationFilter={preliquidationFilter}
+                           setPreliquidationFilter={setPreliquidationFilter}
                            dateFilterType={dateFilterType}
                            setDateFilterType={setDateFilterType}
                            dateRangeInput={dateRangeInput}
@@ -515,7 +556,7 @@ function ExecutivePageContent() {
             </Card>
         </div>
       </AppShell>
-      {modalState.history && (<AforoCaseHistoryModal isOpen={!!modalState.history} onClose={() => setModalState(p => ({...p, history: null}))} caseData={modalState.history} />)}
+    {modalState.history && (<AforoCaseHistoryModal isOpen={!!modalState.history} onClose={() => setModalState(p => ({...p, history: null}))} caseData={modalState.history} />)}
     {modalState.incident && (<IncidentReportModal isOpen={!!modalState.incident} onClose={() => setModalState(p => ({...p, incident: null}))} caseData={modalState.incident} />)}
     {modalState.valueDoubt && (<ValueDoubtModal isOpen={!!modalState.valueDoubt} onClose={() => setModalState(p => ({...p, valueDoubt: null}))} caseData={modalState.valueDoubt} />)}
     {modalState.comment && (<ExecutiveCommentModal isOpen={!!modalState.comment} onClose={() => setModalState(p => ({...p, comment: null}))} caseData={modalState.comment} />)}
@@ -556,3 +597,4 @@ export default function ExecutivePage() {
     );
 }
 
+    
