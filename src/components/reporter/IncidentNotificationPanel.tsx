@@ -1,12 +1,11 @@
 
-
 "use client";
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { db } from '@/lib/firebase';
 import { collection, query, where, onSnapshot, doc, updateDoc, addDoc, Timestamp } from 'firebase/firestore';
 import { useAuth } from '@/context/AuthContext';
-import type { no existe, IncidentStatus, no existeUpdate } from '@/types';
+import type { AforoData, IncidentStatus, AforoDataUpdate } from '@/types';
 import { Button } from '@/components/ui/button';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -19,7 +18,7 @@ import { cn } from '@/lib/utils';
 export function IncidentNotificationPanel({ isMobile = false }: { isMobile?: boolean }) {
   const { user } = useAuth();
   const { toast } = useToast();
-  const [incidents, setIncidents] = useState<no existe[]>([]);
+  const [incidents, setIncidents] = useState<AforoData[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
@@ -33,9 +32,9 @@ export function IncidentNotificationPanel({ isMobile = false }: { isMobile?: boo
     );
 
     const unsubscribe = onSnapshot(q, (snapshot) => {
-      const fetchedIncidents: no existe[] = [];
+      const fetchedIncidents: AforoData[] = [];
       snapshot.forEach(doc => {
-        fetchedIncidents.push({ id: doc.id, ...doc.data() } as no existe);
+        fetchedIncidents.push({ id: doc.id, ...doc.data() } as AforoData);
       });
       setIncidents(fetchedIncidents);
       setIsLoading(false);
@@ -59,7 +58,7 @@ export function IncidentNotificationPanel({ isMobile = false }: { isMobile?: boo
         incidentStatusLastUpdate: { by: user.displayName, at: Timestamp.now() }
       });
 
-      const updateLog: no existeUpdate = {
+      const updateLog: AforoDataUpdate = {
         updatedAt: Timestamp.now(),
         updatedBy: user.displayName,
         field: 'incident_report',
