@@ -1,7 +1,7 @@
 
 "use client";
 import React from 'react';
-import type { no existe, no existeStatus, DigitacionStatus, PreliquidationStatus, WorksheetWithCase } from '@/types';
+import type { AforoData, AforoDataStatus, DigitacionStatus, PreliquidationStatus, WorksheetWithCase } from '@/types';
 import { Table, TableBody, TableCell, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -28,7 +28,7 @@ import { ExecutiveTableHeader } from './ExecutiveTableHeader';
 interface ExecutiveCasesTableProps {
   cases: WorksheetWithCase[];
   savingState: { [key: string]: boolean };
-  onAutoSave: (caseId: string, field: keyof no existe, value: any, isTriggerFromFieldUpdate?: boolean) => void;
+  onAutoSave: (caseId: string, field: keyof AforoData, value: any, isTriggerFromFieldUpdate?: boolean) => void;
   approvePreliquidation: (caseId: string) => void;
   caseActions: any;
   selectedRows: string[];
@@ -38,10 +38,10 @@ interface ExecutiveCasesTableProps {
   setColumnFilters: React.Dispatch<React.SetStateAction<{ ne: string; ejecutivo: string; consignatario: string; factura: string; selectividad: string; incidentType: string; }>>;
   handleSendToFacturacion: (caseId: string) => void;
   onSearch: () => void;
-  getIncidentTypeDisplay: (c: no existe) => string;
+  getIncidentTypeDisplay: (c: AforoData) => string;
 }
 
-const getOverallStatus = (caseData: no existe): { text: string; variant: "default" | "destructive" | "secondary" | "outline" } => {
+const getOverallStatus = (caseData: AforoData): { text: string; variant: "default" | "destructive" | "secondary" | "outline" } => {
     if (caseData.digitacionStatus === 'Trámite Completo') return { text: 'Trámite Completo', variant: 'default' };
     if (caseData.digitacionStatus === 'Almacenado') return { text: 'Almacenado', variant: 'default' };
     if (caseData.digitacionStatus === 'En Proceso') return { text: 'En Digitación', variant: 'secondary' };
@@ -264,5 +264,3 @@ export function ExecutiveCasesTable({
     </div>
   );
 }
-
-    
