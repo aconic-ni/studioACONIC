@@ -42,24 +42,7 @@ const TransportDetailItem: React.FC<{ label: string; value?: string | number | n
     </tr>
 );
 
-export function Anexo5Details({ worksheet, onClose }: { worksheet: Worksheet; onClose: () => void; }) {
-  const [agente, setAgente] = useState<AppUser | null>(null);
-
-  useEffect(() => {
-    const fetchAgent = async () => {
-        if (worksheet.aforador && worksheet.aforador !== '-') {
-            const q = query(collection(db, 'users'), where('displayName', '==', worksheet.aforador));
-            const querySnapshot = await getDocs(q);
-            if (!querySnapshot.empty) {
-                const agentData = querySnapshot.docs[0].data() as AppUser;
-                setAgente(agentData);
-            }
-        } else {
-            setAgente(null);
-        }
-    };
-    fetchAgent();
-  }, [worksheet.aforador]);
+export function Anexo5Details({ worksheet, agent, onClose }: { worksheet: Worksheet; agent: AppUser | null; onClose: () => void; }) {
 
   const productHeaders = ["CANTIDAD", "ORIGEN", "UM", "SAC", "PESO", "DESCRIPCION", "LINEA AEREA", "N° DE GUIA AEREA", "BULTO", "TOTAL"];
   
@@ -213,11 +196,11 @@ export function Anexo5Details({ worksheet, onClose }: { worksheet: Worksheet; on
               </div>
               <div className="mt-1 print:mt-1 p-2 flex flex-col justify-between">
                   <p className="text-center font-bold text-sm">TRAMITANTE</p>
-                  {agente && (
+                  {agent && (
                       <div className="text-center text-black font-semibold text-xs">
-                          <p>{agente.displayName || 'N/A'}</p>
-                          <p>Licencia: {agente.agentLicense || 'N/A'}</p>
-                          <p>Cédula: {agente.cedula || 'N/A'}</p>
+                          <p>{agent.displayName || 'N/A'}</p>
+                          <p>Licencia: {agent.agentLicense || 'N/A'}</p>
+                          <p>Cédula: {agent.cedula || 'N/A'}</p>
                           <p>AGENCIA ADUANERA ACONIC</p>
                       </div>
                   )}
