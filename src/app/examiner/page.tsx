@@ -1,3 +1,4 @@
+
 "use client";
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
@@ -20,8 +21,10 @@ export default function ExaminerPage() {
   const [isDisplayNameModalOpen, setIsDisplayNameModalOpen] = useState(false);
 
   useEffect(() => {
+    if (isPaymentRequestFlowOpen) return; // Don't redirect if the payment flow is open
+
     if (!authLoading && user) {
-      const allowedRoles = ['gestor', 'admin', 'supervisor', 'coordinadora'];
+      const allowedRoles = ['gestor', 'admin', 'supervisor', 'coordinadora', 'ejecutivo'];
       if (user.role === 'calificador') {
         router.push('/databasePay');
       } else if (user.role && !allowedRoles.includes(user.role)) {
@@ -30,7 +33,7 @@ export default function ExaminerPage() {
     } else if (!authLoading && !user) {
       router.push('/');
     }
-  }, [user, authLoading, router]);
+  }, [user, authLoading, router, isPaymentRequestFlowOpen]);
 
   useEffect(() => {
     if (!authLoading && user && !isProfileComplete && user.role !== 'admin') {
@@ -52,8 +55,16 @@ export default function ExaminerPage() {
       window.removeEventListener('beforeunload', handleBeforeUnload);
     };
   }, [currentStep]);
+  
+  if (isPaymentRequestFlowOpen) {
+    return (
+      <AppShell>
+        <PaymentRequestFlow isOpen={isPaymentRequestFlowOpen} onClose={closePaymentRequestFlow} />
+      </AppShell>
+    );
+  }
 
-  if (authLoading || (user && !isProfileComplete && user.role !== 'admin') || !user || (user.role && !['gestor', 'admin', 'supervisor', 'coordinadora', 'calificador'].includes(user.role))) {
+  if (authLoading || (user && !isProfileComplete && user.role !== 'admin') || !user) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
         <Loader2 className="h-12 w-12 animate-spin text-primary" />
@@ -63,13 +74,6 @@ export default function ExaminerPage() {
     );
   }
 
-  if (!user) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
-        <p className="text-lg">Redirigiendo a inicio de sesión...</p>
-      </div>
-    );
-  }
 
   const renderStepContent = () => {
     switch (currentStep) {
@@ -95,7 +99,6 @@ export default function ExaminerPage() {
          {renderStepContent()}
       </div>
       {currentStep === ExamStep.SUCCESS && <SuccessModal />}
-      {isPaymentRequestFlowOpen && <PaymentRequestFlow isOpen={isPaymentRequestFlowOpen} onClose={closePaymentRequestFlow} />}
     </AppShell>
   );
 }

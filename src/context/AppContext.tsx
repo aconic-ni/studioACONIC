@@ -51,7 +51,7 @@ interface AppContextType {
   openPaymentRequestFlow: () => void;
   closePaymentRequestFlow: () => void;
   initialContextData: InitialDataContext | null;
-  setInitialContextData: (data: InitialDataContext) => void;
+  setInitialContextData: (data: InitialDataContext | null) => void;
   solicitudes: SolicitudData[];
   addSolicitud: (solicitud: Omit<SolicitudData, 'id'>) => void;
   updateSolicitud: (solicitud: SolicitudData) => void;
@@ -117,12 +117,14 @@ export const AppProvider: React.FC<{children: React.ReactNode}> = ({ children })
     setIsPaymentRequestFlowOpen(true);
   };
   const closePaymentRequestFlow = () => {
-      // Don't reset everything, just close the modal and reset its specific state.
       setIsPaymentRequestFlowOpen(false);
       setInitialContextDataState(null);
       setSolicitudes([]);
       setEditingSolicitud(null);
-      setCurrentStepState(ExamStep.SUCCESS); // Go back to success screen of the main flow
+      // Decide where to go back. If in examiner, go to success, otherwise stay.
+      if (currentStep !== ExamStep.WELCOME) {
+         setCurrentStepState(ExamStep.SUCCESS);
+      }
   };
 
 
@@ -134,7 +136,7 @@ export const AppProvider: React.FC<{children: React.ReactNode}> = ({ children })
     }
   }, [authUser, internalUser, resetApp]);
   
-  const setInitialContextData = useCallback((data: InitialDataContext) => {
+  const setInitialContextData = useCallback((data: InitialDataContext | null) => {
     setInitialContextDataState(data);
   }, []);
 

@@ -49,7 +49,6 @@ export function PaymentRequestModal({ isOpen, onClose, caseData }: PaymentReques
 
   const handleRecipientClick = (recipient: string) => {
     form.setValue('recipient', recipient, { shouldValidate: true });
-    setIsMemorandumMode(recipient.toLowerCase() === 'memorandum');
   };
 
   const onSubmit = async (data: PaymentRequestFormData) => {
@@ -75,10 +74,9 @@ export function PaymentRequestModal({ isOpen, onClose, caseData }: PaymentReques
     setInitialContextData(initialData);
     setIsMemorandumMode(initialData.isMemorandum);
     
-    // Open the flow in a modal instead of navigating
     openPaymentRequestFlow(); 
     
-    onClose(); // Close the current modal
+    onClose(); 
   };
 
   if (!isOpen) return null;

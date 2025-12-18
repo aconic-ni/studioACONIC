@@ -11,6 +11,7 @@ import { Loader2, FilePlus, Search, Edit, Eye, History, PlusSquare, UserCheck, I
 import { db } from '@/lib/firebase';
 import { collection, query, where, onSnapshot, orderBy, Timestamp, doc, getDoc, updateDoc, writeBatch, addDoc, getDocs, collectionGroup, serverTimestamp, setDoc, documentId } from 'firebase/firestore';
 import type { Worksheet, AforoData, AforadorStatus, noexisteStatus, DigitacionStatus, WorksheetWithCase, AforoUpdate, PreliquidationStatus, IncidentType, LastUpdateInfo, ExecutiveComment, InitialDataContext, AppUser, SolicitudRecord, ExamDocument, FacturacionStatus } from '@/types';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { format, toDate, isSameDay, startOfDay, endOfDay, differenceInDays, startOfMonth, endOfMonth } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { Input } from '@/components/ui/input';
@@ -52,6 +53,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { ExecutiveCasesTable } from '@/components/executive/ExecutiveCasesTable';
 import { v4 as uuidv4 } from 'uuid';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
+import { PaymentRequestFlow } from '@/components/examinerPay/InitialDataForm';
 
 type DateFilterType = 'range' | 'month' | 'today';
 
@@ -72,7 +74,7 @@ function ExecutivePageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { toast } = useToast();
-  const { openAddProductModal, setInitialContextData, setIsMemorandumMode, caseToAssignAforador, setCaseToAssignAforador } = useAppContext();
+  const { openPaymentRequestFlow, setInitialContextData, setIsMemorandumMode, caseToAssignAforador, setCaseToAssignAforador } = useAppContext();
   const [allCases, setAllCases] = useState<WorksheetWithCase[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isExporting, setIsExporting] = useState(false);
@@ -82,10 +84,9 @@ function ExecutivePageContent() {
     incident: null | AforoData;
     valueDoubt: null | AforoData;
     incidentDetails: null | AforoData;
-    worksheet: null | Worksheet;
+    worksheet: null | WorksheetWithCase;
     comment: null | AforoData;
     quickRequest: null | WorksheetWithCase;
-    payment: null | AforoData;
     paymentList: null | AforoData;
     resa: null | AforoData;
     viewIncidents: null | AforoData;
@@ -99,7 +100,6 @@ function ExecutivePageContent() {
     worksheet: null,
     comment: null,
     quickRequest: null,
-    payment: null,
     paymentList: null,
     resa: null,
     viewIncidents: null,
@@ -296,7 +296,7 @@ const fetchCases = useCallback(async () => {
     try {
         const newWsSnap = await getDoc(newWorksheetRef);
         if (newWsSnap.exists()) {
-            toast({ title: "Duplicado", description: `Ya existe un registro con el NE ${newNe}.`, variant: 'destructive' });
+            toast({ title: "Duplicado", description: `Ya existe un registro con el NE ${newNe}.`, variant: "destructive" });
             setSavingState(prev => ({ ...prev, [caseToDuplicate.id]: false }));
             return;
         }
@@ -448,14 +448,7 @@ const fetchCases = useCallback(async () => {
   const paginatedCases = appliedFilters.isSearchActive ? filteredCases.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage) : filteredCases;
   
   const caseActions = {
-    handleViewWorksheet: (c: AforoData) => {
-        const ws = allCases.find(cs => cs.id === c.id)?.worksheet;
-        if (ws) {
-            setModalState(prev => ({...prev, worksheet: ws}));
-        } else {
-            toast({ title: "Error", description: "No se pudo encontrar la hoja de trabajo.", variant: "destructive" });
-        }
-    },
+    handleViewWorksheet: (c: WorksheetWithCase) => setModalState(prev => ({...prev, worksheet: c})),
     setSelectedCaseForQuickRequest: (c: WorksheetWithCase) => setModalState(prev => ({...prev, quickRequest: c})),
     setSelectedCaseForPayment: (c: AforoData) => {
         const initialData: InitialDataContext = {
@@ -470,7 +463,7 @@ const fetchCases = useCallback(async () => {
             caseId: c.id
         };
         setInitialContextData(initialData);
-        openAddProductModal();
+        openPaymentRequestFlow();
     },
     setSelectedCaseForPaymentList: (c: AforoData) => setModalState(prev => ({...prev, paymentList: c})),
     setSelectedCaseForResa: (c: AforoData) => setModalState(prev => ({...prev, resa: c})),
@@ -525,14 +518,14 @@ const fetchCases = useCallback(async () => {
   };
   const handleOpenPaymentRequest = () => {
     const initialData: InitialDataContext = {
-        ne: `SOL-${new Date().getTime()}`,
-        manager: user?.displayName || 'N/A',
+        ne: `SOL-${format(new Date(), 'ddMMyy-HHmmss')}`,
+        manager: user?.displayName || 'Usuario Desconocido',
         date: new Date(),
-        recipient: 'Contabilidad',
+        recipient: '',
         isMemorandum: false,
     };
     setInitialContextData(initialData);
-    openAddProductModal();
+    setIsRequestPaymentModalOpen(true);
   };
   const approvePreliquidation = (caseId: string) => { handleAutoSave(caseId, 'preliquidationStatus', 'Aprobada'); };
   const getIncidentTypeDisplay = (c: AforoData) => {
@@ -558,7 +551,7 @@ const fetchCases = useCallback(async () => {
       return <AppShell><div className="py-2 md:py-5"><IncidentReportDetails caseData={modalState.incidentDetails as any} onClose={() => setModalState(prev => ({...prev, incidentDetails: null}))}/></div></AppShell>;
   }
   if (modalState.worksheet) {
-      return <AppShell><div className="py-2 md:py-5"><WorksheetDetails worksheet={modalState.worksheet as WorksheetWithCase} onClose={() => setModalState(prev => ({...prev, worksheet: null}))}/></div></AppShell>;
+      return <AppShell><div className="py-2 md:py-5"><WorksheetDetails worksheet={modalState.worksheet} onClose={() => setModalState(prev => ({...prev, worksheet: null}))}/></div></AppShell>;
   }
 
   const handleExport = async () => {
@@ -572,10 +565,21 @@ const fetchCases = useCallback(async () => {
         if (activeTab === 'corporate') {
             await downloadCorporateReportAsExcel(filteredCases.map(c => c.worksheet).filter(ws => ws !== null) as Worksheet[]);
         } else {
+            const casesWithDetails: (AforoData & { dispatchCustoms?: string })[] = [];
             const auditLogs: (AforoUpdate & { caseNe: string })[] = [];
 
             for (const caseItem of paginatedCases) {
                 if (!caseItem.worksheetId) continue;
+                
+                const caseDetails: AforoData & { dispatchCustoms?: string } = { ...caseItem };
+                
+                const wsDocRef = doc(db, 'worksheets', caseItem.worksheetId);
+                const wsSnap = await getDoc(wsDocRef);
+                if (wsSnap.exists()) {
+                    caseDetails.dispatchCustoms = (wsSnap.data() as Worksheet).dispatchCustoms;
+                }
+                casesWithDetails.push(caseDetails);
+
                 const logsQuery = query(collection(db, 'worksheets', caseItem.worksheetId, 'actualizaciones'), orderBy('updatedAt', 'asc'));
                 const logSnapshot = await getDocs(logsQuery);
                 logSnapshot.forEach(logDoc => {
@@ -585,7 +589,7 @@ const fetchCases = useCallback(async () => {
                     });
                 });
             }
-            await downloadExecutiveReportAsExcel(paginatedCases, auditLogs);
+            await downloadExecutiveReportAsExcel(casesWithDetails, auditLogs);
         }
     } catch (e) {
         console.error("Error exporting data: ", e);
@@ -632,62 +636,37 @@ const fetchCases = useCallback(async () => {
                             </DropdownMenu>
                         </div>
                     </div>
+                    <div className="border-t pt-4 mt-2">
+                       <TabsList>
+                            <TabsTrigger value="worksheets">Hojas de Trabajo</TabsTrigger>
+                            <TabsTrigger value="anexos">Anexos</TabsTrigger>
+                            <TabsTrigger value="corporate">Reportes Corporativos</TabsTrigger>
+                        </TabsList>
+                    </div>
                 </CardHeader>
-                <CardContent>
+                 <CardContent>
                     <Tabs defaultValue={activeTab} className="w-full" onValueChange={handleTabChange}>
-                         <TabsList className="mb-4">
-                           <TabsTrigger value="worksheets">Hojas de Trabajo</TabsTrigger>
-                           <TabsTrigger value="anexos">Anexos</TabsTrigger>
-                           <TabsTrigger value="corporate">Reportes Corporativos</TabsTrigger>
-                         </TabsList>
-                        <div className="flex flex-col gap-4">
-                            <div className="flex flex-wrap items-center justify-between gap-4">
-                                <div className="relative w-full sm:max-w-xs">
-                                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
-                                    <Input placeholder="Buscar por NE o Consignatario..." className="pl-10" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
-                                </div>
-                                <div className="flex items-center flex-wrap gap-4">
-                                    <Popover>
-                                        <PopoverTrigger asChild>
-                                            <Button variant="outline" className="w-[200px] justify-start"><ChevronsUpDown className="mr-2 h-4 w-4"/> Filtrar Visibilidad</Button>
-                                        </PopoverTrigger>
-                                        <PopoverContent className="w-56 p-2" align="end">
-                                            <div className="grid gap-2">
-                                              <label className="flex items-center gap-2 text-sm font-normal"><Checkbox checked={facturadoFilter.noFacturado} onCheckedChange={(checked) => setFacturadoFilter(f => ({ ...f, noFacturado: !!checked }))} />No Facturados</label>
-                                              <label className="flex items-center gap-2 text-sm font-normal"><Checkbox checked={facturadoFilter.facturado} onCheckedChange={(checked) => setFacturadoFilter(f => ({ ...f, facturado: !!checked }))} />Facturados</label>
-                                            </div>
-                                            <div className="grid gap-2 mt-2 pt-2 border-t">
-                                                <label className="flex items-center gap-2 text-sm font-normal"><Checkbox checked={acuseFilter.sinAcuse} onCheckedChange={(checked) => setAcuseFilter(f => ({ ...f, sinAcuse: !!checked }))} />Sin Acuse</label>
-                                                <label className="flex items-center gap-2 text-sm font-normal"><Checkbox checked={acuseFilter.conAcuse} onCheckedChange={(checked) => setAcuseFilter(f => ({ ...f, conAcuse: !!checked }))} />Con Acuse</label>
-                                            </div>
-                                        </PopoverContent>
-                                    </Popover>
-                                    <Button onClick={handleSearch}><Search className="mr-2 h-4 w-4" /> Buscar</Button>
-                                    <Button variant="outline" onClick={clearFilters}>Limpiar Filtros</Button>
-                                     <Button variant="outline" onClick={fetchCases}>
-                                        <RefreshCw className="mr-2 h-4 w-4" /> Actualizar
-                                    </Button>
-                                    <Button onClick={handleExport} disabled={allCases.length === 0 || isExporting}>
-                                       {isExporting ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : <Download className="mr-2 h-4 w-4" />}
-                                       {isExporting ? 'Exportando...' : 'Exportar'}
-                                    </Button>
-                                </div>
-                            </div>
-                            <div className="flex flex-wrap items-center gap-4">
-                                <div className="flex flex-wrap items-center gap-2">
-                                    <Button variant={dateFilterType === 'range' ? 'default' : 'ghost'} size="sm" onClick={() => setDateFilterType('range')}><CalendarRange className="mr-2 h-4 w-4"/> Rango</Button>
-                                    <Button variant={dateFilterType === 'month' ? 'default' : 'ghost'} size="sm" onClick={() => setDateFilterType('month')}><Calendar className="mr-2 h-4 w-4"/> Mes</Button>
-                                    <Button variant={dateFilterType === 'today' ? 'default' : 'ghost'} size="sm" onClick={() => setDateFilterType('today')}><CalendarDays className="mr-2 h-4 w-4"/> Hoy</Button>
-                                </div>
-                                {dateFilterType === 'range' && <DatePickerWithRange date={dateRangeInput} onDateChange={setDateRangeInput} />}
-                                {dateFilterType === 'month' && (
-                                    <div className="flex gap-2">
-                                        <Select value={String(selectedMonth)} onValueChange={(val) => setSelectedMonth(Number(val))}><SelectTrigger className="w-[180px]"><SelectValue /></SelectTrigger><SelectContent>{months.map(m => <SelectItem key={m.value} value={String(m.value)}>{m.label}</SelectItem>)}</SelectContent></Select>
-                                        <Select value={String(selectedYear)} onValueChange={(val) => setSelectedYear(Number(val))}><SelectTrigger className="w-[120px]"><SelectValue /></SelectTrigger><SelectContent>{years.map(y => <SelectItem key={y} value={String(y)}>{y}</SelectItem>)}</SelectContent></Select>
-                                    </div>
-                                )}
-                            </div>
-                        </div>
+                        <ExecutiveFilters
+                           activeTab={activeTab}
+                           searchTerm={searchTerm}
+                           setSearchTerm={setSearchTerm}
+                           facturadoFilter={facturadoFilter}
+                           setFacturadoFilter={setFacturadoFilter}
+                           acuseFilter={acuseFilter}
+                           setAcuseFilter={setAcuseFilter}
+                           preliquidationFilter={preliquidationFilter}
+                           setPreliquidationFilter={setPreliquidationFilter}
+                           dateFilterType={dateFilterType}
+                           setDateFilterType={setDateFilterType}
+                           dateRangeInput={dateRangeInput}
+                           setDateRangeInput={setDateRangeInput}
+                           setAppliedFilters={setAppliedFilters}
+                           setCurrentPage={setCurrentPage}
+                           isExporting={isExporting}
+                           allCasesCount={allCases.length}
+                           searchHint={searchHint}
+                           clearFilters={clearFilters}
+                       />
                         <TabsContent value="worksheets" className="mt-6">
                             <ExecutiveCasesTable cases={paginatedCases} savingState={savingState} onAutoSave={handleAutoSave} approvePreliquidation={approvePreliquidation} caseActions={caseActions} selectedRows={selectedRows} onSelectRow={setSelectedRows} onSelectAllRows={handleSelectAllForPreliquidation} columnFilters={columnFilters} setColumnFilters={setColumnFilters} handleSendToFacturacion={handleSendToFacturacion} onSearch={handleSearch} getIncidentTypeDisplay={getIncidentTypeDisplay} />
                         </TabsContent>
@@ -703,17 +682,16 @@ const fetchCases = useCallback(async () => {
         </div>
       </AppShell>
     {modalState.history && (<AforoHistoryModal isOpen={!!modalState.history} onClose={() => setModalState(p => ({...p, history: null}))} caseData={modalState.history} />)}
-    {modalState.incident && (<IncidentReportModal isOpen={!!modalState.incident} onClose={() => setModalState(p => ({...p, incident: null}))} caseData={modalState.incident as any} />)}
-    {modalState.valueDoubt && (<ValueDoubtModal isOpen={!!modalState.valueDoubt} onClose={() => setModalState(p => ({...p, valueDoubt: null}))} caseData={modalState.valueDoubt as any} />)}
+    {modalState.incident && (<IncidentReportModal isOpen={!!modalState.incident} onClose={() => setModalState(p => ({...p, incident: null}))} caseData={modalState.incident} />)}
+    {modalState.valueDoubt && (<ValueDoubtModal isOpen={!!modalState.valueDoubt} onClose={() => setModalState(p => ({...p, valueDoubt: null}))} caseData={modalState.valueDoubt} />)}
     {modalState.comment && (<ExecutiveCommentModal isOpen={!!modalState.comment} onClose={() => setModalState(p => ({...p, comment: null}))} caseData={modalState.comment} />)}
     {modalState.quickRequest && (<QuickRequestModal isOpen={!!modalState.quickRequest} onClose={() => setModalState(p => ({...p, quickRequest: null}))} caseWithWorksheet={modalState.quickRequest} />)}
-    {modalState.payment && (<PaymentRequestModal isOpen={!!modalState.payment} onClose={() => setModalState(p => ({...p, payment: null}))} caseData={modalState.payment as any} />)}
     {isRequestPaymentModalOpen && (<PaymentRequestModal isOpen={isRequestPaymentModalOpen} onClose={() => setIsRequestPaymentModalOpen(false)} caseData={null} />)}
-    {modalState.paymentList && (<PaymentListModal isOpen={!!modalState.paymentList} onClose={() => setModalState(p => ({...p, paymentList: null}))} caseData={modalState.paymentList as any} />)}
-    {modalState.resa && (<ResaNotificationModal isOpen={!!modalState.resa} onClose={() => setModalState(p => ({...p, resa: null}))} caseData={modalState.resa as any} />)}
-    {caseToAssignAforador && (<AssignUserModal isOpen={!!caseToAssignAforador} onClose={() => setCaseToAssignAforador(null)} caseData={caseToAssignAforador as any} assignableUsers={assignableUsers} onAssign={handleAssignAforador} title="Asignar Aforador (PSMT)" description={`Como el consignatario es PSMT, debe asignar un aforador para el caso NE: ${caseToAssignAforador.ne}.`}/>)}
+    {modalState.paymentList && (<PaymentListModal isOpen={!!modalState.paymentList} onClose={() => setModalState(p => ({...p, paymentList: null}))} caseData={modalState.paymentList} />)}
+    {modalState.resa && (<ResaNotificationModal isOpen={!!modalState.resa} onClose={() => setModalState(p => ({...p, resa: null}))} caseData={modalState.resa} />)}
+    {caseToAssignAforador && (<AssignUserModal isOpen={!!caseToAssignAforador} onClose={() => setCaseToAssignAforador(null)} caseData={caseToAssignAforador} assignableUsers={assignableUsers} onAssign={handleAssignAforador} title="Asignar Aforador (PSMT)" description={`Como el consignatario es PSMT, debe asignar un aforador para el caso NE: ${caseToAssignAforador.ne}.`}/>)}
     {modalState.viewIncidents && (<ViewIncidentsModal isOpen={!!modalState.viewIncidents} onClose={() => setModalState(p => ({...p, viewIncidents: null}))} onSelectRectificacion={() => { setModalState(p => ({...p, incidentDetails: p.viewIncidents, viewIncidents: null})); }} onSelectDudaValor={() => { setModalState(p => ({...p, valueDoubt: p.viewIncidents, viewIncidents: null})); }} />)}
-    {modalState.process && (<StatusProcessModal isOpen={!!modalState.process} onClose={() => setModalState(p => ({...p, process: null}))} caseData={modalState.process as any} />)}
+    {modalState.process && (<StatusProcessModal isOpen={!!modalState.process} onClose={() => setModalState(p => ({...p, process: null}))} caseData={modalState.process} />)}
     <AlertDialog open={!!modalState.archive} onOpenChange={(isOpen) => !isOpen && setModalState(p => ({...p, archive: null}))}><AlertDialogContent><AlertDialogHeader><AlertDialogTitle>¿Está seguro?</AlertDialogTitle><AlertDialogDescription>Esta acción archivará el caso y no será visible en las listas principales.</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel>Cancelar</AlertDialogCancel><AlertDialogAction onClick={handleArchiveCase}>Sí, Archivar</AlertDialogAction></AlertDialogFooter></AlertDialogContent></AlertDialog>
       <Dialog open={duplicateAndRetireModalOpen} onOpenChange={setDuplicateAndRetireModalOpen}>
         <DialogContent>
@@ -730,34 +708,12 @@ const fetchCases = useCallback(async () => {
             <DialogFooter><Button variant="outline" onClick={() => setDuplicateAndRetireModalOpen(false)}>Cancelar</Button><Button onClick={handleDuplicateAndRetire} disabled={savingState[caseToDuplicate?.id || '']}>Duplicar y Retirar</Button></DialogFooter>
         </DialogContent>
       </Dialog>
-      <Dialog open={isDeathkeyModalOpen} onOpenChange={setIsDeathkeyModalOpen}>
-        <DialogContent>
-            <DialogHeader>
-                <DialogTitle>Confirmar Acción "Deathkey"</DialogTitle>
-                <DialogDescription>
-                    Esta acción reclasificará {selectedRows.length} caso(s) a "Reporte Corporativo", excluyéndolos de la lógica de Aforo.
-                    Esta acción es irreversible. Por favor ingrese el PIN para confirmar.
-                </DialogDescription>
-            </DialogHeader>
-            <div className="py-4 space-y-2">
-                <Label htmlFor="pin-input" className="flex items-center gap-2"><KeyRound/>PIN de Seguridad</Label>
-                <Input
-                    id="pin-input"
-                    type="password"
-                    value={pinInput}
-                    onChange={(e) => setPinInput(e.target.value)}
-                    placeholder="Ingrese el PIN de 6 dígitos"
-                />
-            </div>
-            <DialogFooter>
-                <Button variant="outline" onClick={() => setIsDeathkeyModalOpen(false)}>Cancelar</Button>
-                <Button variant="destructive" onClick={handleDeathkey} disabled={isLoading}>
-                    {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin"/>}
-                    Confirmar y Ejecutar
-                </Button>
-            </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      {isPaymentRequestFlowOpen && (
+        <PaymentRequestFlow
+          isOpen={isPaymentRequestFlowOpen}
+          onClose={closePaymentRequestFlow}
+        />
+      )}
     </>
   );
 }
@@ -769,5 +725,3 @@ export default function ExecutivePage() {
         </Suspense>
     );
 }
-
-    
