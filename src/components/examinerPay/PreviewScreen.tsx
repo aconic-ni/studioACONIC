@@ -1,3 +1,4 @@
+
 "use client";
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -23,21 +24,21 @@ const PreviewDetailItem: React.FC<{ label: string; value?: string | number | nul
   }
 
   return (
-    <div className={cn("py-1", className)}>
-      <p className="text-xs font-medium text-muted-foreground flex items-center">
-         {Icon && <Icon className="h-3.5 w-3.5 mr-1.5 text-primary/70" />}
-         {label}
+    <div className={cn("py-1 flex items-baseline print:py-0", className)}>
+      <p className="text-xs font-medium text-muted-foreground flex items-center shrink-0 print:text-xs">
+        {Icon && <Icon className="h-3.5 w-3.5 mr-1.5 text-primary/70 print:h-3 print:w-3" />}
+        {label}:&nbsp;
       </p>
-      <p className="text-sm text-foreground break-words">{displayValue}</p>
+      <p className="text-sm text-foreground break-words print:text-xs print:font-semibold">{displayValue}</p>
     </div>
   );
 };
 
 const CheckboxPreviewItem: React.FC<{ label: string; checked?: boolean; subLabel?: string }> = ({ label, checked, subLabel }) => (
-  <div className="flex items-center py-1">
-    {checked ? <CheckSquare className="h-4 w-4 text-green-600 mr-2" /> : <Square className="h-4 w-4 text-muted-foreground mr-2" />}
-    <span className="text-sm text-foreground">{label}</span>
-    {subLabel && <span className="text-xs text-muted-foreground ml-1">{subLabel}</span>}
+  <div className="flex items-center py-1 print:py-0.5">
+    {checked ? <CheckSquare className="h-4 w-4 text-green-600 mr-2 print:h-3 print:w-3" /> : <Square className="h-4 w-4 text-muted-foreground mr-2 print:h-3 print:w-3" />}
+    <span className="text-sm text-foreground print:text-xs">{label}</span>
+    {subLabel && <span className="text-xs text-muted-foreground ml-1 print:text-xs">{subLabel}</span>}
   </div>
 );
 
@@ -99,11 +100,11 @@ export function PreviewScreen() {
       <CardContent className="space-y-6">
         <div>
           <h4 className="text-lg font-medium mb-2 text-foreground">Informacion General</h4>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-2 bg-secondary/30 p-4 rounded-md shadow-sm text-sm">
-            <PreviewDetailItem label="A (Destinatario)" value={initialContextData.recipient} icon={Send} />
-            <PreviewDetailItem label="De (Usuario)" value={initialContextData.manager} icon={User} />
-            <PreviewDetailItem label="Fecha de Solicitud" value={initialContextData.date} icon={CalendarDays} />
-            <PreviewDetailItem label="NE (Tracking NX1)" value={initialContextData.ne} icon={Info} />
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-x-6 gap-y-1 bg-secondary/30 p-4 rounded-md shadow-sm text-sm">
+            <PreviewDetailItem label="A" value={initialContextData.recipient} icon={Send} />
+            <PreviewDetailItem label="De" value={initialContextData.manager} icon={User} />
+            <PreviewDetailItem label="Fecha" value={initialContextData.date} icon={CalendarDays} />
+            <PreviewDetailItem label="NE" value={initialContextData.ne} icon={Info} />
             <PreviewDetailItem label="Referencia" value={initialContextData.reference || 'N/A'} icon={FileText} />
           </div>
         </div>
@@ -111,7 +112,7 @@ export function PreviewScreen() {
         <div>
           <h4 className="text-lg font-medium mb-3 text-foreground">Solicitudes ({solicitudes.length})</h4>
           {solicitudes.length > 0 ? (
-            <ScrollArea className="h-[400px] w-full">
+            <ScrollArea className="max-h-[50vh] w-full">
               <div className="space-y-6 pr-4">
                 {solicitudes.map((solicitud, index) => (
                   <div key={solicitud.id} className="p-4 border border-border bg-card rounded-lg shadow">
@@ -197,7 +198,7 @@ export function PreviewScreen() {
                             <div className="space-y-1">
                                 <CheckboxPreviewItem label="Impuestos pendientes de pago por el cliente" checked={solicitud.impuestosPendientesCliente} />
                                 <CheckboxPreviewItem label="Soporte" checked={solicitud.soporte} />
-                                <CheckboxPreviewItem label="Impuestos pagados por el cliente" checked={solicitud.impuestosPagadosCliente} />
+                                <CheckboxPreviewItem label="Impuestos pagados por el cliente mediante:" checked={solicitud.impuestosPagadosCliente} />
                                 {solicitud.impuestosPagadosCliente && (
                                 <div className="ml-6 pl-2 border-l border-dashed text-xs">
                                     <PreviewDetailItem label="R/C No." value={solicitud.impuestosPagadosRC} />
