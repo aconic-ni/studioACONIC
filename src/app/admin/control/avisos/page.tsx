@@ -40,6 +40,16 @@ export default function AnnouncementPage() {
   const [announcements, setAnnouncements] = useState<Announcement[]>([]);
   const [editingAnnouncement, setEditingAnnouncement] = useState<Announcement | null>(null);
 
+  const form = useForm<AnnouncementFormData>({
+    resolver: zodResolver(announcementSchema),
+    defaultValues: {
+      title: '',
+      content: '',
+      linkUrl: '',
+      linkText: '',
+    },
+  });
+
   useEffect(() => {
     const q = query(collection(db, 'avisos'), orderBy('createdAt', 'desc'), limit(50));
     const unsubscribe = onSnapshot(q, (snapshot) => {
@@ -199,4 +209,3 @@ export default function AnnouncementPage() {
     </AppShell>
   );
 }
-    
