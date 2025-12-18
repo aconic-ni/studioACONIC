@@ -17,7 +17,6 @@ import { AforoHistoryModal } from '@/components/reporter/AforoHistoryModal';
 import { IncidentReportModal } from '@/components/reporter/IncidentReportModal';
 import { Badge } from '@/components/ui/badge';
 import { IncidentReportDetails } from '@/components/reporter/IncidentReportDetails';
-import { ManageDocumentsModal } from '@/components/executive/ManageDocumentsModal';
 import { ValueDoubtModal } from '@/components/executive/ValueDoubtModal';
 import { DatePickerWithTime } from '@/components/reports/DatePickerWithTime';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -1025,7 +1024,6 @@ function ExecutivePageContent() {
         </Tabs>
       </div>
     </AppShell>
-    {selectedCaseForDocs && (<ManageDocumentsModal isOpen={!!selectedCaseForDocs} onClose={() => setSelectedCaseForDocs(null)} caseData={selectedCaseForDocs} />)}
     {selectedCaseForHistory && (<AforoHistoryModal isOpen={!!selectedCaseForHistory} onClose={() => setSelectedCaseForHistory(null)} caseData={selectedCaseForHistory} />)}
     {selectedCaseForIncident && (<IncidentReportModal isOpen={!!selectedCaseForIncident} onClose={() => setSelectedCaseForIncident(null)} caseData={selectedCaseForIncident} />)}
     {selectedCaseForValueDoubt && (<ValueDoubtModal isOpen={!!selectedCaseForValueDoubt} onClose={() => setSelectedCaseForValueDoubt(null)} caseData={selectedCaseForValueDoubt} />)}
