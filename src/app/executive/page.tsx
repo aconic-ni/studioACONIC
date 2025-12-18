@@ -825,7 +825,7 @@ function ExecutivePageContent() {
     return (<AppShell><div className="py-2 md:py-5"><IncidentReportDetails caseData={selectedIncidentForDetails} onClose={() => setSelectedIncidentForDetails(null)} /></div></AppShell>);
   }
   if (selectedWorksheet) {
-    return (<AppShell><div className="py-2 md:py-5"><WorksheetDetails worksheet={selectedWorksheet} aforoCase={allCases.find(c => c.worksheetId === selectedWorksheet.id)} onClose={() => setSelectedWorksheet(null)} /></div></AppShell>);
+    return (<AppShell><div className="py-2 md:py-5"><WorksheetDetails worksheet={selectedWorksheet as WorksheetWithCase} onClose={() => setSelectedWorksheet(null)} /></div></AppShell>);
   }
   
   const caseActions = {
@@ -976,7 +976,7 @@ function ExecutivePageContent() {
                         <div className="flex flex-wrap items-center justify-between gap-4">
                             <div className="relative w-full sm:max-w-xs">
                             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
-                            <Input placeholder="Buscar por NE o Consignatario..." className="pl-10" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && handleSearch()} />
+                            <Input placeholder="Buscar por NE o Consignatario..." className="pl-10" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && handleSearch()}/>
                             </div>
                             <div className="flex items-center flex-wrap gap-4">
                             <Popover>
@@ -1081,4 +1081,3 @@ export default function ExecutivePage() {
         </Suspense>
     );
 }
-
