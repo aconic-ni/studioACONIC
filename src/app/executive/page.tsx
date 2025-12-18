@@ -37,6 +37,8 @@ import { v4 as uuidv4 } from 'uuid';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { ExecutiveFilters } from '@/components/executive/ExecutiveFilters';
 import { Label } from '@/components/ui/label';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+
 
 type DateFilterType = 'range' | 'month' | 'today';
 type TabValue = 'worksheets' | 'anexos' | 'corporate';
@@ -240,7 +242,7 @@ function ExecutivePageContent() {
       } else { setSearchHint(null); }
 
     return finalFiltered;
-  }, [allCases, appliedFilters, activeTab, columnFilters]);
+  }, [allCases, appliedFilters, activeTab, columnFilters, acuseFilter]);
 
   const totalPages = Math.ceil(filteredCases.length / itemsPerPage);
   const paginatedCases = appliedFilters.isSearchActive ? filteredCases.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage) : filteredCases;
@@ -351,7 +353,7 @@ function ExecutivePageContent() {
 
   const handleOpenPaymentRequest = () => {
     const initialData: InitialDataContext = {
-      ne: `SOL-${Date.now()}`,
+      ne: `SOL-${new Date().getTime()}`,
       manager: user?.displayName || 'N/A',
       date: new Date(),
       recipient: 'Contabilidad',
@@ -365,33 +367,6 @@ function ExecutivePageContent() {
     handleAutoSave(caseId, 'preliquidationStatus', 'Aprobada');
   };
 
-  const renderTable = () => {
-    return isMobile ? (
-        <MobileCasesList
-          cases={paginatedCases}
-          savingState={savingState}
-          onAutoSave={handleAutoSave}
-          approvePreliquidation={approvePreliquidation}
-          caseActions={caseActions}
-        />
-      ) : (
-        <ExecutiveCasesTable
-          cases={paginatedCases}
-          savingState={savingState}
-          onAutoSave={handleAutoSave}
-          approvePreliquidation={approvePreliquidation}
-          caseActions={caseActions}
-          selectedRows={selectedRows}
-          onSelectRow={setSelectedRows}
-          onSelectAllRows={() => {}}
-          columnFilters={columnFilters}
-          setColumnFilters={setColumnFilters}
-          handleSendToFacturacion={handleSendToFacturacion}
-          onSearch={handleSearch}
-        />
-      );
-  }
-
   if (authLoading || !user) return <div className="min-h-screen flex items-center justify-center bg-background"><Loader2 className="h-12 w-12 animate-spin text-primary" /></div>;
 
   return (
@@ -399,68 +374,117 @@ function ExecutivePageContent() {
       <AppShell>
         <div className="py-2 md:py-5 space-y-6">
           <AnnouncementsCarousel />
-          <Tabs defaultValue={activeTab} className="w-full" onValueChange={handleTabChange}>
-            <Card>
-                 <CardHeader>
-                    <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-4">
-                        <div>
-                            <CardTitle className="flex items-center gap-2 text-2xl"><Inbox/> Panel Ejecutivo</CardTitle>
-                            <CardDescription>Seguimiento de operaciones, desde la hoja de trabajo hasta la facturación.</CardDescription>
-                        </div>
-                        <div className="flex flex-col sm:flex-row items-center gap-3">
-                            <AlertDialog>
-                                <AlertDialogTrigger asChild>
-                                    <Button size="lg" variant="secondary" className="h-12 text-md">
-                                        <Banknote className="mr-2 h-5 w-5" /> Solicitud de Pago General
-                                    </Button>
-                                </AlertDialogTrigger>
-                                <AlertDialogContent>
-                                    <AlertDialogHeader><AlertDialogTitle>¿Está seguro?</AlertDialogTitle><AlertDialogDescription>Esta acción iniciará una solicitud de pago no vinculada a un Número de Entrada (NE) específico. Se generará un ID único en su lugar.</AlertDialogDescription></AlertDialogHeader>
-                                    <AlertDialogFooter><AlertDialogCancel>Cancelar</AlertDialogCancel><AlertDialogAction onClick={handleOpenPaymentRequest}>Sí, continuar</AlertDialogAction></AlertDialogFooter>
-                                </AlertDialogContent>
-                            </AlertDialog>
-                            <DropdownMenu>
-                                <DropdownMenuTrigger asChild><Button size="lg" variant="default" className="h-12 text-md"><Edit className="mr-2 h-5 w-5" />Crear Registro</Button></DropdownMenuTrigger>
-                                <DropdownMenuContent>
-                                    <DropdownMenuLabel>Tipo de Documento</DropdownMenuLabel><DropdownMenuSeparator />
-                                    <DropdownMenuItem asChild><Link href="/executive/worksheet"><FilePlus className="mr-2 h-4 w-4" /> Hoja de Trabajo</Link></DropdownMenuItem>
-                                    <DropdownMenuItem asChild><Link href="/executive/corporate-report"><Briefcase className="mr-2 h-4 w-4" /> Reporte Consignatario</Link></DropdownMenuItem>
-                                    <DropdownMenuItem asChild><Link href="/executive/anexos?type=anexo_5"><StickyNote className="mr-2 h-4 w-4" /> Anexo 5</Link></DropdownMenuItem>
-                                    <DropdownMenuItem asChild><Link href="/executive/anexos?type=anexo_7"><StickyNote className="mr-2 h-4 w-4" /> Anexo 7</Link></DropdownMenuItem>
-                                </DropdownMenuContent>
-                            </DropdownMenu>
-                        </div>
+          <Card>
+            <CardHeader>
+                <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-4">
+                    <div>
+                        <CardTitle className="flex items-center gap-2 text-2xl"><Inbox/> Panel Ejecutivo</CardTitle>
+                        <CardDescription>Seguimiento de operaciones, desde la hoja de trabajo hasta la facturación.</CardDescription>
                     </div>
-                    <div className="border-t pt-4 mt-2"><TabsList><TabsTrigger value="worksheets">Hojas de Trabajo</TabsTrigger><TabsTrigger value="anexos">Anexos</TabsTrigger><TabsTrigger value="corporate">Reportes Corporativos</TabsTrigger></TabsList></div>
-                </CardHeader>
-                <CardContent>
-                    <ExecutiveFilters
-                        activeTab={activeTab as TabValue}
-                        searchTerm={searchTerm}
-                        setSearchTerm={setSearchTerm}
-                        facturadoFilter={facturadoFilter}
-                        setFacturadoFilter={setFacturadoFilter}
-                        acuseFilter={acuseFilter}
-                        setAcuseFilter={setAcuseFilter}
-                        preliquidationFilter={preliquidationFilter}
-                        setPreliquidationFilter={setPreliquidationFilter}
-                        dateFilterType={dateFilterType}
-                        setDateFilterType={setDateFilterType}
-                        dateRangeInput={dateRangeInput}
-                        setDateRangeInput={setDateRangeInput}
-                        setAppliedFilters={setAppliedFilters}
-                        setCurrentPage={setCurrentPage}
-                        isExporting={isExporting}
-                        allCasesCount={allCases.length}
-                        searchHint={searchHint}
-                        clearFilters={clearFilters}
+                    <div className="flex flex-col sm:flex-row items-center gap-3">
+                        <AlertDialog>
+                            <AlertDialogTrigger asChild>
+                                <Button size="lg" variant="secondary" className="h-12 text-md">
+                                    <Banknote className="mr-2 h-5 w-5" /> Solicitud de Pago General
+                                </Button>
+                            </AlertDialogTrigger>
+                            <AlertDialogContent>
+                                <AlertDialogHeader><AlertDialogTitle>¿Está seguro?</AlertDialogTitle><AlertDialogDescription>Esta acción iniciará una solicitud de pago no vinculada a un Número de Entrada (NE) específico. Se generará un ID único en su lugar.</AlertDialogDescription></AlertDialogHeader>
+                                <AlertDialogFooter><AlertDialogCancel>Cancelar</AlertDialogCancel><AlertDialogAction onClick={handleOpenPaymentRequest}>Sí, continuar</AlertDialogAction></AlertDialogFooter>
+                            </AlertDialogContent>
+                        </AlertDialog>
+                        <DropdownMenu>
+                            <DropdownMenuTrigger asChild><Button size="lg" variant="default" className="h-12 text-md"><Edit className="mr-2 h-5 w-5" />Crear Registro</Button></DropdownMenuTrigger>
+                            <DropdownMenuContent>
+                                <DropdownMenuLabel>Tipo de Documento</DropdownMenuLabel><DropdownMenuSeparator />
+                                <DropdownMenuItem asChild><Link href="/executive/worksheet"><FilePlus className="mr-2 h-4 w-4" /> Hoja de Trabajo</Link></DropdownMenuItem>
+                                <DropdownMenuItem asChild><Link href="/executive/corporate-report"><Briefcase className="mr-2 h-4 w-4" /> Reporte Consignatario</Link></DropdownMenuItem>
+                                <DropdownMenuItem asChild><Link href="/executive/anexos?type=anexo_5"><StickyNote className="mr-2 h-4 w-4" /> Anexo 5</Link></DropdownMenuItem>
+                                <DropdownMenuItem asChild><Link href="/executive/anexos?type=anexo_7"><StickyNote className="mr-2 h-4 w-4" /> Anexo 7</Link></DropdownMenuItem>
+                            </DropdownMenuContent>
+                        </DropdownMenu>
+                    </div>
+                </div>
+            </CardHeader>
+            <CardContent>
+                <ExecutiveFilters
+                    activeTab={activeTab as TabValue}
+                    searchTerm={searchTerm}
+                    setSearchTerm={setSearchTerm}
+                    facturadoFilter={facturadoFilter}
+                    setFacturadoFilter={setFacturadoFilter}
+                    acuseFilter={acuseFilter}
+                    setAcuseFilter={setAcuseFilter}
+                    preliquidationFilter={preliquidationFilter}
+                    setPreliquidationFilter={setPreliquidationFilter}
+                    dateFilterType={dateFilterType}
+                    setDateFilterType={setDateFilterType}
+                    dateRangeInput={dateRangeInput}
+                    setDateRangeInput={setDateRangeInput}
+                    setAppliedFilters={setAppliedFilters}
+                    setCurrentPage={setCurrentPage}
+                    isExporting={isExporting}
+                    allCasesCount={allCases.length}
+                    searchHint={searchHint}
+                    clearFilters={clearFilters}
+                />
+                <Tabs defaultValue={activeTab} className="w-full mt-4" onValueChange={handleTabChange}>
+                  <TabsList>
+                      <TabsTrigger value="worksheets">Hojas de Trabajo</TabsTrigger>
+                      <TabsTrigger value="anexos">Anexos</TabsTrigger>
+                      <TabsTrigger value="corporate">Reportes Corporativos</TabsTrigger>
+                  </TabsList>
+                  <TabsContent value="worksheets" className="mt-6">
+                    <ExecutiveCasesTable
+                      cases={paginatedCases}
+                      savingState={savingState}
+                      onAutoSave={handleAutoSave}
+                      approvePreliquidation={approvePreliquidation}
+                      caseActions={caseActions}
+                      selectedRows={selectedRows}
+                      onSelectRow={setSelectedRows}
+                      onSelectAllRows={() => {}} // Placeholder, adjust as needed
+                      columnFilters={columnFilters}
+                      setColumnFilters={setColumnFilters}
+                      handleSendToFacturacion={handleSendToFacturacion}
+                      onSearch={handleSearch}
                     />
-                    <TabsContent value="worksheets" className="mt-6">{renderTable()}</TabsContent>
-                    <TabsContent value="anexos" className="mt-6">{renderTable()}</TabsContent>
-                    <TabsContent value="corporate" className="mt-6">{renderTable()}</TabsContent>
-                </CardContent>
-            </Card>
-          </Tabs>
+                  </TabsContent>
+                  <TabsContent value="anexos" className="mt-6">
+                    <ExecutiveCasesTable
+                      cases={paginatedCases}
+                      savingState={savingState}
+                      onAutoSave={handleAutoSave}
+                      approvePreliquidation={approvePreliquidation}
+                      caseActions={caseActions}
+                      selectedRows={selectedRows}
+                      onSelectRow={setSelectedRows}
+                      onSelectAllRows={() => {}}
+                      columnFilters={columnFilters}
+                      setColumnFilters={setColumnFilters}
+                      handleSendToFacturacion={handleSendToFacturacion}
+                      onSearch={handleSearch}
+                    />
+                  </TabsContent>
+                  <TabsContent value="corporate" className="mt-6">
+                    <ExecutiveCasesTable
+                      cases={paginatedCases}
+                      savingState={savingState}
+                      onAutoSave={handleAutoSave}
+                      approvePreliquidation={approvePreliquidation}
+                      caseActions={caseActions}
+                      selectedRows={selectedRows}
+                      onSelectRow={setSelectedRows}
+                      onSelectAllRows={() => {}}
+                      columnFilters={columnFilters}
+                      setColumnFilters={setColumnFilters}
+                      handleSendToFacturacion={handleSendToFacturacion}
+                      onSearch={handleSearch}
+                    />
+                  </TabsContent>
+                </Tabs>
+            </CardContent>
+          </Card>
         </div>
       </AppShell>
       {modalState.history && (<AforoCaseHistoryModal isOpen={!!modalState.history} onClose={() => setModalState(p => ({...p, history: null}))} caseData={modalState.history} />)}
@@ -489,3 +513,5 @@ export default function ExecutivePage() {
         </Suspense>
     );
 }
+
+```
