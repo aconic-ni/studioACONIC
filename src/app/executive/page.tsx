@@ -11,12 +11,17 @@ import { Loader2, FilePlus, Search, Edit, Eye, History, PlusSquare, UserCheck, I
 import { db } from '@/lib/firebase';
 import { collection, query, where, onSnapshot, orderBy, Timestamp, doc, getDoc, updateDoc, writeBatch, addDoc, getDocs, collectionGroup, serverTimestamp, setDoc } from 'firebase/firestore';
 import type { Worksheet, AforoCase, AforadorStatus, AforoCaseStatus, DigitacionStatus, WorksheetWithCase, AforoCaseUpdate, PreliquidationStatus, IncidentType, LastUpdateInfo, ExecutiveComment, InitialDataContext, AppUser, SolicitudRecord, ExamDocument, FacturacionStatus } from '@/types';
-import { isSameDay, startOfDay, endOfDay } from 'date-fns';
-import { useToast } from '@/hooks/use-toast';
+import { format, toDate, isSameDay, startOfDay, endOfDay, differenceInDays, startOfMonth, endOfMonth } from 'date-fns';
+import { es } from 'date-fns/locale';
 import { AforoCaseHistoryModal } from '@/components/reporter/AforoCaseHistoryModal';
 import { IncidentReportModal } from '@/components/reporter/IncidentReportModal';
+import { Badge } from '@/components/ui/badge';
 import { IncidentReportDetails } from '@/components/reporter/IncidentReportDetails';
 import { ValueDoubtModal } from '@/components/executive/ValueDoubtModal';
+import { DatePickerWithTime } from '@/components/reports/DatePickerWithTime';
+import { useToast } from '@/hooks/use-toast';
+import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuLabel } from '@/components/ui/dropdown-menu';
+import type { DateRange } from 'react-day-picker';
 import { WorksheetDetails } from '@/components/executive/WorksheetDetails';
 import { ExecutiveCommentModal } from '@/components/executive/ExecutiveCommentModal';
 import { QuickRequestModal } from '@/components/executive/QuickRequestModal';
@@ -28,17 +33,15 @@ import { ResaNotificationModal } from '@/components/executive/ResaNotificationMo
 import { useIsMobile } from '@/hooks/use-mobile';
 import { MobileCasesList } from '@/components/executive/MobileCasesList';
 import { useAppContext } from '@/context/AppContext';
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { ViewIncidentsModal } from '@/components/executive/ViewIncidentsModal';
 import { StatusProcessModal } from '@/components/executive/StatusProcessModal';
 import { Textarea } from '@/components/ui/textarea';
-import { ExecutiveCasesTable } from '@/components/executive/ExecutiveCasesTable';
 import { v4 as uuidv4 } from 'uuid';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
-import { ExecutiveFilters } from '@/components/executive/ExecutiveFilters';
-import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-
+import { ExecutiveFilters } from '@/components/executive/ExecutiveFilters';
+import { ExecutiveCasesTable } from '@/components/executive/ExecutiveCasesTable';
 
 type DateFilterType = 'range' | 'month' | 'today';
 type TabValue = 'worksheets' | 'anexos' | 'corporate';
@@ -81,8 +84,8 @@ function ExecutivePageContent() {
   const [appliedFilters, setAppliedFilters] = useState({ searchTerm: '', facturado: false, noFacturado: true, conAcuse: false, sinAcuse: true, preliquidation: false, dateFilterType: 'range' as DateFilterType, dateRange: undefined as DateRange | undefined, isSearchActive: false });
   const [columnFilters, setColumnFilters] = useState({ ne: '', ejecutivo: '', consignatario: '', factura: '', selectividad: '', incidentType: '' });
   const [savingState, setSavingState] = useState<{ [key: string]: boolean }>({});
-  const [pinInput, setPinInput] = useState('');
-  const [newNeForDuplicate, setNewNeForDuplicate] = useState('');
+  const [pinInput, setNewNeForDuplicate] = useState('');
+  const [newNeForDuplicate, setNewNeForDuplicateState] = useState('');
   const [duplicateReason, setDuplicateReason] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(20);
@@ -278,9 +281,7 @@ function ExecutivePageContent() {
 
     try {
         const newCaseSnap = await getDoc(newCaseRef);
-        const newWorksheetSnap = await getDoc(newWorksheetRef);
-
-        if (newCaseSnap.exists() || newWorksheetSnap.exists()) {
+        if (newCaseSnap.exists()) {
             toast({ title: "Duplicado", description: `Ya existe un registro con el NE ${newNe}.`, variant: "destructive" });
             setSavingState(prev => ({...prev, [caseItem.id]: false}));
             return;
@@ -334,7 +335,7 @@ function ExecutivePageContent() {
         toast({ title: "Éxito", description: `${selectedRows.length} casos han sido reclasificados.` });
         setSelectedRows([]);
         setIsDeathkeyModalOpen(false);
-        setPinInput('');
+        setNewNeForDuplicateState('');
     } catch (error) {
         toast({ title: "Error", description: "No se pudieron reclasificar los casos.", variant: "destructive" });
     } finally {
@@ -376,117 +377,80 @@ function ExecutivePageContent() {
       <AppShell>
         <div className="py-2 md:py-5 space-y-6">
           <AnnouncementsCarousel />
-          <Card>
-            <CardHeader>
-                <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-4">
-                    <div>
-                        <CardTitle className="flex items-center gap-2 text-2xl"><Inbox/> Panel Ejecutivo</CardTitle>
-                        <CardDescription>Seguimiento de operaciones, desde la hoja de trabajo hasta la facturación.</CardDescription>
-                    </div>
-                    <div className="flex flex-col sm:flex-row items-center gap-3">
-                        <AlertDialog>
-                            <AlertDialogTrigger asChild>
-                                <Button size="lg" variant="secondary" className="h-12 text-md">
-                                    <Banknote className="mr-2 h-5 w-5" /> Solicitud de Pago General
-                                </Button>
-                            </AlertDialogTrigger>
-                            <AlertDialogContent>
-                                <AlertDialogHeader><AlertDialogTitle>¿Está seguro?</AlertDialogTitle><AlertDialogDescription>Esta acción iniciará una solicitud de pago no vinculada a un Número de Entrada (NE) específico. Se generará un ID único en su lugar.</AlertDialogDescription></AlertDialogHeader>
-                                <AlertDialogFooter><AlertDialogCancel>Cancelar</AlertDialogCancel><AlertDialogAction onClick={handleOpenPaymentRequest}>Sí, continuar</AlertDialogAction></AlertDialogFooter>
-                            </AlertDialogContent>
-                        </AlertDialog>
-                        <DropdownMenu>
-                            <DropdownMenuTrigger asChild><Button size="lg" variant="default" className="h-12 text-md"><Edit className="mr-2 h-5 w-5" />Crear Registro</Button></DropdownMenuTrigger>
-                            <DropdownMenuContent>
-                                <DropdownMenuLabel>Tipo de Documento</DropdownMenuLabel><DropdownMenuSeparator />
-                                <DropdownMenuItem asChild><Link href="/executive/worksheet"><FilePlus className="mr-2 h-4 w-4" /> Hoja de Trabajo</Link></DropdownMenuItem>
-                                <DropdownMenuItem asChild><Link href="/executive/corporate-report"><Briefcase className="mr-2 h-4 w-4" /> Reporte Consignatario</Link></DropdownMenuItem>
-                                <DropdownMenuItem asChild><Link href="/executive/anexos?type=anexo_5"><StickyNote className="mr-2 h-4 w-4" /> Anexo 5</Link></DropdownMenuItem>
-                                <DropdownMenuItem asChild><Link href="/executive/anexos?type=anexo_7"><StickyNote className="mr-2 h-4 w-4" /> Anexo 7</Link></DropdownMenuItem>
-                            </DropdownMenuContent>
-                        </DropdownMenu>
-                    </div>
-                </div>
-            </CardHeader>
-            <CardContent>
-                <ExecutiveFilters
-                    activeTab={activeTab as TabValue}
-                    searchTerm={searchTerm}
-                    setSearchTerm={setSearchTerm}
-                    facturadoFilter={facturadoFilter}
-                    setFacturadoFilter={setFacturadoFilter}
-                    acuseFilter={acuseFilter}
-                    setAcuseFilter={setAcuseFilter}
-                    preliquidationFilter={preliquidationFilter}
-                    setPreliquidationFilter={setPreliquidationFilter}
-                    dateFilterType={dateFilterType}
-                    setDateFilterType={setDateFilterType}
-                    dateRangeInput={dateRangeInput}
-                    setDateRangeInput={setDateRangeInput}
-                    setAppliedFilters={setAppliedFilters}
-                    setCurrentPage={setCurrentPage}
-                    isExporting={isExporting}
-                    allCasesCount={allCases.length}
-                    searchHint={searchHint}
-                    clearFilters={clearFilters}
-                />
-                <Tabs defaultValue={activeTab} className="w-full mt-4" onValueChange={handleTabChange}>
-                  <TabsList>
-                      <TabsTrigger value="worksheets">Hojas de Trabajo</TabsTrigger>
-                      <TabsTrigger value="anexos">Anexos</TabsTrigger>
-                      <TabsTrigger value="corporate">Reportes Corporativos</TabsTrigger>
-                  </TabsList>
-                  <TabsContent value="worksheets" className="mt-6">
-                    <ExecutiveCasesTable
-                      cases={paginatedCases}
-                      savingState={savingState}
-                      onAutoSave={handleAutoSave}
-                      approvePreliquidation={approvePreliquidation}
-                      caseActions={caseActions}
-                      selectedRows={selectedRows}
-                      onSelectRow={setSelectedRows}
-                      onSelectAllRows={() => {}} // Placeholder, adjust as needed
-                      columnFilters={columnFilters}
-                      setColumnFilters={setColumnFilters}
-                      handleSendToFacturacion={handleSendToFacturacion}
-                      onSearch={handleSearch}
-                    />
-                  </TabsContent>
-                  <TabsContent value="anexos" className="mt-6">
-                    <ExecutiveCasesTable
-                      cases={paginatedCases}
-                      savingState={savingState}
-                      onAutoSave={handleAutoSave}
-                      approvePreliquidation={approvePreliquidation}
-                      caseActions={caseActions}
-                      selectedRows={selectedRows}
-                      onSelectRow={setSelectedRows}
-                      onSelectAllRows={() => {}}
-                      columnFilters={columnFilters}
-                      setColumnFilters={setColumnFilters}
-                      handleSendToFacturacion={handleSendToFacturacion}
-                      onSearch={handleSearch}
-                    />
-                  </TabsContent>
-                  <TabsContent value="corporate" className="mt-6">
-                    <ExecutiveCasesTable
-                      cases={paginatedCases}
-                      savingState={savingState}
-                      onAutoSave={handleAutoSave}
-                      approvePreliquidation={approvePreliquidation}
-                      caseActions={caseActions}
-                      selectedRows={selectedRows}
-                      onSelectRow={setSelectedRows}
-                      onSelectAllRows={() => {}}
-                      columnFilters={columnFilters}
-                      setColumnFilters={setColumnFilters}
-                      handleSendToFacturacion={handleSendToFacturacion}
-                      onSearch={handleSearch}
-                    />
-                  </TabsContent>
-                </Tabs>
-            </CardContent>
-          </Card>
+            <Tabs defaultValue={activeTab} className="w-full" onValueChange={handleTabChange}>
+                <Card>
+                    <CardHeader>
+                        <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-4">
+                            <div>
+                                <CardTitle className="flex items-center gap-2 text-2xl"><Inbox/> Panel Ejecutivo</CardTitle>
+                                <CardDescription>Seguimiento de operaciones, desde la hoja de trabajo hasta la facturación.</CardDescription>
+                            </div>
+                            <div className="flex flex-col sm:flex-row items-center gap-3">
+                                <AlertDialog>
+                                    <AlertDialogTrigger asChild>
+                                        <Button size="lg" variant="secondary" className="h-12 text-md">
+                                            <Banknote className="mr-2 h-5 w-5" /> Solicitud de Pago General
+                                        </Button>
+                                    </AlertDialogTrigger>
+                                    <AlertDialogContent>
+                                        <AlertDialogHeader><AlertDialogTitle>¿Está seguro?</AlertDialogTitle><AlertDialogDescription>Esta acción iniciará una solicitud de pago no vinculada a un Número de Entrada (NE) específico. Se generará un ID único en su lugar.</AlertDialogDescription></AlertDialogHeader>
+                                        <AlertDialogFooter><AlertDialogCancel>Cancelar</AlertDialogCancel><AlertDialogAction onClick={handleOpenPaymentRequest}>Sí, continuar</AlertDialogAction></AlertDialogFooter>
+                                    </AlertDialogContent>
+                                </AlertDialog>
+                                <DropdownMenu>
+                                    <DropdownMenuTrigger asChild><Button size="lg" variant="default" className="h-12 text-md"><Edit className="mr-2 h-5 w-5" />Crear Registro</Button></DropdownMenuTrigger>
+                                    <DropdownMenuContent>
+                                        <DropdownMenuLabel>Tipo de Documento</DropdownMenuLabel><DropdownMenuSeparator />
+                                        <DropdownMenuItem asChild><Link href="/executive/worksheet"><FilePlus className="mr-2 h-4 w-4" /> Hoja de Trabajo</Link></DropdownMenuItem>
+                                        <DropdownMenuItem asChild><Link href="/executive/corporate-report"><Briefcase className="mr-2 h-4 w-4" /> Reporte Consignatario</Link></DropdownMenuItem>
+                                        <DropdownMenuItem asChild><Link href="/executive/anexos?type=anexo_5"><StickyNote className="mr-2 h-4 w-4" /> Anexo 5</Link></DropdownMenuItem>
+                                        <DropdownMenuItem asChild><Link href="/executive/anexos?type=anexo_7"><StickyNote className="mr-2 h-4 w-4" /> Anexo 7</Link></DropdownMenuItem>
+                                    </DropdownMenuContent>
+                                </DropdownMenu>
+                            </div>
+                        </div>
+                         <div className="border-t pt-4 mt-2">
+                           <TabsList>
+                               <TabsTrigger value="worksheets">Hojas de Trabajo</TabsTrigger>
+                               <TabsTrigger value="anexos">Anexos</TabsTrigger>
+                               <TabsTrigger value="corporate">Reportes Corporativos</TabsTrigger>
+                           </TabsList>
+                        </div>
+                    </CardHeader>
+                    <CardContent>
+                       <ExecutiveFilters
+                           activeTab={activeTab as TabValue}
+                           searchTerm={searchTerm}
+                           setSearchTerm={setSearchTerm}
+                           facturadoFilter={facturadoFilter}
+                           setFacturadoFilter={setFacturadoFilter}
+                           acuseFilter={acuseFilter}
+                           setAcuseFilter={setAcuseFilter}
+                           preliquidationFilter={preliquidationFilter}
+                           setPreliquidationFilter={setPreliquidationFilter}
+                           dateFilterType={dateFilterType}
+                           setDateFilterType={setDateFilterType}
+                           dateRangeInput={dateRangeInput}
+                           setDateRangeInput={setDateRangeInput}
+                           setAppliedFilters={setAppliedFilters}
+                           setCurrentPage={setCurrentPage}
+                           isExporting={isExporting}
+                           allCasesCount={allCases.length}
+                           searchHint={searchHint}
+                           clearFilters={clearFilters}
+                       />
+                        <TabsContent value="worksheets" className="mt-6">
+                            <ExecutiveCasesTable cases={paginatedCases} savingState={savingState} onAutoSave={handleAutoSave} approvePreliquidation={approvePreliquidation} caseActions={caseActions} selectedRows={selectedRows} onSelectRow={setSelectedRows} onSelectAllRows={()=>{}} columnFilters={columnFilters} setColumnFilters={setColumnFilters} handleSendToFacturacion={handleSendToFacturacion} onSearch={handleSearch} />
+                        </TabsContent>
+                        <TabsContent value="anexos" className="mt-6">
+                            <ExecutiveCasesTable cases={paginatedCases} savingState={savingState} onAutoSave={handleAutoSave} approvePreliquidation={approvePreliquidation} caseActions={caseActions} selectedRows={selectedRows} onSelectRow={setSelectedRows} onSelectAllRows={()=>{}} columnFilters={columnFilters} setColumnFilters={setColumnFilters} handleSendToFacturacion={handleSendToFacturacion} onSearch={handleSearch} />
+                        </TabsContent>
+                        <TabsContent value="corporate" className="mt-6">
+                            <ExecutiveCasesTable cases={paginatedCases} savingState={savingState} onAutoSave={handleAutoSave} approvePreliquidation={approvePreliquidation} caseActions={caseActions} selectedRows={selectedRows} onSelectRow={setSelectedRows} onSelectAllRows={()=>{}} columnFilters={columnFilters} setColumnFilters={setColumnFilters} handleSendToFacturacion={handleSendToFacturacion} onSearch={handleSearch} />
+                        </TabsContent>
+                    </CardContent>
+                </Card>
+            </Tabs>
         </div>
       </AppShell>
       {modalState.history && (<AforoCaseHistoryModal isOpen={!!modalState.history} onClose={() => setModalState(p => ({...p, history: null}))} caseData={modalState.history} />)}
@@ -502,8 +466,22 @@ function ExecutivePageContent() {
       {modalState.viewIncidents && (<ViewIncidentsModal isOpen={!!modalState.viewIncidents} onClose={() => setModalState(p => ({...p, viewIncidents: null}))} onSelectRectificacion={() => { setModalState(p => ({...p, incidentDetails: p.viewIncidents, viewIncidents: null})); }} onSelectDudaValor={() => { setModalState(p => ({...p, valueDoubt: p.viewIncidents, viewIncidents: null})); }} />)}
       {modalState.process && (<StatusProcessModal isOpen={!!modalState.process} onClose={() => setModalState(p => ({...p, process: null}))} caseData={modalState.process} />)}
       <AlertDialog open={!!modalState.archive} onOpenChange={(isOpen) => !isOpen && setModalState(p => ({...p, archive: null}))}><AlertDialogContent><AlertDialogHeader><AlertDialogTitle>¿Está seguro?</AlertDialogTitle><AlertDialogDescription>Esta acción archivará el caso y no será visible en las listas principales.</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel>Cancelar</AlertDialogCancel><AlertDialogAction onClick={handleArchiveCase}>Sí, Archivar</AlertDialogAction></AlertDialogFooter></AlertDialogContent></AlertDialog>
-      <Dialog open={duplicateAndRetireModalOpen} onOpenChange={setDuplicateAndRetireModalOpen}><DialogContent><DialogHeader><DialogTitle>Duplicar y Retirar Caso</DialogTitle><DialogDescription>Se creará un nuevo caso con un NE nuevo, y el caso original ({modalState.duplicate?.ne}) será retirado (archivado y marcado como trasladado).</DialogDescription></DialogHeader><div className="py-4 space-y-4"><div><Label htmlFor="new-ne">Nuevo NE</Label><Input id="new-ne" value={newNeForDuplicate} onChange={e => setNewNeForDuplicate(e.target.value)} placeholder="Ingrese el nuevo NE" /></div><div><Label htmlFor="reason">Motivo</Label><Textarea id="reason" value={duplicateReason} onChange={e => setDuplicateReason(e.target.value)} placeholder="Explique brevemente el motivo de la duplicación" /></div></div><DialogFooter><Button variant="outline" onClick={() => setDuplicateAndRetireModalOpen(false)}>Cancelar</Button><Button onClick={handleDuplicateAndRetire} disabled={savingState[modalState.duplicate?.id || '']}>Duplicar y Retirar</Button></DialogFooter></DialogContent></Dialog>
-      <Dialog open={isDeathkeyModalOpen} onOpenChange={setIsDeathkeyModalOpen}><DialogContent><DialogHeader><DialogTitle>Confirmar Acción "Deathkey"</DialogTitle><DialogDescription>Esta acción reclasificará {selectedRows.length} caso(s) a "Reporte Corporativo", excluyéndolos de la lógica de Aforo. Es irreversible. Ingrese el PIN para confirmar.</DialogDescription></DialogHeader><div className="py-4 space-y-2"><Label htmlFor="pin-input" className="flex items-center gap-2"><KeyRound/>PIN de Seguridad</Label><Input id="pin-input" type="password" value={pinInput} onChange={(e) => setPinInput(e.target.value)} placeholder="PIN de 6 dígitos"/></div><DialogFooter><Button variant="outline" onClick={() => setIsDeathkeyModalOpen(false)}>Cancelar</Button><Button variant="destructive" onClick={handleDeathkey} disabled={isLoading}>{isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin"/>}Confirmar y Ejecutar</Button></DialogFooter></DialogContent></Dialog>
+      <Dialog open={duplicateAndRetireModalOpen} onOpenChange={setDuplicateAndRetireModalOpen}>
+        <DialogContent>
+            <DialogHeader>
+                <DialogTitle>Duplicar y Retirar Caso</DialogTitle>
+                <DialogDescription>
+                    Se creará un nuevo caso con un NE nuevo, y el caso original ({modalState.duplicate?.ne}) será retirado (archivado y marcado como trasladado).
+                </DialogDescription>
+            </DialogHeader>
+            <div className="py-4 space-y-4">
+                <div><Label htmlFor="new-ne">Nuevo NE</Label><Input id="new-ne" value={newNeForDuplicate} onChange={e => setNewNeForDuplicateState(e.target.value)} placeholder="Ingrese el nuevo NE" /></div>
+                <div><Label htmlFor="reason">Motivo</Label><Textarea id="reason" value={duplicateReason} onChange={e => setDuplicateReason(e.target.value)} placeholder="Explique brevemente el motivo de la duplicación" /></div>
+            </div>
+            <DialogFooter><Button variant="outline" onClick={() => setDuplicateAndRetireModalOpen(false)}>Cancelar</Button><Button onClick={handleDuplicateAndRetire} disabled={savingState[modalState.duplicate?.id || '']}>Duplicar y Retirar</Button></DialogFooter>
+        </DialogContent>
+      </Dialog>
+      <Dialog open={isDeathkeyModalOpen} onOpenChange={setIsDeathkeyModalOpen}><DialogContent><DialogHeader><DialogTitle>Confirmar Acción "Deathkey"</DialogTitle><DialogDescription>Esta acción reclasificará {selectedRows.length} caso(s) a "Reporte Corporativo", excluyéndolos de la lógica de Aforo. Es irreversible. Ingrese el PIN para confirmar.</DialogDescription></DialogHeader><div className="py-4 space-y-2"><Label htmlFor="pin-input" className="flex items-center gap-2"><KeyRound/>PIN de Seguridad</Label><Input id="pin-input" type="password" value={pinInput} onChange={(e) => setNewNeForDuplicate(e.target.value)} placeholder="PIN de 6 dígitos"/></div><DialogFooter><Button variant="outline" onClick={() => setIsDeathkeyModalOpen(false)}>Cancelar</Button><Button variant="destructive" onClick={handleDeathkey} disabled={isLoading}>{isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin"/>}Confirmar y Ejecutar</Button></DialogFooter></DialogContent></Dialog>
     </>
   );
 }
@@ -515,4 +493,3 @@ export default function ExecutivePage() {
         </Suspense>
     );
 }
-
