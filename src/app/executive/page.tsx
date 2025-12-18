@@ -9,8 +9,8 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Loader2, FilePlus, Search, Edit, Eye, History, PlusSquare, UserCheck, Inbox, AlertTriangle, Download, ChevronsUpDown, Info, CheckCircle, CalendarRange, Calendar, CalendarDays, ShieldAlert, BookOpen, FileCheck2, MessageSquare, View, Banknote, Bell as BellIcon, RefreshCw, Send, StickyNote, Scale, Briefcase, KeyRound, Copy, Archive } from 'lucide-react';
 import { db } from '@/lib/firebase';
-import { collection, query, where, onSnapshot, orderBy, Timestamp, doc, getDoc, updateDoc, writeBatch, addDoc, getDocs, collectionGroup, serverTimestamp, setDoc, documentId } from 'firebase/firestore';
-import type { Worksheet, AforoData, AforadorStatus, AforoDataStatus, DigitacionStatus, WorksheetWithCase, AforoDataUpdate, PreliquidationStatus, IncidentType, LastUpdateInfo, ExecutiveComment, InitialDataContext, AppUser, SolicitudRecord, ExamDocument, FacturacionStatus } from '@/types';
+import { collection, query, where, onSnapshot, orderBy, Timestamp, doc, getDoc, updateDoc, writeBatch, addDoc, getDocs, collectionGroup, serverTimestamp, setDoc } from 'firebase/firestore';
+import type { Worksheet, worksheet, AforadorStatus, no existeStatus, DigitacionStatus, WorksheetWithCase, AforoUpdate, PreliquidationStatus, IncidentType, LastUpdateInfo, ExecutiveComment, InitialDataContext, AppUser, SolicitudRecord, ExamDocument, FacturacionStatus } from '@/types';
 import { format, toDate, isSameDay, startOfDay, endOfDay, differenceInDays, startOfMonth, endOfMonth } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { Input } from '@/components/ui/input';
@@ -172,7 +172,7 @@ function ExecutivePageContent() {
         for (let i = 0; i < filteredWorksheetIds.length; i += 30) {
             const chunk = filteredWorksheetIds.slice(i, i + 30);
             if (chunk.length === 0) continue;
-            const worksheetsQuery = query(collection(db, 'worksheets'), where(documentId(), 'in', chunk));
+            const worksheetsQuery = query(collection(db, 'worksheets'), where('__name__', 'in', chunk));
             const wsSnapshot = await getDocs(worksheetsQuery);
             wsSnapshot.forEach(doc => {
                 worksheetsMap.set(doc.id, { id: doc.id, ...doc.data() } as Worksheet);
@@ -186,7 +186,7 @@ function ExecutivePageContent() {
             const updatesRef = collection(db, 'worksheets', meta.worksheetId, 'actualizaciones');
             const acuseQuery = query(updatesRef, where('newValue', '==', 'worksheet_received'), orderBy('updatedAt', 'desc'));
             const acuseSnapshot = await getDocs(acuseQuery);
-            const acuseLog = acuseSnapshot.empty ? null : acuseSnapshot.docs[0].data() as AforoDataUpdate;
+            const acuseLog = acuseSnapshot.empty ? null : acuseSnapshot.docs[0].data() as AforoUpdate;
 
             return {
                 ...meta,
@@ -297,7 +297,7 @@ function ExecutivePageContent() {
     try {
         const newWsSnap = await getDoc(newWorksheetRef);
         if (newWsSnap.exists()) {
-            toast({ title: "Duplicado", description: `Ya existe un registro con el NE ${newNe}.`, variant: "destructive" });
+            toast({ title: "Duplicado", description: `Ya existe un registro con el NE ${newNe}.`, variant: 'destructive' });
             setSavingState(prev => ({ ...prev, [caseToDuplicate.id]: false }));
             return;
         }
@@ -379,6 +379,25 @@ function ExecutivePageContent() {
     }
   };
 
+  const handleSendToFacturacion = async (caseId: string) => {
+    if (!user || !user.displayName) return;
+    setSavingState(prev => ({ ...prev, [caseId]: true }));
+    const aforoMetadataRef = doc(db, 'worksheets', caseId, 'aforo', 'metadata');
+    try {
+      await setDoc(aforoMetadataRef, {
+        facturacionStatus: 'Enviado a Facturacion',
+        enviadoAFacturacionAt: Timestamp.now(),
+        facturadorAsignado: 'Alvaro Gonzalez',
+        facturadorAsignadoAt: Timestamp.now(),
+      }, { merge: true });
+      toast({ title: 'Enviado a Facturación', description: 'El caso ha sido remitido al módulo de facturación y asignado a Alvaro Gonzalez.' });
+    } catch (e) {
+      toast({ title: 'Error', description: 'No se pudo enviar el caso a facturación.', variant: 'destructive' });
+    } finally {
+      setSavingState(prev => ({ ...prev, [caseId]: false }));
+    }
+  };
+
   const filteredCases = useMemo(() => {
     let baseCases = allCases.slice().sort((a, b) => (b.createdAt?.toMillis() ?? 0) - (a.createdAt?.toMillis() ?? 0));
     
@@ -431,7 +450,6 @@ function ExecutivePageContent() {
   
   const caseActions = {
     handleViewWorksheet: (c: AforoData) => setSelectedWorksheet(c.worksheet as Worksheet),
-    setSelectedCaseForDocs: (c: AforoData) => {},
     setSelectedCaseForQuickRequest: (c: WorksheetWithCase) => setModalState(prev => ({...prev, quickRequest: c})),
     setSelectedCaseForPayment: (c: AforoData) => {
         const initialData: InitialDataContext = {
@@ -529,7 +547,7 @@ function ExecutivePageContent() {
         if (activeTab === 'corporate') {
             await downloadCorporateReportAsExcel(filteredCases.map(c => c.worksheet).filter(ws => ws !== null) as Worksheet[]);
         } else {
-            const auditLogs: (AforoDataUpdate & { caseNe: string })[] = [];
+            const auditLogs: (AforoUpdate & { caseNe: string })[] = [];
 
             for (const caseItem of filteredCases) {
                 if (!caseItem.worksheetId) continue;
@@ -537,7 +555,7 @@ function ExecutivePageContent() {
                 const logSnapshot = await getDocs(logsQuery);
                 logSnapshot.forEach(logDoc => {
                     auditLogs.push({
-                        ...(logDoc.data() as AforoDataUpdate),
+                        ...(logDoc.data() as AforoUpdate),
                         caseNe: caseItem.ne
                     });
                 });
@@ -678,7 +696,7 @@ function ExecutivePageContent() {
             </Card>
         </div>
       </AppShell>
-    {modalState.history && (<AforoHistoryModal isOpen={!!modalState.history} onClose={() => setModalState(p => ({...p, history: null}))} caseData={modalState.history as any} />)}
+    {modalState.history && (<AforoHistoryModal isOpen={!!modalState.history} onClose={() => setModalState(p => ({...p, history: null}))} caseData={modalState.history} />)}
     {modalState.incident && (<IncidentReportModal isOpen={!!modalState.incident} onClose={() => setModalState(p => ({...p, incident: null}))} caseData={modalState.incident as any} />)}
     {modalState.valueDoubt && (<ValueDoubtModal isOpen={!!modalState.valueDoubt} onClose={() => setModalState(p => ({...p, valueDoubt: null}))} caseData={modalState.valueDoubt as any} />)}
     {modalState.comment && (<ExecutiveCommentModal isOpen={!!modalState.comment} onClose={() => setModalState(p => ({...p, comment: null}))} caseData={modalState.comment as any} />)}
@@ -709,19 +727,17 @@ function ExecutivePageContent() {
       <Dialog open={isDeathkeyModalOpen} onOpenChange={setIsDeathkeyModalOpen}>
         <DialogContent>
             <DialogHeader>
-                <AlertDialogTitle>Confirmar Acción "Deathkey"</AlertDialogTitle>
+                <DialogTitle>Confirmar Acción "Deathkey"</DialogTitle>
                 <DialogDescription>Esta acción reclasificará {selectedRows.length} caso(s) a "Reporte Corporativo", excluyéndolos de la lógica de Aforo. Es irreversible. Ingrese el PIN para confirmar.</DialogDescription>
             </DialogHeader>
             <div className="py-4 space-y-2">
-                <div className="flex items-center gap-2"><KeyRound className="inline-block h-4 w-4" /><Label htmlFor="pin-input">PIN de Seguridad</Label></div>
+                <div className="flex items-center gap-2">
+                    <KeyRound className="inline-block h-4 w-4" />
+                    <Label htmlFor="pin-input">PIN de Seguridad</Label>
+                </div>
                 <Input id="pin-input" type="password" value={pinInput} onChange={(e) => setPinInput(e.target.value)} placeholder="PIN de 6 dígitos"/>
             </div>
-            <DialogFooter>
-                <Button variant="outline" onClick={() => setIsDeathkeyModalOpen(false)}>Cancelar</Button>
-                <Button variant="destructive" onClick={handleDeathkey} disabled={isLoading}>
-                    {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin"/>}Confirmar y Ejecutar
-                </Button>
-            </DialogFooter>
+            <DialogFooter><Button variant="outline" onClick={() => setIsDeathkeyModalOpen(false)}>Cancelar</Button><Button variant="destructive" onClick={handleDeathkey} disabled={isLoading}>{isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin"/>}Confirmar y Ejecutar</Button></DialogFooter>
         </DialogContent>
       </Dialog>
       
@@ -737,3 +753,4 @@ export default function ExecutivePage() {
     );
 }
 
+    
