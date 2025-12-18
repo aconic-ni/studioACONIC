@@ -1,3 +1,4 @@
+
 "use client";
 import { useState, useEffect, type FormEvent, useCallback, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
@@ -10,7 +11,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Loader2, Search, Download, Eye, Calendar as CalendarIcon, MessageSquare, Info as InfoIcon, AlertCircle, CheckCircle2, FileText as FileTextIcon, ListCollapse, ArrowLeft, CheckSquare as CheckSquareIcon, MessageSquareText, RotateCw, AlertTriangle, ShieldCheck, Trash2, FileSignature, Briefcase, User as UserIcon, ArrowUpDown } from 'lucide-react';
 import { db } from '@/lib/firebase';
 import { collection, query, where, getDocs, Timestamp as FirestoreTimestamp, doc, getDoc, orderBy, updateDoc, serverTimestamp, addDoc, getCountFromServer, writeBatch, deleteDoc, type QueryConstraint, setDoc, documentId, type OrderByDirection } from 'firebase/firestore';
-import type { SolicitudRecord, CommentRecord, ValidacionRecord, DeletionAuditEvent, AppUser } from '@/types';
+import type { SolicitudRecord, Comment as CommentRecord, ValidacionRecord, DeletionAuditEvent, AppUser } from '@/types';
 import { downloadExcelFileFromTable } from '@/lib/fileExporterdatabasePay';
 import { format, startOfDay, endOfDay, startOfMonth, endOfMonth } from 'date-fns';
 import { es } from 'date-fns/locale';
@@ -1122,7 +1123,7 @@ export default function DatabasePage() {
                 comments.map(comment => (
                   <div key={comment.id} className="p-2 my-1 border-b bg-card shadow-sm rounded">
                     <div className="flex justify-between items-center mb-1">
-                        <p className="font-semibold text-primary text-xs">{comment.userEmail}</p>
+                        <p className="font-semibold text-primary text-xs">{comment.authorEmail}</p>
                         <p className="text-muted-foreground text-xs">
                             {format(comment.createdAt, "dd/MM/yyyy HH:mm", { locale: es })}
                         </p>
@@ -1209,3 +1210,4 @@ export default function DatabasePage() {
     </AppShell>
   );
 }
+
