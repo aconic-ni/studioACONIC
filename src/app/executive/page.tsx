@@ -146,7 +146,7 @@ function ExecutivePageContent() {
 
   // Pagination and selection state
   const [currentPage, setCurrentPage] = useState(1);
-  const [itemsPerPage] = useState(15);
+  const [itemsPerPage, setItemsPerPage] = useState(20);
   const [selectedRows, setSelectedRows] = useState<string[]>([]);
 
 
@@ -465,7 +465,7 @@ function ExecutivePageContent() {
   const clearFilters = () => {
     setSearchTerm('');
     setFacturadoFilter({ facturado: false, noFacturado: true });
-    setAcuseFilter({ conAcuse: true, sinAcuse: true });
+    setAcuseFilter({ conAcuse: false, sinAcuse: true });
     setDateRangeInput(undefined);
     setNeFilter('');
     setEjecutivoFilter('');
@@ -473,7 +473,7 @@ function ExecutivePageContent() {
     setFacturaFilter('');
     setSelectividadFilter('');
     setIncidentTypeFilter('');
-    setAppliedFilters({ searchTerm: '', facturado: false, noFacturado: true, conAcuse: true, sinAcuse: true, dateFilterType: 'range', dateRange: undefined, isSearchActive: false });
+    setAppliedFilters({ searchTerm: '', facturado: false, noFacturado: true, conAcuse: false, sinAcuse: true, dateFilterType: 'range', dateRange: undefined, isSearchActive: false });
     setCurrentPage(1);
     setSearchHint(null);
   };
@@ -595,14 +595,22 @@ function ExecutivePageContent() {
       
       return finalFiltered;
     } else {
-        // Not searching, return top 15 of the current tab
+        // Not searching, return top results of the current tab
         setSearchHint(null);
-        return tabFiltered.slice(0, 15);
+        return tabFiltered;
     }
   }, [allCases, appliedFilters, activeTab, neFilter, ejecutivoFilter, consignatarioFilter, facturaFilter, selectividadFilter, incidentTypeFilter, acuseFilter]);
   
   const totalPages = Math.ceil(filteredCases.length / itemsPerPage);
-  const paginatedCases = appliedFilters.isSearchActive ? filteredCases.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage) : filteredCases;
+  const paginatedCases = useMemo(() => {
+    if (!appliedFilters.isSearchActive) {
+      return filteredCases.slice(0, 20);
+    }
+    const startIndex = (currentPage - 1) * itemsPerPage;
+    const endIndex = startIndex + itemsPerPage;
+    return filteredCases.slice(startIndex, endIndex);
+  }, [filteredCases, currentPage, itemsPerPage, appliedFilters.isSearchActive]);
+
   
   const approvePreliquidation = (caseId: string) => {
     handleAutoSave(caseId, 'preliquidationStatus', 'Aprobada');
@@ -1019,7 +1027,38 @@ function ExecutivePageContent() {
                         </div>
                     </div>
                     
-                    <TabsContent value="worksheets" className="mt-6">{renderTable()}</TabsContent>
+                    <TabsContent value="worksheets" className="mt-6">
+                        {renderTable()}
+                         {appliedFilters.isSearchActive && paginatedCases.length > 0 && (
+                            <div className="flex items-center justify-between space-x-2 py-4">
+                               <div className="flex items-center space-x-2">
+                                  <p className="text-sm font-medium">Filas por página</p>
+                                  <Select
+                                      value={String(itemsPerPage)}
+                                      onValueChange={(value) => {
+                                          setItemsPerPage(Number(value));
+                                          setCurrentPage(1);
+                                      }}
+                                  >
+                                      <SelectTrigger className="h-8 w-[70px]"><SelectValue /></SelectTrigger>
+                                      <SelectContent side="top">
+                                          {[20, 30, 50, 100].map((pageSize) => (
+                                              <SelectItem key={pageSize} value={`${pageSize}`}>{pageSize}</SelectItem>
+                                          ))}
+                                      </SelectContent>
+                                  </Select>
+                               </div>
+                               <div className="text-sm text-muted-foreground">
+                                   Total de casos: {filteredCases.length}
+                               </div>
+                               <div className="flex items-center space-x-2">
+                                  <span className="text-sm">Página {currentPage} de {totalPages}</span>
+                                  <Button variant="outline" size="sm" onClick={() => setCurrentPage(p => Math.max(p - 1, 1))} disabled={currentPage === 1}>Anterior</Button>
+                                  <Button variant="outline" size="sm" onClick={() => setCurrentPage(p => Math.min(p + 1, totalPages))} disabled={currentPage === totalPages}>Siguiente</Button>
+                               </div>
+                            </div>
+                        )}
+                    </TabsContent>
                     <TabsContent value="anexos" className="mt-6">{renderTable()}</TabsContent>
                     <TabsContent value="corporate" className="mt-6">{renderTable()}</TabsContent>
                 </CardContent>
