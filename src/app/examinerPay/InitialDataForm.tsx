@@ -19,7 +19,7 @@ interface PaymentRequestFlowProps {
     onClose: () => void;
 }
 
-export function PaymentRequestFlow({ isOpen, onClose }: PaymentRequestFlowProps) {
+export function InitialDataForm({ isOpen, onClose }: PaymentRequestFlowProps) {
   const { 
     initialContextData, 
     setCurrentStep, 

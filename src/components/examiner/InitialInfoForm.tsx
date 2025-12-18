@@ -15,6 +15,7 @@ import { useToast } from '@/hooks/use-toast';
 import { doc, getDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { useState } from 'react';
+import { ConsigneeSelector } from '../shared/ConsigneeSelector';
 
 // Helper function to extract and format name from email
 function extractNameFromEmail(email?: string | null): string {
@@ -139,7 +140,10 @@ export function InitialInfoForm() {
                   <FormItem>
                     <FormLabel>Consignatario *</FormLabel>
                     <FormControl>
-                      <Input placeholder="Nombre del consignatario" {...field} value={field.value ?? ''} />
+                      <ConsigneeSelector
+                        value={field.value}
+                        onChange={field.onChange}
+                      />
                     </FormControl>
                     <FormMessage />
                   </FormItem>

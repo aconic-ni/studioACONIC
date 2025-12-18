@@ -19,7 +19,7 @@ interface PaymentRequestFlowProps {
     onClose: () => void;
 }
 
-export function PaymentRequestFlow({ isOpen, onClose }: PaymentRequestFlowProps) {
+export function InitialDataForm({ isOpen, onClose }: PaymentRequestFlowProps) {
   const { 
     initialContextData, 
     setCurrentStep, 
@@ -103,7 +103,7 @@ export function PaymentRequestFlow({ isOpen, onClose }: PaymentRequestFlowProps)
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-        <DialogContent className="max-w-6xl w-full p-0 h-auto max-h-[95vh] flex flex-col">
+        <DialogContent className="max-w-6xl w-full p-0">
             {renderContent()}
         </DialogContent>
         {/* AddProductModal is self-managing based on app context */}

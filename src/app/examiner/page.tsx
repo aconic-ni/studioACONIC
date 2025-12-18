@@ -11,7 +11,7 @@ import { SuccessModal } from '@/components/examiner/SuccessModal';
 import { ExaminerWelcome } from '@/components/examiner/ExaminerWelcome';
 import { Loader2 } from 'lucide-react';
 import { SetDisplayNameModal } from '@/components/auth/SetDisplayNameModal';
-import { InitialDataForm as PaymentRequestFlow } from '@/components/examinerPay/InitialInfoForm';
+import { PaymentRequestFlow } from '@/components/examinerPay/InitialDataForm';
 
 export default function ExaminerPage() {
   const { user, loading: authLoading, isProfileComplete } = useAuth();

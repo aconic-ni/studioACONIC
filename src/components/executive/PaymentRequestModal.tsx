@@ -1,6 +1,7 @@
 
 "use client";
 
+import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -10,15 +11,16 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/context/AuthContext';
+import { db } from '@/lib/firebase';
+import { doc, setDoc, Timestamp, collection } from 'firebase/firestore';
 import type { Worksheet, InitialDataContext } from '@/types';
-import { StickyNote } from 'lucide-react';
-import { useAppContext } from '@/context/AppContext';
+import { Loader2, StickyNote } from 'lucide-react';
+import { useAppContext, ExamStep } from '@/context/AppContext';
 import { useRouter } from 'next/navigation';
 import { format } from 'date-fns';
 
 
 const paymentRequestSchema = z.object({
-  ne: z.string().optional(),
   reference: z.string().optional(),
   recipient: z.string().min(1, "Destinatario es requerido."),
 });
@@ -34,14 +36,13 @@ interface PaymentRequestModalProps {
 export function PaymentRequestModal({ isOpen, onClose, caseData }: PaymentRequestModalProps) {
   const { user } = useAuth();
   const { toast } = useToast();
-  const { setInitialContextData, openAddProductModal, setIsMemorandumMode, initialContextData: appInitialData } = useAppContext();
+  const { setInitialContextData, openPaymentRequestFlow, setIsMemorandumMode } = useAppContext();
   const router = useRouter();
 
   const form = useForm<PaymentRequestFormData>({
     resolver: zodResolver(paymentRequestSchema),
     defaultValues: { 
-      ne: caseData?.ne || appInitialData?.ne || '',
-      reference: '', 
+      reference: caseData?.worksheet?.reference || '', 
       recipient: 'Contabilidad' 
     },
   });
@@ -57,8 +58,10 @@ export function PaymentRequestModal({ isOpen, onClose, caseData }: PaymentReques
       return;
     }
 
+    const ne = caseData?.ne || `SOL-${format(new Date(), 'ddMMyy-HHmmss')}`;
+
     const initialData: InitialDataContext = {
-        ne: data.ne || `SOL-${format(new Date(), 'ddMMyy-HHmmss')}`,
+        ne,
         reference: data.reference,
         manager: user.displayName,
         date: new Date(),
@@ -70,14 +73,12 @@ export function PaymentRequestModal({ isOpen, onClose, caseData }: PaymentReques
     };
     
     setInitialContextData(initialData);
+    setIsMemorandumMode(initialData.isMemorandum);
     
-    router.push('/examinerPay');
-    onClose();
+    // Open the flow in a modal instead of navigating
+    openPaymentRequestFlow(); 
     
-    // Open the AddProductModal after a short delay to allow navigation and context update
-    setTimeout(() => {
-        openAddProductModal();
-    }, 100);
+    onClose(); // Close the current modal
   };
 
   if (!isOpen) return null;
@@ -97,19 +98,6 @@ export function PaymentRequestModal({ isOpen, onClose, caseData }: PaymentReques
         </DialogHeader>
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 py-4">
-             <FormField
-                control={form.control}
-                name="ne"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Número de Entrada (NE)</FormLabel>
-                    <FormControl>
-                      <Input {...field} disabled={isGeneralRequest} placeholder={isGeneralRequest ? 'ID único autogenerado' : ''} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
              <FormField
                 control={form.control}
                 name="recipient"
