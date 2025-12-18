@@ -1,6 +1,6 @@
 "use client";
 import React from 'react';
-import type { AforoCase, AforadorStatus, DigitacionStatus, PreliquidationStatus, WorksheetWithCase, FacturacionStatus } from '@/types';
+import type { AforoCase, AforoCaseStatus, DigitacionStatus, PreliquidationStatus, WorksheetWithCase } from '@/types';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -49,16 +49,20 @@ const getIncidentTypeDisplay = (c: AforoCase) => {
 };
 
 const getOverallStatus = (caseData: AforoCase): { text: string; variant: "default" | "destructive" | "secondary" | "outline" } => {
-    if (caseData.digitacionStatus === 'Trámite Completo') return { text: 'Trámite Completo', variant: 'default' };
-    if (caseData.digitacionStatus === 'En Proceso' || caseData.digitacionStatus === 'Almacenado') return { text: 'En Digitación', variant: 'secondary' };
-    if (caseData.preliquidationStatus === 'Aprobada') return { text: 'Preliquidación Aprobada', variant: 'default' };
-    if (caseData.revisorStatus === 'Aprobado') return { text: 'Aprobado por Agente', variant: 'default' };
-    if (caseData.revisorStatus === 'Rechazado') return { text: 'Rechazado por Agente', variant: 'destructive' };
-    if (caseData.aforadorStatus === 'En revisión') return { text: 'En Revisión (Aforo)', variant: 'secondary' };
-    if (caseData.aforadorStatus === 'En proceso') return { text: 'En Proceso (Aforo)', variant: 'secondary' };
-    if (caseData.aforadorStatus === 'Incompleto') return { text: 'Incompleto (Aforo)', variant: 'destructive' };
+    const aforoData = (caseData as any).aforo || caseData;
+
+    if (aforoData.digitacionStatus === 'Trámite Completo') return { text: 'Trámite Completo', variant: 'default' };
+    if (aforoData.digitacionStatus === 'Almacenado') return { text: 'Almacenado', variant: 'default' };
+    if (aforoData.digitacionStatus === 'En Proceso') return { text: 'En Digitación', variant: 'secondary' };
+    if (aforoData.preliquidationStatus === 'Aprobada') return { text: 'Preliquidación Aprobada', variant: 'default' };
+    if (aforoData.revisorStatus === 'Aprobado') return { text: 'Aprobado por Agente', variant: 'default' };
+    if (aforoData.revisorStatus === 'Rechazado') return { text: 'Rechazado por Agente', variant: 'destructive' };
+    if (aforoData.aforadorStatus === 'En revisión') return { text: 'En Revisión (Aforo)', variant: 'secondary' };
+    if (aforoData.aforadorStatus === 'En proceso') return { text: 'En Proceso (Aforo)', variant: 'secondary' };
+    if (aforoData.aforadorStatus === 'Incompleto') return { text: 'Incompleto (Aforo)', variant: 'destructive' };
     return { text: 'Pendiente de Aforo', variant: 'outline' };
 };
+
 
 const getPreliquidationStatusBadge = (status?: PreliquidationStatus) => {
     switch(status) {
@@ -99,7 +103,7 @@ export function ExecutiveCasesTable({
             <Table><TableHeader><TableRow>
                 <TableHead className="w-12">
                   <Checkbox
-                    checked={selectedRows.length > 0 && selectedRows.length === cases.filter(c => c.revisorStatus === 'Aprobado' && c.preliquidationStatus !== 'Aprobada').length}
+                    checked={selectedRows.length > 0 && selectedRows.length === cases.filter(c => c.revisorStatus === 'Aprobado' && ((c as any).aforo || c).preliquidationStatus !== 'Aprobada').length}
                     onCheckedChange={onSelectAllRows}
                     aria-label="Seleccionar todo para preliquidación"
                   />
@@ -119,6 +123,7 @@ export function ExecutiveCasesTable({
             </TableRow></TableHeader>
             <TableBody>
                 {cases.map(c => {
+                    const aforoData = (c as any).aforo || c;
                     const facturas = c.worksheet?.worksheetType === 'corporate_report' 
                         ? (c.worksheet.documents?.filter(d => d.type === 'FACTURA').map(d => d.number) || [])
                         : (c.facturaNumber ? c.facturaNumber.split(';').map(f => f.trim()) : []);
@@ -126,9 +131,9 @@ export function ExecutiveCasesTable({
                     const firstFactura = facturas[0] || '';
                     const remainingFacturasCount = facturas.length > 1 ? facturas.length - 1 : 0;
                     const isPsmt = c.consignee.toUpperCase().trim() === "PSMT NICARAGUA, SOCIEDAD ANONIMA";
-                    const daysUntilDue = c.resaDueDate ? differenceInDays(c.resaDueDate.toDate(), new Date()) : null;
+                    const daysUntilDue = aforoData.resaDueDate ? differenceInDays(aforoData.resaDueDate.toDate(), new Date()) : null;
                     const isResaCritical = daysUntilDue !== null && daysUntilDue < -15;
-                    const overallStatus = getOverallStatus(c);
+                    const overallStatus = getOverallStatus(aforoData);
 
                     return (
                     <TableRow key={c.id} className={savingState[c.id] ? "bg-amber-100" : (isResaCritical ? "bg-red-200 hover:bg-red-200/80" : "")} data-state={selectedRows.includes(c.id) ? 'selected' : undefined}>
@@ -240,12 +245,12 @@ export function ExecutiveCasesTable({
                           </div>
                         </TableCell>
                         <TableCell>
-                            {c.revisorStatus === 'Aprobado' && c.preliquidationStatus !== 'Aprobada' ? (
+                            {aforoData.revisorStatus === 'Aprobado' && aforoData.preliquidationStatus !== 'Aprobada' ? (
                                 <Button size="sm" onClick={() => approvePreliquidation(c.id)} disabled={savingState[c.id]}>
                                     <CheckCircle className="mr-2 h-4 w-4" /> Aprobar
                                 </Button>
                             ) : (
-                                getPreliquidationStatusBadge(c.preliquidationStatus)
+                                getPreliquidationStatusBadge(aforoData.preliquidationStatus)
                             )}
                         </TableCell>
                          <TableCell>
@@ -253,7 +258,7 @@ export function ExecutiveCasesTable({
                                 <Select
                                     value={c.selectividad || ''}
                                     onValueChange={(value) => onAutoSave(c.id, 'selectividad', value)}
-                                    disabled={savingState[c.id] || !c.declaracionAduanera}
+                                    disabled={savingState[c.id] || !aforoData.declaracionAduanera}
                                 >
                                     <SelectTrigger className="w-[120px]">
                                         <SelectValue placeholder="Seleccionar..." />
