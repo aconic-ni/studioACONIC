@@ -9,13 +9,14 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Loader2, FilePlus, Edit, Inbox, Banknote, StickyNote, Briefcase, Archive, Copy, KeyRound, Search, ChevronsUpDown, Info, CalendarRange, Calendar, CalendarDays, AlertTriangle, FileCheck2, MessageSquare, View, Bell as BellIcon, RefreshCw, Send, Scale, BookOpen } from 'lucide-react';
 import { db } from '@/lib/firebase';
-import { collection, query, where, onSnapshot, orderBy, Timestamp, doc, getDoc, updateDoc, writeBatch, addDoc, getDocs, collectionGroup, serverTimestamp, setDoc } from 'firebase/firestore';
+import { collection, query, where, onSnapshot, orderBy, Timestamp, doc, getDoc, updateDoc, writeBatch, addDoc, getDocs, collectionGroup, serverTimestamp, setDoc, documentId } from 'firebase/firestore';
 import type { Worksheet, AforoCase, AforadorStatus, AforoCaseStatus, DigitacionStatus, WorksheetWithCase, AforoCaseUpdate, PreliquidationStatus, IncidentType, LastUpdateInfo, ExecutiveComment, InitialDataContext, AppUser, SolicitudRecord, ExamDocument, FacturacionStatus } from '@/types';
 import { format, toDate, isSameDay, startOfDay, endOfDay, differenceInDays, startOfMonth, endOfMonth } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { Input } from '@/components/ui/input';
 import { AforoCaseHistoryModal } from '@/components/reporter/AforoCaseHistoryModal';
 import { IncidentReportModal } from '@/components/reporter/IncidentReportModal';
+import { Badge } from '@/components/ui/badge';
 import { IncidentReportDetails } from '@/components/reporter/IncidentReportDetails';
 import { ValueDoubtModal } from '@/components/executive/ValueDoubtModal';
 import { useToast } from '@/hooks/use-toast';
@@ -66,7 +67,7 @@ function ExecutivePageContent() {
   const [isLoading, setIsLoading] = useState(true);
   const [isExporting, setIsExporting] = useState(false);
   const [assignableUsers, setAssignableUsers] = useState<AppUser[]>([]);
-  const [modalState, setModalState] = useState({
+  const [modalState, setModalState = useState({
     history: null as AforoCase | null,
     incident: null as AforoCase | null,
     valueDoubt: null as AforoCase | null,
@@ -250,7 +251,7 @@ function ExecutivePageContent() {
         batch.set(newWorksheetRef, newWorksheetData);
         
         const newAforoMetaRef = doc(newWorksheetRef, 'aforo', 'metadata');
-        const newCaseData: Omit<AforoCase, 'id'> = { ne: newNe, executive: modalState.duplicate.executive, consignee: modalState.duplicate.consignee, facturaNumber: modalState.duplicate.facturaNumber, declarationPattern: modalState.duplicate.declarationPattern, merchandise: modalState.duplicate.merchandise, createdBy: user.uid, createdAt: creationTimestamp, aforador: '', assignmentDate: null, aforadorStatus: 'Pendiente ', aforadorStatusLastUpdate: createdByInfo, revisorStatus: 'Pendiente', revisorStatusLastUpdate: createdByInfo, preliquidationStatus: 'Pendiente', preliquidationStatusLastUpdate: createdByInfo, digitacionStatus: 'Pendiente', digitacionStatusLastUpdate: createdByInfo, incidentStatus: 'Pendiente', incidentStatusLastUpdate: createdByInfo, revisorAsignado: '', revisorAsignadoLastUpdate: createdByInfo, digitadorAsignado: '', digitadorAsignadoLastUpdate: createdByInfo, worksheetId: newNe, entregadoAforoAt: null, isArchived: false, executiveComments: [{ id: uuidv4(), author: user.displayName, text: `Duplicado del NE: ${modalState.duplicate.ne}. Motivo: ${duplicateReason}`, createdAt: creationTimestamp }] };
+        const newCaseData: Omit<AforoCase, 'id'> = { ne: newNe, executive: modalState.duplicate.executive, consignee: modalState.duplicate.consignee, facturaNumber: modalState.duplicate.facturaNumber, declarationPattern: modalState.duplicate.declarationPattern, merchandise: modalState.duplicate.merchandise, createdBy: user.uid, createdAt: creationTimestamp, aforador: '', assignmentDate: null, aforadorStatus: 'Pendiente ', aforadorStatusLastUpdate: createdByInfo, revisorStatus: 'Pendiente', revisorStatusLastUpdate: createdByInfo, preliquidationStatus: 'Pendiente', preliquidationStatusLastUpdate: createdByInfo, digitacionStatus: 'Pendiente', digitacionStatusLastUpdate: createdByInfo, incidentStatus: 'Pendiente', incidentStatusLastUpdate: createdByInfo, revisorAsignado: '', revisorAsignadoLastUpdate: createdByInfo, digitadorAsignado: '', digitadorAsignadoLastUpdate: createdByInfo, worksheetId: newNe, entregadoAforoAt: null, isArchived: false, executiveComments: [{ id: uuidv4(), author: user.displayName, text: `Duplicado del NE: ${modalState.duplicate!.ne}. Motivo: ${duplicateReason}`, createdAt: creationTimestamp }] };
         batch.set(newAforoMetaRef, newCaseData);
 
         const originalAforoMetaRef = doc(originalWorksheetRef, 'aforo', 'metadata');
@@ -486,7 +487,7 @@ function ExecutivePageContent() {
                            <TabsTrigger value="corporate">Reportes Corporativos</TabsTrigger>
                          </TabsList>
                         <ExecutiveFilters
-                           activeTab={activeTab as TabValue}
+                           activeTab={activeTab}
                            searchTerm={searchTerm}
                            setSearchTerm={setSearchTerm}
                            facturadoFilter={facturadoFilter}
@@ -562,3 +563,6 @@ export default function ExecutivePage() {
         </Suspense>
     );
 }
+
+
+    
