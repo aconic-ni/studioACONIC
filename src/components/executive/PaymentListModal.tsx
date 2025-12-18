@@ -162,3 +162,4 @@ export function PaymentListModal({ isOpen, onClose, caseData }: PaymentListModal
       </DialogContent>
     </Dialog>
   );
+}

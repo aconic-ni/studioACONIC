@@ -1,7 +1,7 @@
 
 "use client";
 import React, { useState, useMemo, useRef } from 'react';
-import type { Worksheet, AforoUpdate, LastUpdateInfo } from '@/types';
+import type { Worksheet, AforoUpdate, LastUpdateInfo, WorksheetWithCase } from '@/types';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Button } from '@/components/ui/button';
@@ -45,8 +45,8 @@ import { ExecutiveCommentModal } from '../executive/ExecutiveCommentModal';
 import { WorksheetDetailModal } from '../reporter/WorksheetDetailModal';
 
 interface GestionLocalTableProps {
-  worksheets: Worksheet[];
-  setWorksheets: React.Dispatch<React.SetStateAction<Worksheet[]>>;
+  worksheets: WorksheetWithCase[];
+  setWorksheets: React.Dispatch<React.SetStateAction<WorksheetWithCase[]>>;
   selectedRows: string[];
   setSelectedRows: React.Dispatch<React.SetStateAction<string[]>>;
   onAssign: (worksheet: Worksheet, type: 'aforador' | 'revisor' | 'digitador') => void;
@@ -199,7 +199,7 @@ export function GestionLocalTable({ worksheets, setWorksheets, selectedRows, set
         setSelectedRows([]);
     } catch(e) {
         console.error("Bulk update error:", e);
-        toast({ title: "Error", description: "No se pudo completar la acción masiva.", variant: "destructive"});
+        toast({ title: "Error", description: "No se pudo completar la acción masiva.", variant: "destructive" });
     }
     setStatusModal({isOpen: false, type: 'aforador'});
   };
@@ -239,23 +239,6 @@ export function GestionLocalTable({ worksheets, setWorksheets, selectedRows, set
     } catch (e) {
         console.error(e);
         toast({ title: "Error", description: "No se pudo actualizar el estado.", variant: "destructive" });
-    }
-  }
-
-  const handleRevalidationRequest = async (worksheetId: string) => {
-    if (!user || !user.displayName) return;
-    const worksheetRef = doc(db, 'worksheets', worksheetId, 'aforo', 'metadata');
-    try {
-        const updateData = {
-            revisorStatus: 'Revalidación Solicitada',
-            revisorStatusLastUpdate: { by: user.displayName, at: Timestamp.now() }
-        };
-        await writeBatch(db).set(worksheetRef, updateData, { merge: true }).commit();
-        setWorksheets(prev => prev.map(ws => ws.id === worksheetId ? { ...ws, aforo: { ...(ws as any).aforo, revisorStatus: 'Revalidación Solicitada' } } as Worksheet : ws));
-        toast({ title: 'Solicitud Enviada', description: 'Se ha solicitado la revalidación al revisor.' });
-    } catch(e) {
-        console.error(e);
-        toast({ title: "Error", description: "No se pudo solicitar la revalidación.", variant: "destructive" });
     }
   }
   
@@ -503,7 +486,6 @@ export function GestionLocalTable({ worksheets, setWorksheets, selectedRows, set
                     <DropdownMenuItem onClick={() => onAssign(ws, 'revisor')}><UserCheck className="mr-2 h-4 w-4" /> Asignar Revisor</DropdownMenuItem>
                     <DropdownMenuItem onClick={() => onAssign(ws, 'digitador')}><UserCheck className="mr-2 h-4 w-4" /> Asignar Digitador</DropdownMenuItem>
                     <DropdownMenuItem onClick={() => onComment(ws)}><MessageSquare className="mr-2 h-4 w-4" /> Ver/Añadir Comentarios</DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => handleRevalidationRequest(ws as any)} disabled={!aforoData || aforoData.revisorStatus !== 'Rechazado'}><Repeat className="mr-2 h-4 w-4"/>Solicitar Revalidación</DropdownMenuItem>
                   </DropdownMenuContent>
                 </DropdownMenu>
               </TableCell>
@@ -531,8 +513,8 @@ export function GestionLocalTable({ worksheets, setWorksheets, selectedRows, set
               </TableCell>
               <TableCell>
                 <div className="flex items-center gap-1">
-                  <Badge variant="secondary">{aforoData?.revisor || 'N/A'}</Badge>
-                  <LastUpdateTooltip lastUpdate={aforoData?.revisorAssignedAt ? { by: aforoData.revisorAssignedBy, at: aforoData.revisorAssignedAt } : undefined} />
+                  <Badge variant="secondary">{aforoData?.revisorAsignado || 'N/A'}</Badge>
+                  <LastUpdateTooltip lastUpdate={aforoData?.revisorAsignadoLastUpdate} caseCreation={ws.createdAt} />
                 </div>
               </TableCell>
               <TableCell>
@@ -542,8 +524,8 @@ export function GestionLocalTable({ worksheets, setWorksheets, selectedRows, set
               </TableCell>
               <TableCell>
                   <div className="flex items-center gap-1">
-                    <Badge variant="secondary">{aforoData?.digitador || 'N/A'}</Badge>
-                    <LastUpdateTooltip lastUpdate={aforoData?.digitadorAssignedAt ? { by: aforoData.digitadorAssignedBy, at: aforoData.digitadorAssignedAt } : undefined} />
+                    <Badge variant="secondary">{aforoData?.digitadorAsignado || 'N/A'}</Badge>
+                    <LastUpdateTooltip lastUpdate={aforoData?.digitadorAsignadoLastUpdate} caseCreation={ws.createdAt} />
                   </div>
               </TableCell>
               <TableCell>

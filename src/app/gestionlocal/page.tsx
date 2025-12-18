@@ -5,7 +5,7 @@ import React, { useEffect, useState, useCallback, useMemo, useRef } from 'react'
 import { useAuth } from '@/context/AuthContext';
 import { db } from '@/lib/firebase';
 import { collection, query, onSnapshot, orderBy, getDoc, doc, getDocs, where, collectionGroup, writeBatch, Timestamp } from 'firebase/firestore';
-import type { Worksheet, AforoUpdate, WorksheetWithCase } from '@/types';
+import type { Worksheet, AforoUpdate, WorksheetWithCase, AforoData } from '@/types';
 import { AppShell } from '@/components/layout/AppShell';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -96,14 +96,17 @@ export default function GestionLocalPage() {
     }
     setIsExporting(true);
     
-    const casesToExport = filteredWorksheets.map(ws => ({
-        id: ws.id,
-        ne: ws.ne,
-        consignee: ws.consignee,
-        merchandise: ws.description,
-        declarationPattern: ws.patternRegime,
-        ...((ws as any).aforo || {}) 
-    }));
+    const casesToExport = filteredWorksheets.map(ws => {
+        const aforoData = (ws as any).aforo || {};
+        return {
+            id: ws.id,
+            ne: ws.ne,
+            consignee: ws.consignee,
+            merchandise: ws.description,
+            declarationPattern: ws.patternRegime,
+            ...aforoData
+        };
+    });
 
     const auditLogs: (AforoUpdate & { caseNe: string })[] = [];
     for (const ws of filteredWorksheets) {
