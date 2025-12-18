@@ -16,7 +16,7 @@ import { db } from '@/lib/firebase';
 interface StatusProcessModalProps {
     isOpen: boolean;
     onClose: () => void;
-    caseData: no existe;
+    caseData: worksheet;
 }
 
 const formatDate = (date: Date | Timestamp | null | undefined): string => {
@@ -67,7 +67,7 @@ const StatusStep = ({ title, status, lastUpdate, icon }: { title: string; status
 }
 
 export function StatusProcessModal({ isOpen, onClose, caseData }: StatusProcessModalProps) {
-    const [aforoData, setAforoData] = useState<Partial<no existe> | null>(null);
+    const [aforoData, setAforoData] = useState<Partial<worksheet> | null>(null);
     const [isLoading, setIsLoading] = useState(true);
 
     useEffect(() => {
@@ -78,7 +78,7 @@ export function StatusProcessModal({ isOpen, onClose, caseData }: StatusProcessM
         
         const unsubscribe = onSnapshot(aforoMetaRef, (docSnap) => {
             if (docSnap.exists()) {
-                setAforoData(docSnap.data() as Partial<no existe>);
+                setAforoData(docSnap.data() as Partial<worksheet>);
             } else {
                 // If no subcollection data, fall back to the main case data for display
                 setAforoData(caseData);

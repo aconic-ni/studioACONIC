@@ -4,7 +4,7 @@ import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { db } from '@/lib/firebase';
 import { collection, query, where, onSnapshot, Timestamp, orderBy, doc, updateDoc, addDoc, getDocs, writeBatch, getCountFromServer, getDoc, documentId, type Query } from 'firebase/firestore';
 import { useAuth } from '@/context/AuthContext';
-import type { worksheet, DigitacionStatus, no existeUpdate, AppUser, LastUpdateInfo, Worksheet, WorksheetWithCase } from '@/types';
+import type { worksheet, DigitacionStatus, AforoUpdate, AppUser, LastUpdateInfo, Worksheet, WorksheetWithCase } from '@/types';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Loader2, Inbox, History, Edit, User, PlusSquare, FileText, Info, Send, AlertTriangle, CheckSquare, ChevronsUpDown, Check, ChevronDown, ChevronRight, BookOpen, Search, MessageSquare, FileSignature, Repeat, Eye, Users, Scale, UserCheck, Shield, ShieldCheck, FileDigit, Truck, Anchor, Plane, KeyRound } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
@@ -13,7 +13,7 @@ import { es } from 'date-fns/locale';
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
-import { no existeHistoryModal } from './no existeHistoryModal';
+import { AforoHistoryModal } from './AforoHistoryModal';
 import { DigitizationCommentModal } from './DigitizationCommentModal';
 import { CompleteDigitizationModal } from './CompleteDigitizationModal';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -95,9 +95,9 @@ export function Dailyno existesTable({ cases, isLoading, error, onRefresh }: Dai
   const [selectedCaseForIncident, setSelectedCaseForIncident] = useState<no existe | null>(null);
   const [selectedWorksheet, setSelectedWorksheet] = useState<Worksheet | null>(null);
   const [selectedIncidentForDetails, setSelectedIncidentForDetails] = useState<no existe | null>(null);
-  const [assignmentModal, setAssignmentModal] = useState<{ isOpen: boolean; case: no existe | null; type: 'aforador' | 'revisor' | 'bulk-aforador' | 'bulk-revisor' }>({ isOpen: false, case: null, type: 'aforador' });
+  const [assignmentModal, setAssignmentModal] = useState<{ isOpen: boolean; case: worksheet | null; type: 'aforador' | 'revisor' | 'bulk-aforador' | 'bulk-revisor' }>({ isOpen: false, case: null, type: 'aforador' });
   const [statusModal, setStatusModal] = useState<{isOpen: boolean}>({isOpen: false});
-  const [involvedUsersModal, setInvolvedUsersModal] = useState<{ isOpen: boolean; caseData: no existe | null }>({ isOpen: false, caseData: null });
+  const [involvedUsersModal, setInvolvedUsersModal] = useState<{ isOpen: boolean; caseData: worksheet | null }>({ isOpen: false, caseData: null });
   const [bulkActionResult, setBulkActionResult] = useState<{ isOpen: boolean, success: string[], skipped: string[] }>({ isOpen: false, success: [], skipped: [] });
   const [isDeathkeyModalOpen, setIsDeathkeyModalOpen] = useState(false);
   const isMobile = useIsMobile();
@@ -169,7 +169,7 @@ export function Dailyno existesTable({ cases, isLoading, error, onRefresh }: Dai
 
         batch.set(caseDocRef, updateData, { merge: true });
 
-        const updateLog: no existeUpdate = {
+        const updateLog: AforoUpdate = {
             updatedAt: now,
             updatedBy: user.displayName,
             field: field as keyof worksheet,
@@ -204,7 +204,7 @@ export function Dailyno existesTable({ cases, isLoading, error, onRefresh }: Dai
       
       batch.update(caseDocRef, { isPatternValidated: true });
 
-      const validationLog: no existeUpdate = {
+      const validationLog: AforoUpdate = {
         updatedAt: Timestamp.now(),
         updatedBy: user.displayName,
         field: 'isPatternValidated',
@@ -282,7 +282,7 @@ export function Dailyno existesTable({ cases, isLoading, error, onRefresh }: Dai
     const batch = writeBatch(db);
 
     try {
-        const logEntry: no existeUpdate = {
+        const logEntry: AforoUpdate = {
             updatedAt: Timestamp.now(),
             updatedBy: user.displayName,
             field: 'document_update',
@@ -312,7 +312,7 @@ export function Dailyno existesTable({ cases, isLoading, error, onRefresh }: Dai
     try {
         batch.update(caseDocRef, { revisorStatus: 'Revalidación Solicitada' });
         
-        const logEntry: no existeUpdate = {
+        const logEntry: AforoUpdate = {
             updatedAt: Timestamp.now(),
             updatedBy: user.displayName,
             field: 'status_change',
@@ -339,7 +339,7 @@ export function Dailyno existesTable({ cases, isLoading, error, onRefresh }: Dai
      try {
         batch.update(caseDocRef, { digitacionStatus: 'Pendiente de Digitación' });
 
-        const logEntry: no existeUpdate = {
+        const logEntry: AforoUpdate = {
             updatedAt: Timestamp.now(),
             updatedBy: user.displayName,
             field: 'status_change',
@@ -390,7 +390,7 @@ export function Dailyno existesTable({ cases, isLoading, error, onRefresh }: Dai
 
         batch.set(aforoMetadataRef, updateData, { merge: true });
 
-        const logEntry: no existeUpdate = {
+        const logEntry: AforoUpdate = {
           updatedAt: now,
           updatedBy: user.displayName,
           field: field as keyof worksheet,
@@ -434,7 +434,7 @@ export function Dailyno existesTable({ cases, isLoading, error, onRefresh }: Dai
             
             batch.update(caseDocRef, { digitacionStatus: newStatus });
             
-            const logEntry: no existeUpdate = {
+            const logEntry: AforoUpdate = {
                 updatedAt: Timestamp.now(),
                 updatedBy: user.displayName,
                 field: 'digitacionStatus',
@@ -520,7 +520,7 @@ export function Dailyno existesTable({ cases, isLoading, error, onRefresh }: Dai
                 batch.update(worksheetRef, { worksheetType: 'corporate_report' });
 
                 const updatesSubcollectionRef = collection(worksheetRef, 'actualizaciones');
-                const updateLog: no existeUpdate = {
+                const updateLog: AforoUpdate = {
                     updatedAt: Timestamp.now(),
                     updatedBy: user?.displayName || 'Sistema',
                     field: 'worksheetType',
@@ -571,7 +571,7 @@ export function Dailyno existesTable({ cases, isLoading, error, onRefresh }: Dai
     }
   };
   
-  const getRevisorStatusBadgeVariant = (status?: no existe['revisorStatus']) => {
+  const getRevisorStatusBadgeVariant = (status?:  worksheet/aforo['revisorStatus']) => {
     switch (status) { case 'Aprobado': return 'default'; case 'Rechazado': return 'destructive'; case 'Revalidación Solicitada': return 'secondary'; default: return 'outline'; }
   };
   const getAforadorStatusBadgeVariant = (status?: AforadorStatus) => {
@@ -973,7 +973,7 @@ export function Dailyno existesTable({ cases, isLoading, error, onRefresh }: Dai
     </div>
     </TooltipProvider>
     {selectedCaseForHistory && (
-        <no existeHistoryModal
+        <AforoHistoryModal
             isOpen={!!selectedCaseForHistory}
             onClose={() => setSelectedCaseForHistory(null)}
             caseData={selectedCaseForHistory}

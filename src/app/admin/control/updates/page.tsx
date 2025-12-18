@@ -24,7 +24,7 @@ function EntregadoAforoMigrator() {
         try {
             const q = query(collection(db, 'no existes'), where('entregadoAforoAt', '!=', null));
             const querySnapshot = await getDocs(q);
-            const casesWithDate = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as no existe));
+            const casesWithDate = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as worksheet));
             
             let worksheetsToUpdateCount = 0;
             for (const caseItem of casesWithDate) {
@@ -57,7 +57,7 @@ function EntregadoAforoMigrator() {
         try {
             const q = query(collection(db, 'no existes'), where('entregadoAforoAt', '!=', null));
             const querySnapshot = await getDocs(q);
-            const casesToProcess = querySnapshot.docs.map(doc => doc.data() as no existe);
+            const casesToProcess = querySnapshot.docs.map(doc => doc.data() as worksheet);
             
             let migratedCount = 0;
             const batch = writeBatch(db);
@@ -127,7 +127,7 @@ function TotalPosicionesMigrator() {
         try {
             const q = query(collection(db, 'no existes'), where('totalPosiciones', '>', 0));
             const querySnapshot = await getDocs(q);
-            const casesWithData = querySnapshot.docs.map(doc => doc.data() as no existe);
+            const casesWithData = querySnapshot.docs.map(doc => doc.data() as worksheet);
             
             let worksheetsToUpdateCount = 0;
             for (const caseItem of casesWithData) {
@@ -159,7 +159,7 @@ function TotalPosicionesMigrator() {
         try {
             const q = query(collection(db, 'no existes'), where('totalPosiciones', '>', 0));
             const querySnapshot = await getDocs(q);
-            const casesToProcess = querySnapshot.docs.map(doc => doc.data() as no existe);
+            const casesToProcess = querySnapshot.docs.map(doc => doc.data() as worksheet);
             
             const batch = writeBatch(db);
             let migratedCount = 0;
@@ -322,7 +322,7 @@ function AforoDataMigrator() {
         setIsLoading(true);
         try {
             const aforoSnapshot = await getDocs(query(collection(db, 'no existes')));
-            const allCases = aforoSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as no existe));
+            const allCases = aforoSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as worksheet));
             
             const relevantCases = allCases.filter(c => c.worksheetId);
             let casesToMigrateCount = 0;
@@ -373,7 +373,7 @@ function AforoDataMigrator() {
             const q = query(collection(db, 'no existes'), where('worksheetId', '!=', null));
             const querySnapshot = await getDocs(q);
             const casesToProcess = querySnapshot.docs
-                .map(doc => ({ id: doc.id, ...doc.data() } as no existe))
+                .map(doc => ({ id: doc.id, ...doc.data() } as worksheet))
                 .filter(c => c.worksheetId);
 
             let migratedCount = 0;

@@ -13,7 +13,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/context/AuthContext';
 import { db } from '@/lib/firebase';
 import { doc, updateDoc, addDoc, collection, Timestamp, writeBatch } from 'firebase/firestore';
-import type { worksheet, no existeUpdate } from '@/types';
+import type { worksheet, AforoUpdate } from '@/types';
 import { Loader2 } from 'lucide-react';
 
 const commentSchema = z.object({
@@ -25,7 +25,7 @@ type CommentFormData = z.infer<typeof commentSchema>;
 interface AforadorCommentModalProps {
   isOpen: boolean;
   onClose: () => void;
-  caseData: no existe;
+  caseData: worksheet;
 }
 
 export function AforadorCommentModal({ isOpen, onClose, caseData }: AforadorCommentModalProps) {
@@ -62,7 +62,7 @@ export function AforadorCommentModal({ isOpen, onClose, caseData }: AforadorComm
             aforadorStatusLastUpdate: { by: user.displayName, at: Timestamp.now() }
         });
 
-        const updateLog: no existeUpdate = {
+        const updateLog: AforoUpdate = {
             updatedAt: Timestamp.now(),
             updatedBy: user.displayName,
             field: 'aforadorComment',

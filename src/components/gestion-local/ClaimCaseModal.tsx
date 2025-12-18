@@ -15,7 +15,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/context/AuthContext';
 import { db } from '@/lib/firebase';
 import { doc, getDoc, writeBatch, collection, Timestamp, query, where, getDocs, updateDoc } from 'firebase/firestore';
-import type { AppUser, worksheet, Worksheet, no existeUpdate } from '@/types';
+import type { AppUser, worksheet, Worksheet, AforoUpdate } from '@/types';
 import { Loader2 } from 'lucide-react';
 import { ConsigneeSelector } from '../shared/ConsigneeSelector';
 
@@ -75,7 +75,7 @@ export function ClaimCaseModal({ isOpen, onClose, onCaseClaimed }: ClaimCaseModa
     setIsSubmitting(true);
     const neTrimmed = data.ne.trim().toUpperCase();
     const worksheetDocRef = doc(db, 'worksheets', neTrimmed);
-    const no existeDocRef = doc(db, 'no existes', neTrimmed);
+    const worksheetDocRef = doc(db, 'no existes', neTrimmed);
     
     try {
         const worksheetSnap = await getDoc(worksheetDocRef);
@@ -87,8 +87,8 @@ export function ClaimCaseModal({ isOpen, onClose, onCaseClaimed }: ClaimCaseModa
                 const batch = writeBatch(db);
                 batch.update(worksheetDocRef, { worksheetType: 'hoja_de_trabajo' });
 
-                const updatesSubcollectionRef = collection(no existeDocRef, 'actualizaciones');
-                const updateLog: no existeUpdate = {
+                const updatesSubcollectionRef = collection(worksheetDocRef, 'actualizaciones');
+                const updateLog: AforoUpdate = {
                     updatedAt: Timestamp.now(),
                     updatedBy: user.displayName,
                     field: 'worksheetType',
@@ -120,7 +120,7 @@ export function ClaimCaseModal({ isOpen, onClose, onCaseClaimed }: ClaimCaseModa
             };
             batch.set(worksheetDocRef, worksheetData);
     
-            const no existeData: Partial<no existe> = {
+            const worksheetData: Partial<worksheet> = {
                 ne: neTrimmed, executive: data.executive, consignee: data.consignee, merchandise: data.merchandise,
                 createdBy: user.uid, createdAt: creationTimestamp, aforador: data.aforador, assignmentDate: creationTimestamp,
                 aforadorStatus: 'Pendiente ', aforadorStatusLastUpdate: createdByInfo, revisorStatus: 'Pendiente',
@@ -128,7 +128,7 @@ export function ClaimCaseModal({ isOpen, onClose, onCaseClaimed }: ClaimCaseModa
                 digitacionStatus: 'Pendiente', digitacionStatusLastUpdate: createdByInfo, incidentStatus: 'Pendiente',
                 incidentStatusLastUpdate: createdByInfo, worksheetId: neTrimmed, entregadoAforoAt: creationTimestamp,
             };
-            batch.set(no existeDocRef, no existeData);
+            batch.set(worksheetDocRef, worksheetData);
     
             await batch.commit();
             toast({ title: "Caso Reclamado Exitosamente", description: `El registro para el NE ${neTrimmed} ha sido creado y asignado.` });

@@ -28,7 +28,7 @@ export default function DashboardPage() {
   const [errorPin, setErrorPin] = useState(false);
 
   const [allExams, setAllExams] = useState<ExamDocument[]>([]);
-  const [allno existes, setAllno existes] = useState<WorksheetWithCase[]>([]);
+  const [allworksheet, setallworksheet] = useState<WorksheetWithCase[]>([]);
   const [allWorksheets, setAllWorksheets] = useState<Worksheet[]>([]);
   const [allSolicitudes, setAllSolicitudes] = useState<SolicitudRecord[]>([]);
   const [allLogs, setAllLogs] = useState<CombinedActivityLog[]>([]);
@@ -68,7 +68,7 @@ export default function DashboardPage() {
         ...doc.data(),
         worksheet: worksheetsMap.get(doc.id) || null
       } as WorksheetWithCase));
-      setAllno existes(no existesData);
+      setallworksheet(no existesData);
       
       const fetchedWorksheets = worksheetsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Worksheet));
       setAllWorksheets(fetchedWorksheets);
@@ -190,7 +190,7 @@ export default function DashboardPage() {
             {(user.role === 'ejecutivo' || user.role === 'admin' || user.role === 'coordinadora' || user.role === 'supervisor') && (
               <TabsContent value="ejecutivo">
                   <ExecutiveDashboard 
-                    allCases={allno existes} 
+                    allCases={allworksheet} 
                     allWorksheets={allWorksheets}
                     allSolicitudes={allSolicitudes}
                   />
@@ -202,7 +202,7 @@ export default function DashboardPage() {
                     <PrevioDashboard allExams={allExams} />
                 </TabsContent>
                 <TabsContent value="aforo">
-                    <AforoDashboard allCases={allno existes} />
+                    <AforoDashboard allCases={allworksheet} />
                 </TabsContent>
               </>
             )}

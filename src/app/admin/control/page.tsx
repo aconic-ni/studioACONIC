@@ -51,7 +51,7 @@ export default function AdminControlPage() {
   const [viewMode, setViewMode] = useState<ViewMode>('activeExamenes');
 
   const [allExams, setAllExams] = useState<ExamDocument[]>([]);
-  const [allno existes, setAllno existes] = useState<WorksheetWithCase[]>([]);
+  const [allworksheet, setallworksheet] = useState<WorksheetWithCase[]>([]);
   const [filteredItems, setFilteredItems] = useState<(ExamDocument | WorksheetWithCase)[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -76,7 +76,7 @@ export default function AdminControlPage() {
       setAllExams(fetchedExams);
 
       const fetchedno existes = aforoSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as WorksheetWithCase));
-      setAllno existes(fetchedno existes);
+      setallworksheet(fetchedworksheets);
 
     } catch (err: any) {
       console.error("Error fetching data:", err);
@@ -102,7 +102,7 @@ export default function AdminControlPage() {
     } else if (viewMode === 'archivedExamenes') {
         sourceData = allExams.filter(e => e.isArchived === true);
     } else if (viewMode === 'archivedAforo') {
-        sourceData = allno existes.filter(c => c.isArchived === true);
+        sourceData = allworksheet.filter(c => c.isArchived === true);
     }
 
     let dateFiltered = sourceData;
@@ -126,11 +126,11 @@ export default function AdminControlPage() {
         });
     }
     setFilteredItems(dateFiltered);
-  }, [allExams, allno existes, dateRange, searchMode, specificDate, viewMode]);
+  }, [allExams, allworksheet, dateRange, searchMode, specificDate, viewMode]);
   
   useEffect(() => {
     applyFilters();
-  }, [viewMode, allExams, allno existes, applyFilters]);
+  }, [viewMode, allExams, allworksheet, applyFilters]);
   
   const handleSearch = () => {
     applyFilters();
@@ -253,7 +253,7 @@ export default function AdminControlPage() {
             {'products' in selectedExam ? (
                 <EditableExamDetails exam={selectedExam as ExamDocument} onClose={handleCloseDetails} />
             ) : (
-                <p>Vista de detalle para no existe no implementada aún.</p> // Replace with actual component
+                <p>Vista de detalle para worksheet no implementada aún.</p> // Replace with actual component
             )}
           </div>
         </AppShell>

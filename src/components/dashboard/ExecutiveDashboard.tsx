@@ -15,7 +15,7 @@ import { AforoPieChartCard } from './AforoPieChartCard';
 
 
 interface ExecutiveDashboardProps {
-    allCases: no existe[];
+    allCases:  worksheet/aforo[];
     allWorksheets: Worksheet[];
     allSolicitudes: SolicitudRecord[];
 }

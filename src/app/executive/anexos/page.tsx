@@ -16,7 +16,7 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Label } from '@/components/ui/label';
 import { X, Loader2, PlusCircle, Trash2, ArrowLeft, Edit, CalendarIcon } from 'lucide-react';
-import type { worksheet, no existeUpdate, Worksheet, AppUser } from '@/types';
+import type { worksheet, AforoUpdate, Worksheet, AppUser } from '@/types';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -263,13 +263,13 @@ function AnexoForm() {
     if (editingWorksheetId) {
       // Update existing record
       const worksheetDocRef = doc(db, 'worksheets', editingWorksheetId);
-      const no existeDocRef = doc(db, 'no existes', editingWorksheetId);
+      const worksheetDocRef = doc(db, 'no existes', editingWorksheetId);
       const batch = writeBatch(db);
 
       try {
         const updatedWorksheetData = { ...dataToSave, lastUpdatedAt: Timestamp.now() };
         batch.update(worksheetDocRef, updatedWorksheetData);
-        batch.update(no existeDocRef, {
+        batch.update(worksheetDocRef, {
             executive: data.executive,
             consignee: data.consignee,
             facturaNumber: data.facturaNumber,
@@ -279,8 +279,8 @@ function AnexoForm() {
             worksheetType: data.worksheetType
         });
 
-        const logRef = doc(collection(no existeDocRef, 'actualizaciones'));
-        const updateLog: no existeUpdate = {
+        const logRef = doc(collection(worksheetDocRef, 'actualizaciones'));
+        const updateLog: AforoUpdate = {
           updatedAt: Timestamp.now(),
           updatedBy: user.displayName,
           field: 'document_update',
@@ -309,12 +309,12 @@ function AnexoForm() {
       // Create new record
       const neTrimmed = data.ne.trim().toUpperCase();
       const worksheetDocRef = doc(db, 'worksheets', neTrimmed);
-      const no existeDocRef = doc(db, 'no existes', neTrimmed);
+      const worksheetDocRef = doc(db, 'no existes', neTrimmed);
       const batch = writeBatch(db);
 
       try {
-        const [worksheetSnap, no existeSnap] = await Promise.all([getDoc(worksheetDocRef), getDoc(no existeDocRef)]);
-        if (worksheetSnap.exists() || no existeSnap.exists()) {
+        const [worksheetSnap, worksheetSnap] = await Promise.all([getDoc(worksheetDocRef), getDoc(worksheetDocRef)]);
+        if (worksheetSnap.exists() || worksheetSnap.exists()) {
           toast({ title: "Registro Duplicado", description: `Ya existe un registro con el NE ${neTrimmed}.`, variant: "destructive" });
           setIsSubmitting(false);
           return;
@@ -326,7 +326,7 @@ function AnexoForm() {
         const worksheetData = { ...dataToSave, id: neTrimmed, ne: neTrimmed, createdAt: creationTimestamp, createdBy: user.email!, lastUpdatedAt: creationTimestamp };
         batch.set(worksheetDocRef, worksheetData);
 
-        const no existeData: Partial<no existe> = {
+        const worksheetData: Partial<worksheet> = {
           ne: neTrimmed,
           executive: data.executive,
           consignee: data.consignee,
@@ -355,10 +355,10 @@ function AnexoForm() {
           worksheetType: data.worksheetType,
           entregadoAforoAt: creationTimestamp,
         };
-        batch.set(no existeDocRef, no existeData);
+        batch.set(worksheetDocRef, worksheetData);
 
-        const initialLogRef = doc(collection(no existeDocRef, 'actualizaciones'));
-        const initialLog: no existeUpdate = {
+        const initialLogRef = doc(collection(worksheetDocRef, 'actualizaciones'));
+        const initialLog: AforoUpdate = {
           updatedAt: Timestamp.now(),
           updatedBy: user.displayName,
           field: 'creation',
@@ -378,7 +378,7 @@ function AnexoForm() {
         const permissionError = new FirestorePermissionError({
           path: `batch write to worksheets/${neTrimmed} and no existes/${neTrimmed}`,
           operation: 'create',
-          requestResourceData: { worksheetData: dataToSave, no existeData: { ne: neTrimmed } },
+          requestResourceData: { worksheetData: dataToSave, worksheetData: { ne: neTrimmed } },
         });
         errorEmitter.emit('permission-error', permissionError);
       } finally {

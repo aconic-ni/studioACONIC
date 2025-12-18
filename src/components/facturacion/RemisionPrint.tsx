@@ -18,7 +18,7 @@ import { db } from '@/lib/firebase';
 import { collection, addDoc, Timestamp, writeBatch, doc } from 'firebase/firestore';
 
 interface RemisionPrintProps {
-  cases: no existe[];
+  cases:  worksheet/aforo[];
   onClose: () => void;
 }
 

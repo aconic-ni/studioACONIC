@@ -1,5 +1,5 @@
 
-import type { ExamData, Product, ExamDocument, ExportableExamData, worksheet, no existeUpdate, Worksheet } from '@/types';
+import type { ExamData, Product, ExamDocument, ExportableExamData, worksheet, AforoUpdate, Worksheet } from '@/types';
 import { Timestamp, doc, getDoc } from 'firebase/firestore';
 import * as XLSX from 'xlsx';
 import { format } from 'date-fns';
@@ -212,7 +212,7 @@ const generateSheet = (headers: string[], rows: (string|number|null|undefined)[]
     return ws;
 };
 
-export async function downloadExecutiveReportAsExcel(cases: (no existe & { worksheet?: Worksheet | null })[], auditLogs: (no existeUpdate & { caseNe: string })[]) {
+export async function downloadExecutiveReportAsExcel(cases: (no existe & { worksheet?: Worksheet | null })[], auditLogs: (AforoUpdate & { caseNe: string })[]) {
     const now = new Date();
     const fechaHoraExportacion = format(now, 'dd/MM/yy HH:mm', { locale: es });
 

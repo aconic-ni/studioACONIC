@@ -14,7 +14,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/context/AuthContext';
 import { db } from '@/lib/firebase';
 import { doc, updateDoc, addDoc, collection, Timestamp } from 'firebase/firestore';
-import type { worksheet, no existeUpdate, DigitacionStatus } from '@/types';
+import type { worksheet, AforoUpdate, DigitacionStatus } from '@/types';
 import { Loader2, Save } from 'lucide-react';
 
 const completeSchema = z.object({
@@ -26,7 +26,7 @@ type CompleteFormData = z.infer<typeof completeSchema>;
 interface CompleteDigitizationModalProps {
   isOpen: boolean;
   onClose: () => void;
-  caseData: no existe;
+  caseData: worksheet;
 }
 
 export function CompleteDigitizationModal({ isOpen, onClose, caseData }: CompleteDigitizationModalProps) {
@@ -64,7 +64,7 @@ export function CompleteDigitizationModal({ isOpen, onClose, caseData }: Complet
             digitacionStatusLastUpdate: { by: user.displayName, at: Timestamp.now() }
         });
 
-        const updateLog: no existeUpdate = {
+        const updateLog: AforoUpdate = {
             updatedAt: Timestamp.now(),
             updatedBy: user.displayName,
             field: 'digitacionStatus',

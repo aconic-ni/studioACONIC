@@ -14,7 +14,7 @@ import type { Worksheet, AforoData, AforadorStatus, AforoDataStatus, DigitacionS
 import { format, toDate, isSameDay, startOfDay, endOfDay, differenceInDays, startOfMonth, endOfMonth } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { Input } from '@/components/ui/input';
-import { AforoCaseHistoryModal } from '@/components/reporter/AforoCaseHistoryModal';
+import { AforoHistoryModal } from '@/components/reporter/AforoHistoryModal';
 import { IncidentReportModal } from '@/components/reporter/IncidentReportModal';
 import { Badge } from '@/components/ui/badge';
 import { IncidentReportDetails } from '@/components/reporter/IncidentReportDetails';
@@ -605,7 +605,7 @@ function ExecutivePageContent() {
             </Card>
         </div>
       </AppShell>
-    {modalState.history && (<AforoCaseHistoryModal isOpen={!!modalState.history} onClose={() => setModalState(p => ({...p, history: null}))} caseData={modalState.history} />)}
+    {modalState.history && (<AforoHistoryModal isOpen={!!modalState.history} onClose={() => setModalState(p => ({...p, history: null}))} caseData={modalState.history} />)}
     {modalState.incident && (<IncidentReportModal isOpen={!!modalState.incident} onClose={() => setModalState(p => ({...p, incident: null}))} caseData={modalState.incident} />)}
     {modalState.valueDoubt && (<ValueDoubtModal isOpen={!!modalState.valueDoubt} onClose={() => setModalState(p => ({...p, valueDoubt: null}))} caseData={modalState.valueDoubt} />)}
     {modalState.comment && (<ExecutiveCommentModal isOpen={!!modalState.comment} onClose={() => setModalState(p => ({...p, comment: null}))} caseData={modalState.comment} />)}

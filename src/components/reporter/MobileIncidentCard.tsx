@@ -12,7 +12,7 @@ import { es } from 'date-fns/locale';
 import { Eye, Clock, CheckCircle, XCircle, User } from 'lucide-react';
 
 interface MobileIncidentCardProps {
-  incident: no existe;
+  incident: worksheet;
   onReview: (incident: no existe) => void;
 }
 

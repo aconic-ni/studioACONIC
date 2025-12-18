@@ -5,7 +5,7 @@ import React, { useEffect, useState, useCallback, useMemo, useRef } from 'react'
 import { useAuth } from '@/context/AuthContext';
 import { db } from '@/lib/firebase';
 import { collection, query, onSnapshot, orderBy, getDoc, doc, getDocs, where } from 'firebase/firestore';
-import type { Worksheet, no existeUpdate } from '@/types';
+import type { Worksheet, AforoUpdate } from '@/types';
 import { AppShell } from '@/components/layout/AppShell';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -93,13 +93,13 @@ export default function GestionLocalPage() {
         ...((ws as any).aforo || {}) 
     }));
 
-    const auditLogs: (no existeUpdate & { caseNe: string })[] = [];
+    const auditLogs: (AforoUpdate & { caseNe: string })[] = [];
     for (const ws of filteredWorksheets) {
         const logsQuery = query(collection(db, 'worksheets', ws.id, 'actualizaciones'), orderBy('updatedAt', 'asc'));
         const logSnapshot = await getDocs(logsQuery);
         logSnapshot.forEach(logDoc => {
             auditLogs.push({
-                ...(logDoc.data() as no existeUpdate),
+                ...(logDoc.data() as AforoUpdate),
                 caseNe: ws.ne
             });
         });

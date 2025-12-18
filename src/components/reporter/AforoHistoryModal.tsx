@@ -13,13 +13,13 @@ import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
 
-interface AforoCaseHistoryModalProps {
+interface AforoHistoryModalProps {
   isOpen: boolean;
   onClose: () => void;
   caseData: AforoData | null;
 }
 
-export function AforoCaseHistoryModal({ isOpen, onClose, caseData }: AforoCaseHistoryModalProps) {
+export function AforoHistoryModal({ isOpen, onClose, caseData }: AforoHistoryModalProps) {
   const [history, setHistory] = useState<AforoDataUpdate[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 

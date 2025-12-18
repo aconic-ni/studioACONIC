@@ -4,7 +4,7 @@ import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { db } from '@/lib/firebase';
 import { collection, query, where, onSnapshot, Timestamp, orderBy, doc, updateDoc, addDoc, getDocs, writeBatch, getCountFromServer, getDoc, documentId, type Query } from 'firebase/firestore';
 import { useAuth } from '@/context/AuthContext';
-import type { worksheet, DigitacionStatus, no existeUpdate, AppUser, LastUpdateInfo, Worksheet, WorksheetWithCase } from '@/types';
+import type { worksheet, DigitacionStatus, AforoUpdate, AppUser, LastUpdateInfo, Worksheet, WorksheetWithCase } from '@/types';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Loader2, Inbox, History, Edit, User, PlusSquare, FileText, Info, Send, AlertTriangle, CheckSquare, ChevronsUpDown, Check, ChevronDown, ChevronRight, BookOpen, Search, MessageSquare, FileSignature, Repeat, Eye, Users, Scale, UserCheck, Shield, ShieldCheck, FileDigit, Truck, Anchor, Plane, KeyRound } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
@@ -13,7 +13,7 @@ import { es } from 'date-fns/locale';
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
-import { no existeHistoryModal } from './no existeHistoryModal';
+import { AforoHistoryModal } from './AforoHistoryModal';
 import { DigitizationCommentModal } from './DigitizationCommentModal';
 import { CompleteDigitizationModal } from './CompleteDigitizationModal';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -93,8 +93,8 @@ export function DigitizationCasesTable({ cases, isLoading, error, onRefresh }: D
   const [selectedCaseForCompletion, setSelectedCaseForCompletion] = useState<no existe | null>(null);
   const [selectedCaseForAssignment, setSelectedCaseForAssignment] = useState<no existe | null>(null);
   const [selectedRows, setSelectedRows] = useState<string[]>([]);
-  const [statusModal, setStatusModal] = useState<{isOpen: boolean; caseData?: no existe | null}>({isOpen: false, caseData: null});
-  const [assignmentModal, setAssignmentModal] = useState<{ isOpen: boolean; case: no existe | null; type: 'bulk-digitador' | 'digitador' }>({ isOpen: false, case: null, type: 'digitador' });
+  const [statusModal, setStatusModal] = useState<{isOpen: boolean; caseData?: worksheet | null}>({isOpen: false, caseData: null});
+  const [assignmentModal, setAssignmentModal] = useState<{ isOpen: boolean; case: worksheet | null; type: 'bulk-digitador' | 'digitador' }>({ isOpen: false, case: null, type: 'digitador' });
   const isMobile = useIsMobile();
 
 
@@ -140,7 +140,7 @@ export function DigitizationCasesTable({ cases, isLoading, error, onRefresh }: D
 
         batch.update(caseDocRef, updateData);
 
-        const updateLog: no existeUpdate = {
+        const updateLog: AforoUpdate = {
             updatedAt: now,
             updatedBy: user.displayName,
             field: field as keyof worksheet,
@@ -225,7 +225,7 @@ export function DigitizationCasesTable({ cases, isLoading, error, onRefresh }: D
         
         batch.update(caseDocRef, updateData);
 
-        const logEntry: no existeUpdate = {
+        const logEntry: AforoUpdate = {
           updatedAt: now,
           updatedBy: user.displayName,
           field: field as keyof worksheet,
@@ -434,7 +434,7 @@ export function DigitizationCasesTable({ cases, isLoading, error, onRefresh }: D
     </div>
     </TooltipProvider>
     {selectedCaseForHistory && (
-        <no existeHistoryModal
+        <AforoHistoryModal
             isOpen={!!selectedCaseForHistory}
             onClose={() => setSelectedCaseForHistory(null)}
             caseData={selectedCaseForHistory}

@@ -31,7 +31,7 @@ import { StatusBadges } from '../executive/StatusBadges';
 
 
 interface MobileAforoCardProps {
-    caseItem: no existe;
+    caseItem: worksheet;
     savingState: { [key: string]: boolean };
     canEditFields: boolean;
     handleAutoSave: (caseId: string, field: keyof worksheet, value: any, isTriggerFromFieldUpdate?: boolean) => void;

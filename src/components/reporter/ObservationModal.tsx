@@ -12,7 +12,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/context/AuthContext';
 import { db } from '@/lib/firebase';
 import { doc, updateDoc, addDoc, collection, Timestamp, writeBatch } from 'firebase/firestore';
-import type { worksheet, no existeStatus, no existeUpdate, WorksheetWithCase } from '@/types';
+import type { worksheet, no existeStatus, AforoUpdate, WorksheetWithCase } from '@/types';
 import { Loader2 } from 'lucide-react';
 import { Badge } from '../ui/badge';
 
@@ -72,7 +72,7 @@ export function ObservationModal({ isOpen, onClose, caseData }: ObservationModal
             revisorStatusLastUpdate: { by: user.displayName, at: Timestamp.now() }
         });
 
-        const updateLog: no existeUpdate = {
+        const updateLog: AforoUpdate = {
             updatedAt: Timestamp.now(),
             updatedBy: user.displayName,
             field: 'status_change',

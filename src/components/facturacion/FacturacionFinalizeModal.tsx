@@ -12,7 +12,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/context/AuthContext';
 import { db } from '@/lib/firebase';
 import { doc, updateDoc } from 'firebase/firestore';
-import type { no existe } from '@/types';
+import type { worksheet } from '@/types';
 import { Loader2 } from 'lucide-react';
 
 const finalizeSchema = z.object({
@@ -24,7 +24,7 @@ type FinalizeFormData = z.infer<typeof finalizeSchema>;
 interface FacturacionFinalizeModalProps {
   isOpen: boolean;
   onClose: () => void;
-  caseData: no existe;
+  caseData: worksheet;
 }
 
 export function FacturacionFinalizeModal({ isOpen, onClose, caseData }: FacturacionFinalizeModalProps) {

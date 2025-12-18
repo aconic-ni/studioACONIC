@@ -5,7 +5,7 @@ import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
-import type { AppUser, no existe } from '@/types';
+import type { AppUser, worksheet } from '@/types';
 import { User, Check } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/context/AuthContext';
@@ -13,7 +13,7 @@ import { useAuth } from '@/context/AuthContext';
 interface AssignUserModalProps {
   isOpen: boolean;
   onClose: () => void;
-  caseData: no existe | null;
+  caseData: worksheet | null;
   assignableUsers: AppUser[];
   onAssign: (caseId: string, userName: string) => void;
   title: string;

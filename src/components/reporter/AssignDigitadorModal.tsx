@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback, useMemo } from 'react';
 import { db } from '@/lib/firebase';
 import { collection, query, where, onSnapshot, Timestamp, orderBy, doc, updateDoc, addDoc, getDocs, writeBatch, getCountFromServer, getDoc, documentId, type Query } from 'firebase/firestore';
 import { useAuth } from '@/context/AuthContext';
-import type { worksheet, DigitacionStatus, no existeUpdate, AppUser, LastUpdateInfo, Worksheet, WorksheetWithCase } from '@/types';
+import type { worksheet, DigitacionStatus, AforoUpdate, AppUser, LastUpdateInfo, Worksheet, WorksheetWithCase } from '@/types';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Loader2, Inbox, History, Edit, User, PlusSquare, FileText, Info, Send, AlertTriangle, CheckSquare, ChevronsUpDown, Check, ChevronDown, ChevronRight, BookOpen, Search, MessageSquare, FileSignature, Repeat, Eye, Users, Scale, UserCheck, Shield, ShieldCheck, FileDigit, Truck, Anchor, Plane } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
@@ -13,7 +13,7 @@ import { es } from 'date-fns/locale';
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
-import { no existeHistoryModal } from './no existeHistoryModal';
+import { AforoHistoryModal } from './AforoHistoryModal';
 import { DigitizationCommentModal } from './DigitizationCommentModal';
 import { CompleteDigitizationModal } from './CompleteDigitizationModal';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -46,8 +46,8 @@ interface DigitizationCasesTableProps {
   filters: {
     ne?: string;
   };
-  setAllFetchedCases: (cases: no existe[]) => void;
-  displayCases: no existe[];
+  setAllFetchedCases: (cases:  worksheet/aforo[]) => void;
+  displayCases:  worksheet/aforo[];
 }
 
 const formatDate = (date: Date | Timestamp | null | undefined): string => {
@@ -127,7 +127,7 @@ export function DigitizationCasesTable({ filters, setAllFetchedCases, displayCas
         
         batch.update(caseDocRef, updateData);
 
-        const updateLog: no existeUpdate = {
+        const updateLog: AforoUpdate = {
             updatedAt: now,
             updatedBy: user.displayName,
             field: field as keyof worksheet,
@@ -191,9 +191,9 @@ export function DigitizationCasesTable({ filters, setAllFetchedCases, displayCas
     }
 
     const unsubscribe = onSnapshot(qCases, (snapshot) => {
-        const fetchedCases: no existe[] = [];
+        const fetchedCases:  worksheet/aforo[] = [];
         snapshot.forEach((doc) => {
-            fetchedCases.push({ id: doc.id, ...doc.data() } as no existe);
+            fetchedCases.push({ id: doc.id, ...doc.data() } as worksheet);
         });
         setAllFetchedCases(fetchedCases);
         setIsLoading(false);
@@ -347,7 +347,7 @@ export function DigitizationCasesTable({ filters, setAllFetchedCases, displayCas
     </div>
     </TooltipProvider>
     {selectedCaseForHistory && (
-        <no existeHistoryModal
+        <AforoHistoryModal
             isOpen={!!selectedCaseForHistory}
             onClose={() => setSelectedCaseForHistory(null)}
             caseData={selectedCaseForHistory}

@@ -14,7 +14,7 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { ArrowLeft, Loader2 } from 'lucide-react';
-import type { worksheet, no existeUpdate, Worksheet, AppUser } from '@/types';
+import type { worksheet, AforoUpdate, Worksheet, AppUser } from '@/types';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
 import { aduanas } from '@/lib/formData';
@@ -105,11 +105,11 @@ function CorporateReportForm() {
     } else {
        const neTrimmed = data.ne.trim().toUpperCase();
       const worksheetDocRef = doc(db, 'worksheets', neTrimmed);
-      const no existeDocRef = doc(db, 'no existes', neTrimmed);
+      const worksheetDocRef = doc(db, 'no existes', neTrimmed);
 
       try {
-        const [worksheetSnap, no existeSnap] = await Promise.all([getDoc(worksheetDocRef), getDoc(no existeDocRef)]);
-        if (worksheetSnap.exists() || no existeSnap.exists()) {
+        const [worksheetSnap, worksheetSnap] = await Promise.all([getDoc(worksheetDocRef), getDoc(worksheetDocRef)]);
+        if (worksheetSnap.exists() || worksheetSnap.exists()) {
           toast({ title: "Registro Duplicado", description: `Ya existe un registro con el NE ${neTrimmed}.`, variant: "destructive" });
           setIsSubmitting(false);
           return;
@@ -128,14 +128,14 @@ function CorporateReportForm() {
         };
         batch.set(worksheetDocRef, worksheetData);
 
-        const no existeData: Partial<no existe> = {
+        const worksheetData: Partial<worksheet> = {
           ne: neTrimmed, executive: user.displayName, consignee: data.consignee,
           declarationPattern: 'corporate_report', merchandise: data.observations,
           createdBy: user.uid, createdAt: creationTimestamp, aforadorStatus: 'En revisión',
           revisorStatus: 'Pendiente', preliquidationStatus: 'Pendiente', digitacionStatus: 'Pendiente de Digitación',
           incidentStatus: 'Pendiente', worksheetId: neTrimmed,
         };
-        batch.set(no existeDocRef, no existeData);
+        batch.set(worksheetDocRef, worksheetData);
         
         await batch.commit();
         toast({ title: "Registro Creado", description: `El reporte para el NE ${neTrimmed} ha sido guardado.` });
@@ -147,7 +147,7 @@ function CorporateReportForm() {
         const permissionError = new FirestorePermissionError({
           path: `batch write to worksheets/${neTrimmed} and no existes/${neTrimmed}`,
           operation: 'create',
-          requestResourceData: { worksheetData: data, no existeData: { ne: neTrimmed } },
+          requestResourceData: { worksheetData: data, worksheetData: { ne: neTrimmed } },
         }, serverError);
         errorEmitter.emit('permission-error', permissionError);
       } finally {

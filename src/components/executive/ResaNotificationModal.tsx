@@ -13,7 +13,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/context/AuthContext';
 import { db } from '@/lib/firebase';
 import { doc, updateDoc, writeBatch, collection, Timestamp, getDoc } from 'firebase/firestore';
-import type { worksheet, no existeUpdate, Worksheet } from '@/types';
+import type { worksheet, AforoUpdate, Worksheet } from '@/types';
 import { Loader2, Bell } from 'lucide-react';
 import { DatePicker } from '../reports/DatePicker';
 import { calculateDueDate } from '@/lib/date-utils';
@@ -31,7 +31,7 @@ type ResaFormData = z.infer<typeof resaSchema>;
 interface ResaNotificationModalProps {
   isOpen: boolean;
   onClose: () => void;
-  caseData: no existe;
+  caseData: worksheet;
 }
 
 export function ResaNotificationModal({ isOpen, onClose, caseData }: ResaNotificationModalProps) {
@@ -58,7 +58,7 @@ export function ResaNotificationModal({ isOpen, onClose, caseData }: ResaNotific
         }
       }
 
-      // Prioritize no existe data, then Worksheet data, then default.
+      // Prioritize data, then Worksheet data, then default.
       form.reset({
         resaNumber: caseData.resaNumber || wsData?.resa || '',
         resaNotificationDate: caseData.resaNotificationDate?.toDate() || wsData?.resaNotificationDate?.toDate() || undefined,
@@ -95,13 +95,13 @@ export function ResaNotificationModal({ isOpen, onClose, caseData }: ResaNotific
     }
 
     setIsSubmitting(true);
-    const caseDocRef = doc(db, 'no existes', caseData.id);
+    const caseDocRef = doc(db, 'worksheets', caseData.id);
     const worksheetDocRef = doc(db, 'worksheets', caseData.worksheetId);
     const updatesSubcollectionRef = collection(worksheetDocRef, 'actualizaciones');
     const batch = writeBatch(db);
 
     try {
-        const updatePayload: Partial<no existe & Worksheet> = {
+        const updatePayload: Partial<Worksheet> = {
             resaNumber: data.resaNumber,
             resaNotificationDate: Timestamp.fromDate(data.resaNotificationDate),
             resaDueDate: Timestamp.fromDate(calculatedDueDate),
@@ -110,7 +110,7 @@ export function ResaNotificationModal({ isOpen, onClose, caseData }: ResaNotific
         batch.update(worksheetDocRef, updatePayload);
         batch.update(caseDocRef, updatePayload);
 
-        const updateLog: no existeUpdate = {
+        const updateLog: AforoUpdate = {
             updatedAt: Timestamp.now(),
             updatedBy: user.displayName,
             field: 'resa_notification',

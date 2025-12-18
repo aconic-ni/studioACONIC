@@ -10,7 +10,7 @@ import { Input } from '../ui/input';
 import { History, Edit, User, PlusSquare } from 'lucide-react';
 
 interface MobileDigitacionCardProps {
-  caseItem: no existe;
+  caseItem: worksheet;
   canEdit: boolean;
   isDigitador: boolean;
   savingState: { [key: string]: boolean };

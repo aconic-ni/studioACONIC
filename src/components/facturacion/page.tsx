@@ -39,7 +39,7 @@ export default function FacturacionPage() {
   const { user, loading: authLoading } = useAuth();
   const router = useRouter();
   const { toast } = useToast();
-  const [allCases, setAllCases] = useState<no existe[]>([]);
+  const [allCases, setAllCases] = useState< worksheet/aforo[]>([]);
   const [assignableUsers, setAssignableUsers] = useState<AppUser[]>([]);
   const [remisiones, setRemisiones] = useState<Remision[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -89,7 +89,7 @@ export default function FacturacionPage() {
     
     const unsubscribe = onSnapshot(q, (snapshot) => {
       const fetchedCases = snapshot.docs
-        .map(doc => ({ id: doc.id, ...doc.data() } as no existe))
+        .map(doc => ({ id: doc.id, ...doc.data() } as worksheet))
         .filter(c => c.facturacionStatus === 'Enviado a Facturacion' || (c.facturacionStatus === 'Facturado' && !c.remisionId));
 
       setAllCases(fetchedCases);

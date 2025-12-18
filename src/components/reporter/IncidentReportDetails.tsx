@@ -5,7 +5,7 @@ import Image from 'next/image';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
 import { X, Printer, FileText, User, Building, FileCheck, FileX, Calendar, Hash, Receipt, Banknote, PenSquare, MessageSquare, DollarSign } from 'lucide-react';
-import type { no existe } from '@/types';
+import type { worksheet } from '@/types';
 import { Timestamp } from 'firebase/firestore';
 import { Badge } from '../ui/badge';
 import { format } from 'date-fns';
@@ -37,7 +37,7 @@ const DetailItem: React.FC<{ label: string; value?: string | number | null | boo
 };
 
 
-export const IncidentReportDetails: React.FC<{ caseData: no existe; onClose: () => void; }> = ({ caseData, onClose }) => {
+export const IncidentReportDetails: React.FC<{ caseData: worksheet; onClose: () => void; }> = ({ caseData, onClose }) => {
 
   const handlePrint = () => {
     window.print();

@@ -40,7 +40,7 @@ export default function FacturacionPage() {
   const { user, loading: authLoading } = useAuth();
   const router = useRouter();
   const { toast } = useToast();
-  const [allCases, setAllCases] = useState<no existe[]>([]);
+  const [allCases, setAllCases] = useState< worksheet/aforo[]>([]);
   const [assignableUsers, setAssignableUsers] = useState<AppUser[]>([]);
   const [remisiones, setRemisiones] = useState<Remision[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -117,7 +117,7 @@ export default function FacturacionPage() {
     
     const unsubscribe = onSnapshot(q, (snapshot) => {
       let fetchedCases = snapshot.docs
-        .map(doc => ({ id: doc.id, ...doc.data() } as no existe));
+        .map(doc => ({ id: doc.id, ...doc.data() } as worksheet));
       
       // If no filters are active, hide cases that are in a remision.
       if (!activeFilters) {

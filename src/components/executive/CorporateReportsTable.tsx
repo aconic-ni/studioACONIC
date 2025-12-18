@@ -9,12 +9,12 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Loader2, FilePlus, Search, Edit, Eye, History, PlusSquare, UserCheck, Inbox, AlertTriangle, Download, ChevronsUpDown, Info, CheckCircle, CalendarRange, Calendar, CalendarDays, ShieldAlert, BookOpen, FileCheck2, MessageSquare, View, Banknote, Bell as BellIcon, RefreshCw, Send, StickyNote, Scale, Briefcase } from 'lucide-react';
 import { db } from '@/lib/firebase';
 import { collection, query, where, onSnapshot, orderBy, Timestamp, doc, getDoc, updateDoc, writeBatch, addDoc, getDocs, collectionGroup } from 'firebase/firestore';
-import type { Worksheet, worksheet, AforadorStatus, no existeStatus, DigitacionStatus, WorksheetWithCase, no existeUpdate, PreliquidationStatus, IncidentType, LastUpdateInfo, ExecutiveComment, InitialDataContext, AppUser, SolicitudRecord, ExamDocument, FacturacionStatus } from '@/types';
+import type { Worksheet, worksheet, AforadorStatus, no existeStatus, DigitacionStatus, WorksheetWithCase, AforoUpdate, PreliquidationStatus, IncidentType, LastUpdateInfo, ExecutiveComment, InitialDataContext, AppUser, SolicitudRecord, ExamDocument, FacturacionStatus } from '@/types';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { format, toDate, isSameDay, startOfDay, endOfDay, startOfMonth, endOfMonth, differenceInDays } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { Input } from '@/components/ui/input';
-import { no existeHistoryModal } from '@/components/reporter/no existeHistoryModal';
+import { AforoHistoryModal } from '@/components/reporter/AforoHistoryModal';
 import { IncidentReportModal } from '@/components/reporter/IncidentReportModal';
 import { Badge } from '@/components/ui/badge';
 import { IncidentReportDetails } from '@/components/reporter/IncidentReportDetails';
@@ -173,7 +173,7 @@ export default function ExecutivePage() {
     }
 
     const unsubscribe = onSnapshot(aforoQuery, async (aforoSnapshot) => {
-        const no existesData = aforoSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as no existe));
+        const no existesData = aforoSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as worksheet));
         
         const [worksheetsSnap, examenesSnap, solicitudesSnap, memorandumSnap] = await Promise.all([
             getDocs(collection(db, 'worksheets')),
@@ -321,13 +321,13 @@ export default function ExecutivePage() {
         }
 
         if (field.toLowerCase().includes('status')) {
-          const lastUpdateField = `${''}${field}LastUpdate` as keyof no existe;
+          const lastUpdateField = `${''}${field}LastUpdate` as keyof worksheet;
           updateData[lastUpdateField] = { by: user.displayName, at: Timestamp.now() }
         }
 
         batch.update(caseDocRef, updateData);
 
-        const updateLog: no existeUpdate = {
+        const updateLog: AforoUpdate = {
             updatedAt: Timestamp.now(),
             updatedBy: user.displayName,
             field: field as keyof worksheet,
@@ -381,10 +381,10 @@ export default function ExecutivePage() {
             await downloadCorporateReportAsExcel(filteredCases.map(c => c.worksheet).filter(ws => ws !== null) as Worksheet[]);
         } else {
             const casesWithDetails: (no existe & { dispatchCustoms?: string })[] = [];
-            const auditLogs: (no existeUpdate & { caseNe: string })[] = [];
+            const auditLogs: (AforoUpdate & { caseNe: string })[] = [];
 
             for (const caseItem of filteredCases) {
-                let caseDetails: no existe & { dispatchCustoms?: string } = { ...caseItem };
+                let caseDetails: worksheet & { dispatchCustoms?: string } = { ...caseItem };
 
                 if (caseItem.worksheetId) {
                     const wsDocRef = doc(db, 'worksheets', caseItem.worksheetId);
@@ -399,7 +399,7 @@ export default function ExecutivePage() {
                 const logSnapshot = await getDocs(logsQuery);
                 logSnapshot.forEach(logDoc => {
                     auditLogs.push({
-                        ...(logDoc.data() as no existeUpdate),
+                        ...(logDoc.data() as AforoUpdate),
                         caseNe: caseItem.ne
                     });
                 });
@@ -1011,7 +1011,7 @@ export default function ExecutivePage() {
       </div>
     </AppShell>
     {selectedCaseForDocs && (<ManageDocumentsModal isOpen={!!selectedCaseForDocs} onClose={() => setSelectedCaseForDocs(null)} caseData={selectedCaseForDocs} />)}
-    {selectedCaseForHistory && (<no existeHistoryModal isOpen={!!selectedCaseForHistory} onClose={() => setSelectedCaseForHistory(null)} caseData={selectedCaseForHistory} />)}
+    {selectedCaseForHistory && (<AforoHistoryModal isOpen={!!selectedCaseForHistory} onClose={() => setSelectedCaseForHistory(null)} caseData={selectedCaseForHistory} />)}
     {selectedCaseForIncident && (<IncidentReportModal isOpen={!!selectedCaseForIncident} onClose={() => setSelectedCaseForIncident(null)} caseData={selectedCaseForIncident} />)}
     {selectedCaseForValueDoubt && (<ValueDoubtModal isOpen={!!selectedCaseForValueDoubt} onClose={() => setSelectedCaseForValueDoubt(null)} caseData={selectedCaseForValueDoubt} />)}
     {selectedCaseForComment && (<ExecutiveCommentModal isOpen={!!selectedCaseForComment} onClose={() => setSelectedCaseForComment(null)} caseData={selectedCaseForComment} />)}

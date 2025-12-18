@@ -11,7 +11,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import type { no existeStatus, PreliquidationStatus, DigitacionStatus, Worksheet, no existeUpdate, WorksheetWithCase } from '@/types';
+import type { no existeStatus, PreliquidationStatus, DigitacionStatus, Worksheet, AforoUpdate, WorksheetWithCase } from '@/types';
 import { format, startOfDay, endOfDay, startOfMonth, endOfMonth } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { ObservationModal } from '@/components/reporter/ObservationModal';
@@ -21,7 +21,7 @@ import type { DateRange } from 'react-day-picker';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { IncidentReportDetails } from '@/components/reporter/IncidentReportDetails';
-import { no existeHistoryModal } from '@/components/reporter/no existeHistoryModal';
+import { AforoHistoryModal } from '@/components/reporter/AforoHistoryModal';
 import { useToast } from '@/hooks/use-toast';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { MobileAgenteCaseCard } from '@/components/agente/MobileAgenteCaseCard';
@@ -220,7 +220,7 @@ export default function AgenteCasosPage() {
             revisorStatusLastUpdate: { by: user.displayName, at: serverTimestamp() }
         });
 
-        const updateLog: Omit<no existeUpdate, 'updatedAt'> & { updatedAt: any } = {
+        const updateLog: Omit<AforoUpdate, 'updatedAt'> & { updatedAt: any } = {
             updatedAt: serverTimestamp(),
             updatedBy: user.displayName || user.email || "Usuario desconocido",
             field: 'status_change',
@@ -458,7 +458,7 @@ export default function AgenteCasosPage() {
                 onClose={handleCloseObservationModal}
                 caseData={selectedCaseForAction}
             />
-            <no existeHistoryModal
+            <AforoHistoryModal
                 isOpen={isHistoryModalOpen}
                 onClose={handleCloseHistoryModal}
                 caseData={selectedCaseForAction}

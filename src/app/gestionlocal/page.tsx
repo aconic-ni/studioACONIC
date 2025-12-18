@@ -56,7 +56,7 @@ export default function GestionLocalPage() {
             const aforoSnap = await getDoc(aforoRef);
             
             const combinedData: WorksheetWithCase = {
-                ...(aforoSnap.exists() ? aforoSnap.data() as no existe : {} as no existe),
+                ...(aforoSnap.exists() ? aforoSnap.data() as worksheet : {} as worksheet),
                 ...worksheetData,
                 worksheet: worksheetData,
                 id: worksheetData.id,
@@ -106,13 +106,13 @@ export default function GestionLocalPage() {
         ...((ws as any).aforo || {}) 
     }));
 
-    const auditLogs: (no existeUpdate & { caseNe: string })[] = [];
+    const auditLogs: (AforoUpdate & { caseNe: string })[] = [];
     for (const ws of filteredWorksheets) {
         const logsQuery = query(collection(db, 'worksheets', ws.id, 'actualizaciones'), orderBy('updatedAt', 'asc'));
         const logSnapshot = await getDocs(logsQuery);
         logSnapshot.forEach(logDoc => {
             auditLogs.push({
-                ...(logDoc.data() as no existeUpdate),
+                ...(logDoc.data() as AforoUpdate),
                 caseNe: ws.ne
             });
         });
@@ -145,7 +145,7 @@ export default function GestionLocalPage() {
             batch.update(worksheetRef, { worksheetType: 'corporate_report' });
 
             const updatesSubcollectionRef = collection(worksheetRef, 'actualizaciones');
-            const updateLog: no existeUpdate = {
+            const updateLog: AforoUpdate = {
                 updatedAt: Timestamp.now(),
                 updatedBy: user.displayName,
                 field: 'worksheetType',

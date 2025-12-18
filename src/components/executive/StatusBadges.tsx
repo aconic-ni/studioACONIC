@@ -13,7 +13,7 @@ import {
   Shield,
   ShieldCheck
 } from 'lucide-react';
-import type { WorksheetWithCase, no existeUpdate } from '@/types';
+import type { WorksheetWithCase, AforoUpdate } from '@/types';
 import { cn } from "@/lib/utils";
 
 interface StatusBadgesProps {
@@ -52,7 +52,7 @@ const BadgeIcon: React.FC<{
   );
 };
 
-const AcuseBadge: React.FC<{ entregadoAforoAt?: any; acuseLog?: no existeUpdate | null }> = ({ entregadoAforoAt, acuseLog }) => {
+const AcuseBadge: React.FC<{ entregadoAforoAt?: any; acuseLog?: AforoUpdate | null }> = ({ entregadoAforoAt, acuseLog }) => {
     const hasAcuse = !!entregadoAforoAt;
     const receivedBy = acuseLog?.updatedBy;
 

@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { db } from '@/lib/firebase';
 import { collection, query, orderBy, onSnapshot, Timestamp } from 'firebase/firestore';
-import type { worksheet, no existeUpdate, WorksheetWithCase } from '@/types';
+import type { worksheet, AforoUpdate, WorksheetWithCase } from '@/types';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -12,14 +12,14 @@ import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
 
-interface no existeHistoryModalProps {
+interface AforoHistoryModalProps {
   isOpen: boolean;
   onClose: () => void;
-  caseData: no existe | null;
+  caseData: worksheet | null;
 }
 
-export function no existeHistoryModal({ isOpen, onClose, caseData }: no existeHistoryModalProps) {
-  const [history, setHistory] = useState<no existeUpdate[]>([]);
+export function AforoHistoryModal({ isOpen, onClose, caseData }: AforoHistoryModalProps) {
+  const [history, setHistory] = useState<AforoUpdate[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
@@ -33,9 +33,9 @@ export function no existeHistoryModal({ isOpen, onClose, caseData }: no existeHi
     const q = query(updatesRef, orderBy('updatedAt', 'desc'));
 
     const unsubscribe = onSnapshot(q, (querySnapshot) => {
-      const fetchedHistory: no existeUpdate[] = [];
+      const fetchedHistory: AforoUpdate[] = [];
       querySnapshot.forEach((doc) => {
-        fetchedHistory.push(doc.data() as no existeUpdate);
+        fetchedHistory.push(doc.data() as AforoUpdate);
       });
       setHistory(fetchedHistory);
       setIsLoading(false);
@@ -66,7 +66,7 @@ export function no existeHistoryModal({ isOpen, onClose, caseData }: no existeHi
       return String(value);
   }
 
-  const renderChange = (item: no existeUpdate) => {
+  const renderChange = (item: AforoUpdate) => {
     if (item.field === 'creation') {
          return (
              <div className="pl-4 border-l-2 border-blue-500">
@@ -82,7 +82,7 @@ export function no existeHistoryModal({ isOpen, onClose, caseData }: no existeHi
 
     if (item.field === 'status_change') {
       let Icon, title, color;
-      switch(item.newValue as no existe['revisorStatus']) {
+      switch(item.newValue as  worksheet/aforo['revisorStatus']) {
         case 'Aprobado':
             Icon = CheckCircle; title = 'Caso Aprobado'; color = 'text-green-500';
             break;

@@ -19,7 +19,7 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Label } from '@/components/ui/label';
 import { X, Loader2, PlusCircle, Trash2, CheckSquare, Square, Receipt, Check, ChevronsUpDown, RotateCcw, ArrowLeft, Settings, Edit } from 'lucide-react';
-import type { worksheet, no existeUpdate, RequiredPermit, DocumentStatus, Worksheet, AppUser, WorksheetDocument } from '@/types';
+import type { worksheet, AforoUpdate, RequiredPermit, DocumentStatus, Worksheet, AppUser, WorksheetDocument } from '@/types';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError, type SecurityRuleContext } from '@/firebase/errors';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -428,7 +428,7 @@ function WorksheetForm() {
     
     if (editingWorksheetId) {
         const worksheetDocRef = doc(db, 'worksheets', editingWorksheetId);
-        const no existeDocRef = doc(db, 'no existes', editingWorksheetId);
+        const aforoCaseDocRef = doc(db, 'worksheets', editingWorksheetId, 'aforo', 'metadata');
         const batch = writeBatch(db);
         
         try {
@@ -440,17 +440,17 @@ function WorksheetForm() {
             };
             batch.update(worksheetDocRef, updatedWorksheetData);
             
-            const no existeUpdate: Partial<no existe> = {
+            const aforoUpdateData: Partial<worksheet> = {
                 executive: data.executive,
                 consignee: data.consignee,
                 facturaNumber: data.facturaNumber,
                 merchandise: data.description,
                 aforador: data.aforador || '',
-            }
-            batch.update(no existeDocRef, no existeUpdate);
+            };
+            batch.set(aforoCaseDocRef, aforoUpdateData, { merge: true });
 
-            const logRef = doc(collection(no existeDocRef, 'actualizaciones'));
-            const updateLog: no existeUpdate = {
+            const logRef = doc(collection(worksheetDocRef, 'actualizaciones'));
+            const updateLog: AforoUpdate = {
               updatedAt: Timestamp.now(),
               updatedBy: user.displayName,
               field: 'document_update',
@@ -475,15 +475,13 @@ function WorksheetForm() {
             setIsSubmitting(false);
         }
     } else {
-      // Create new record logic...
       const neTrimmed = data.ne.trim().toUpperCase();
       const worksheetDocRef = doc(db, 'worksheets', neTrimmed);
-      const no existeDocRef = doc(db, 'no existes', neTrimmed);
-
+      
       try {
-        const [worksheetSnap, no existeSnap] = await Promise.all([getDoc(worksheetDocRef), getDoc(no existeDocRef)]);
+        const worksheetSnap = await getDoc(worksheetDocRef);
         
-        if (worksheetSnap.exists() || no existeSnap.exists()) {
+        if (worksheetSnap.exists()) {
             toast({ title: "Registro Duplicado", description: `Ya existe un registro con el NE ${neTrimmed}.`, variant: "destructive" });
             setIsSubmitting(false);
             return;
@@ -491,8 +489,7 @@ function WorksheetForm() {
 
         const batch = writeBatch(db);
         const creationTimestamp = Timestamp.now();
-        const createdByInfo = { by: user.displayName, at: creationTimestamp };
-  
+        
         const worksheetData: Worksheet = { 
             ...data, 
             id: neTrimmed, 
@@ -505,7 +502,9 @@ function WorksheetForm() {
         };
         batch.set(worksheetDocRef, worksheetData);
   
-        const no existeData: Partial<no existe> = {
+        const aforoCaseDocRef = doc(db, 'worksheets', neTrimmed, 'aforo', 'metadata');
+        const createdByInfo = { by: user.displayName, at: creationTimestamp };
+        const aforoData: Partial<worksheet> = {
             ne: neTrimmed,
             executive: data.executive,
             consignee: data.consignee,
@@ -533,10 +532,10 @@ function WorksheetForm() {
             worksheetId: neTrimmed,
             entregadoAforoAt: creationTimestamp,
         };
-        batch.set(no existeDocRef, no existeData);
+        batch.set(aforoCaseDocRef, aforoData);
   
-        const initialLogRef = doc(collection(no existeDocRef, 'actualizaciones'));
-        const initialLog: no existeUpdate = {
+        const initialLogRef = doc(collection(worksheetDocRef, 'actualizaciones'));
+        const initialLog: AforoUpdate = {
             updatedAt: Timestamp.now(),
             updatedBy: user.displayName,
             field: 'creation',
@@ -547,7 +546,7 @@ function WorksheetForm() {
         batch.set(initialLogRef, initialLog);
   
         if (data.consignee.toUpperCase().trim() === "PSMT NICARAGUA, SOCIEDAD ANONIMA" && (!data.aforador || data.aforador === '-')) {
-            setCaseToAssignAforador(no existeData as no existe);
+            setCaseToAssignAforador(aforoData as worksheet);
         }
   
         await batch.commit();
@@ -558,9 +557,9 @@ function WorksheetForm() {
     } catch (serverError: any) {
         console.error("Error creating record:", serverError);
         const permissionError = new FirestorePermissionError({
-            path: `batch write to worksheets/${neTrimmed} and no existes/${neTrimmed}`,
+            path: `batch write to worksheets/${neTrimmed} and subcollection`,
             operation: 'create',
-            requestResourceData: { worksheetData: data, no existeData: { ne: neTrimmed } },
+            requestResourceData: { worksheetData: data, aforoData: { ne: neTrimmed } },
         }, serverError);
         errorEmitter.emit('permission-error', permissionError);
     } finally {
@@ -1227,6 +1226,5 @@ export default function WorksheetPage() {
         </AppShell>
     )
 }
-
 
     

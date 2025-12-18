@@ -14,7 +14,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/context/AuthContext';
 import { db } from '@/lib/firebase';
 import { doc, updateDoc, addDoc, collection, Timestamp, writeBatch } from 'firebase/firestore';
-import type { worksheet, no existeUpdate } from '@/types';
+import type { worksheet, AforoUpdate } from '@/types';
 import { Loader2 } from 'lucide-react';
 import { ScrollArea } from '../ui/scroll-area';
 
@@ -40,7 +40,7 @@ type IncidentFormData = z.infer<typeof incidentSchema>;
 interface IncidentReportModalProps {
   isOpen: boolean;
   onClose: () => void;
-  caseData: no existe;
+  caseData: worksheet;
 }
 
 export function IncidentReportModal({ isOpen, onClose, caseData }: IncidentReportModalProps) {
@@ -88,7 +88,7 @@ export function IncidentReportModal({ isOpen, onClose, caseData }: IncidentRepor
     const batch = writeBatch(db);
 
     try {
-      const updatePayload: Partial<no existe> = {
+      const updatePayload: Partial<worksheet> = {
         ...data,
         incidentType: 'Rectificacion',
         incidentReported: true,
@@ -100,7 +100,7 @@ export function IncidentReportModal({ isOpen, onClose, caseData }: IncidentRepor
       
       batch.update(caseDocRef, updatePayload);
 
-      const updateLog: no existeUpdate = {
+      const updateLog: AforoUpdate = {
         updatedAt: Timestamp.now(),
         updatedBy: user.displayName,
         field: 'incident_report',

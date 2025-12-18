@@ -10,7 +10,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Loader2, Inbox, Search, Eye, Bell, Calendar, CalendarDays, CalendarRange } from 'lucide-react';
 import { db } from '@/lib/firebase';
 import { collection, query, where, onSnapshot, Timestamp, orderBy } from 'firebase/firestore';
-import type { no existe } from '@/types';
+import type { worksheet } from '@/types';
 import { Input } from '@/components/ui/input';
 import { IncidentReportDetails } from '@/components/reporter/IncidentReportDetails';
 import { Badge } from '@/components/ui/badge';
@@ -39,7 +39,7 @@ export default function NotificacionesPage() {
   const router = useRouter();
   const isMobile = useIsMobile();
   
-  const [allIncidents, setAllIncidents] = useState<no existe[]>([]);
+  const [allIncidents, setAllIncidents] = useState< worksheet/aforo[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [selectedIncident, setSelectedIncident] = useState<no existe | null>(null);
 
@@ -75,7 +75,7 @@ export default function NotificacionesPage() {
     );
 
     const unsubscribe = onSnapshot(q, (snapshot) => {
-      const fetchedIncidents = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as no existe));
+      const fetchedIncidents = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as worksheet));
       setAllIncidents(fetchedIncidents);
       setIsLoading(false);
     }, (error) => {
