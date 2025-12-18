@@ -101,13 +101,9 @@ service cloud.firestore {
     }
     
     match /worksheets/{worksheetId} {
-        function isOwner() {
-          return request.auth.token.email == resource.data.createdBy;
-        }
-
         allow create: if isAuthenticated() && (hasRole('ejecutivo') || hasRole('coordinadora') || isAdmin() || isSupervisor() || isAgenteAduanero() || hasRole('aforador'));
         allow read: if isAuthenticated();
-        allow list: if isAdmin() || hasRole('invitado') || (isAuthenticated() && hasRole('coordinadora')) || (isAuthenticated() && hasRole('ejecutivo') && isOwner()) || isAgenteAduanero() || isSupervisor();
+        allow list: if isAdmin() || hasRole('invitado') || hasRole('coordinadora') || isSupervisor() || (hasRole('ejecutivo') && request.auth.token.email in resource.data.visibilityGroup);
         allow update: if isAuthenticated() && (hasRole('ejecutivo') || isAdmin() || isAgenteAduanero() || isSupervisor() || hasRole('coordinadora') || hasRole('aforador'));
         allow delete: if isAdmin();
 
