@@ -138,73 +138,75 @@ function ExecutivePageContent() {
     setSearchHint(null);
   };
   
-  const fetchCases = useCallback(async () => {
+const fetchCases = useCallback(async () => {
     if (!user) return () => {};
     setIsLoading(true);
 
-    const aforoQuery = query(collectionGroup(db, 'aforo'), orderBy('createdAt', 'desc'));
+    let worksheetsQuery: Query;
+    const globalVisibilityRoles = ['admin', 'supervisor', 'coordinadora'];
 
-    const unsubscribe = onSnapshot(aforoQuery, async (aforoSnapshot) => {
-        const aforoMetadatas = aforoSnapshot.docs.map(doc => ({
-            worksheetId: doc.ref.parent.parent!.id,
-            ...doc.data()
-        } as AforoData & { worksheetId: string }));
-        
-        const worksheetIds = aforoMetadatas.map(meta => meta.worksheetId).filter(Boolean);
-        
-        let filteredWorksheetIds = worksheetIds;
-
-        // Apply visibility filters before fetching worksheets
-        if (user.role === 'ejecutivo') {
-            const visibleExecutives = Array.from(new Set([user.displayName, ...(user.visibilityGroup?.map(m => m.displayName) || [])])).filter(Boolean) as string[];
-            const execFilteredMetadatas = aforoMetadatas.filter(meta => visibleExecutives.includes(meta.executive));
-            filteredWorksheetIds = execFilteredMetadatas.map(meta => meta.worksheetId);
-        }
-        
-        if (filteredWorksheetIds.length === 0) {
+    if (user.role && globalVisibilityRoles.includes(user.role)) {
+        worksheetsQuery = query(collection(db, 'worksheets'), orderBy('createdAt', 'desc'));
+    } else if (user.role === 'ejecutivo') {
+        const groupDisplayNames = Array.from(new Set([user.displayName, ...(user.visibilityGroup?.map(m => m.displayName) || [])])).filter(Boolean) as string[];
+        if (groupDisplayNames.length > 0) {
+            worksheetsQuery = query(collection(db, 'worksheets'), where('executive', 'in', groupDisplayNames), orderBy('createdAt', 'desc'));
+        } else {
             setAllCases([]);
             setIsLoading(false);
-            return;
+            return () => {};
         }
+    } else {
+        setAllCases([]);
+        setIsLoading(false);
+        return () => {};
+    }
 
-        const worksheetsMap = new Map<string, Worksheet>();
-        // Firestore 'in' queries are limited to 30 items.
-        for (let i = 0; i < filteredWorksheetIds.length; i += 30) {
-            const chunk = filteredWorksheetIds.slice(i, i + 30);
-            if (chunk.length === 0) continue;
-            const worksheetsQuery = query(collection(db, 'worksheets'), where('__name__', 'in', chunk));
-            const wsSnapshot = await getDocs(worksheetsQuery);
-            wsSnapshot.forEach(doc => {
-                worksheetsMap.set(doc.id, { id: doc.id, ...doc.data() } as Worksheet);
-            });
+    const unsubscribe = onSnapshot(worksheetsQuery, async (wsSnapshot) => {
+        const worksheetsData = wsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Worksheet));
+        const aforoMetadataMap = new Map<string, AforoData>();
+
+        const worksheetIds = worksheetsData.map(ws => ws.id);
+        if (worksheetIds.length > 0) {
+            for (let i = 0; i < worksheetIds.length; i += 30) {
+                const chunk = worksheetIds.slice(i, i + 30);
+                const aforoQuery = query(collectionGroup(db, 'aforo'), where('__name__', 'in', chunk.map(id => `worksheets/${id}/aforo/metadata`)));
+                const aforoSnapshot = await getDocs(aforoQuery);
+                aforoSnapshot.forEach(doc => {
+                    aforoMetadataMap.set(doc.ref.parent.parent!.id, doc.data() as AforoData);
+                });
+            }
         }
         
-        const combinedDataPromises = aforoMetadatas.map(async meta => {
-            const ws = worksheetsMap.get(meta.worksheetId);
-            if (!ws) return null; // If worksheet doesn't exist for a meta, skip it.
-
-            const updatesRef = collection(db, 'worksheets', meta.worksheetId, 'actualizaciones');
+        const combinedDataPromises = worksheetsData.map(async (ws) => {
+            const aforoData = aforoMetadataMap.get(ws.id) || null;
+            const updatesRef = collection(db, 'worksheets', ws.id, 'actualizaciones');
             const acuseQuery = query(updatesRef, where('newValue', '==', 'worksheet_received'), orderBy('updatedAt', 'desc'));
             const acuseSnapshot = await getDocs(acuseQuery);
             const acuseLog = acuseSnapshot.empty ? null : acuseSnapshot.docs[0].data() as AforoUpdate;
 
+            // This structure is now the final WorksheetWithCase
             return {
-                ...meta,
-                ...ws,
+                ...aforoData, // Spread aforo data first
+                ...ws,        // Then worksheet data, 'id' and 'ne' from ws will overwrite aforo's
                 id: ws.id,
                 worksheet: ws,
-                aforo: meta,
-                acuseLog: acuseLog
+                aforo: aforoData,
+                acuseLog: acuseLog,
             };
         });
-        const combinedData = (await Promise.all(combinedDataPromises)).filter(Boolean) as WorksheetWithCase[];
 
+        const combinedData = (await Promise.all(combinedDataPromises)) as WorksheetWithCase[];
         setAllCases(combinedData);
         setIsLoading(false);
-    }, (error) => { toast({ title: "Error de Carga", description: "No se pudieron cargar los datos de los casos.", variant: "destructive" }); setIsLoading(false); });
-    
+    }, (error) => {
+        console.error("Error fetching cases:", error);
+        toast({ title: "Error de Carga", description: "No se pudieron cargar los datos de los casos.", variant: "destructive" });
+        setIsLoading(false);
+    });
+
     return unsubscribe;
-  }, [user, toast]);
+}, [user, toast]);
 
 
   useEffect(() => {
@@ -491,16 +493,17 @@ function ExecutivePageContent() {
         dateRange = { from: today, to: today };
     }
 
-    setAppliedFilters({ searchTerm, ...facturadoFilter, ...acuseFilter, dateFilterType, dateRange, isSearchActive: true });
+    setAppliedFilters({ searchTerm, ...facturadoFilter, ...acuseFilter, preliquidation: preliquidationFilter, dateFilterType, dateRange, isSearchActive: true });
     setCurrentPage(1);
   };
   const clearFilters = () => {
     setSearchTerm('');
     setFacturadoFilter({ facturado: false, noFacturado: true });
     setAcuseFilter({ conAcuse: false, sinAcuse: true });
+    setPreliquidationFilter(false);
     setDateRangeInput(undefined);
     setColumnFilters({ ne: '', ejecutivo: '', consignatario: '', factura: '', selectividad: '', incidentType: '' });
-    setAppliedFilters({ searchTerm: '', facturado: false, noFacturado: true, conAcuse: false, sinAcuse: true, dateFilterType: 'range', dateRange: undefined, isSearchActive: false });
+    setAppliedFilters({ searchTerm: '', facturado: false, noFacturado: true, conAcuse: false, sinAcuse: true, preliquidation: false, dateFilterType: 'range', dateRange: undefined, isSearchActive: false });
     setCurrentPage(1);
     setSearchHint(null);
   };
@@ -728,7 +731,9 @@ function ExecutivePageContent() {
         <DialogContent>
             <DialogHeader>
                 <DialogTitle>Confirmar Acción "Deathkey"</DialogTitle>
-                <DialogDescription>Esta acción reclasificará {selectedRows.length} caso(s) a "Reporte Corporativo", excluyéndolos de la lógica de Aforo. Es irreversible. Ingrese el PIN para confirmar.</DialogDescription>
+                <DialogDescription>
+                    Esta acción reclasificará {selectedRows.length} caso(s) a "Reporte Corporativo", excluyéndolos de la lógica de Aforo. Es irreversible. Ingrese el PIN para confirmar.
+                </DialogDescription>
             </DialogHeader>
             <div className="py-4 space-y-2">
                 <div className="flex items-center gap-2">
@@ -740,7 +745,6 @@ function ExecutivePageContent() {
             <DialogFooter><Button variant="outline" onClick={() => setIsDeathkeyModalOpen(false)}>Cancelar</Button><Button variant="destructive" onClick={handleDeathkey} disabled={isLoading}>{isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin"/>}Confirmar y Ejecutar</Button></DialogFooter>
         </DialogContent>
       </Dialog>
-      
     </>
   );
 }
@@ -752,5 +756,3 @@ export default function ExecutivePage() {
         </Suspense>
     );
 }
-
-    
