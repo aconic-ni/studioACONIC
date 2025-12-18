@@ -173,7 +173,7 @@ function ExecutivePageContent() {
             const acuseLog = acuseSnapshot.empty ? null : acuseSnapshot.docs[0].data() as AforoDataUpdate;
 
             return {
-                ...aforoDataMap.get(ws.id),
+                ...(aforoDataMap.get(ws.id) || {}),
                 ...ws,
                 id: ws.id, // ensure worksheet ID is primary
                 worksheet: ws,
@@ -361,7 +361,6 @@ function ExecutivePageContent() {
       else if (appliedFilters.facturado && !appliedFilters.noFacturado) finalFiltered = finalFiltered.filter(c => c.facturado === true);
       if (appliedFilters.conAcuse && !appliedFilters.sinAcuse) finalFiltered = finalFiltered.filter(c => c.entregadoAforoAt);
       else if (appliedFilters.sinAcuse && !appliedFilters.conAcuse) finalFiltered = finalFiltered.filter(c => !c.entregadoAforoAt);
-      if (preliquidationFilter) finalFiltered = finalFiltered.filter(c => c.revisorStatus === 'Aprobado' && c.preliquidationStatus !== 'Aprobada');
       
       if (appliedFilters.dateRange?.from) {
         const start = startOfDay(appliedFilters.dateRange.from);
@@ -397,7 +396,7 @@ function ExecutivePageContent() {
     
     setSearchHint(null);
     return tabFiltered.slice(0, 15);
-  }, [allCases, appliedFilters, activeTab, columnFilters, preliquidationFilter, acuseFilter]);
+  }, [allCases, appliedFilters, activeTab, columnFilters, acuseFilter]);
 
   const totalPages = Math.ceil(filteredCases.length / itemsPerPage);
   const paginatedCases = appliedFilters.isSearchActive ? filteredCases.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage) : filteredCases;
@@ -485,6 +484,49 @@ function ExecutivePageContent() {
     }
   };
   
+  const handleExport = async () => {
+    if (filteredCases.length === 0) {
+      toast({ title: "No hay datos", description: "No hay casos en la tabla para exportar.", variant: "secondary"});
+      return;
+    };
+    setIsExporting(true);
+
+    try {
+        if (activeTab === 'corporate') {
+            await downloadCorporateReportAsExcel(filteredCases.map(c => c.worksheet).filter(ws => ws !== null) as Worksheet[]);
+        } else {
+            const auditLogs: (AforoDataUpdate & { caseNe: string })[] = [];
+
+            for (const caseItem of filteredCases) {
+                if (!caseItem.worksheetId) continue;
+                const logsQuery = query(collection(db, 'worksheets', caseItem.worksheetId, 'actualizaciones'), orderBy('updatedAt', 'asc'));
+                const logSnapshot = await getDocs(logsQuery);
+                logSnapshot.forEach(logDoc => {
+                    auditLogs.push({
+                        ...(logDoc.data() as AforoDataUpdate),
+                        caseNe: caseItem.ne
+                    });
+                });
+            }
+            await downloadExecutiveReportAsExcel(filteredCases, auditLogs);
+        }
+    } catch (e) {
+        console.error("Error exporting data: ", e);
+        toast({ title: "Error de Exportación", description: "No se pudieron obtener todos los detalles para el reporte.", variant: "destructive" });
+    } finally {
+        setIsExporting(false);
+    }
+  };
+  
+  const handleSelectAllForPreliquidation = () => {
+    const selectableIds = filteredCases.filter(c => c.revisorStatus === 'Aprobado' && c.preliquidationStatus !== 'Aprobada').map(c => c.id);
+    if (selectedRows.length === selectableIds.length) {
+      setSelectedRows([]);
+    } else {
+      setSelectedRows(selectableIds);
+    }
+  };
+  
   if (authLoading || !user) return <div className="min-h-screen flex items-center justify-center bg-background"><Loader2 className="h-12 w-12 animate-spin text-primary" /></div>;
   if (modalState.incidentDetails) {
       return <AppShell><div className="py-2 md:py-5"><IncidentReportDetails caseData={modalState.incidentDetails} onClose={() => setModalState(prev => ({...prev, incidentDetails: null}))}/></div></AppShell>;
@@ -559,9 +601,6 @@ function ExecutivePageContent() {
                                                 <label className="flex items-center gap-2 text-sm font-normal"><Checkbox checked={acuseFilter.sinAcuse} onCheckedChange={(checked) => setAcuseFilter(f => ({ ...f, sinAcuse: !!checked }))} />Sin Acuse</label>
                                                 <label className="flex items-center gap-2 text-sm font-normal"><Checkbox checked={acuseFilter.conAcuse} onCheckedChange={(checked) => setAcuseFilter(f => ({ ...f, conAcuse: !!checked }))} />Con Acuse</label>
                                             </div>
-                                             <div className="grid gap-2 mt-2 pt-2 border-t">
-                                                <label className="flex items-center gap-2 text-sm font-normal"><Checkbox checked={preliquidationFilter} onCheckedChange={(checked) => setPreliquidationFilter(!!checked)} />Pendiente Preliquidación</label>
-                                            </div>
                                         </PopoverContent>
                                     </Popover>
                                     <Button onClick={handleSearch}><Search className="mr-2 h-4 w-4" /> Buscar</Button>
@@ -631,7 +670,7 @@ function ExecutivePageContent() {
             <DialogFooter><Button variant="outline" onClick={() => setDuplicateAndRetireModalOpen(false)}>Cancelar</Button><Button onClick={handleDuplicateAndRetire} disabled={savingState[caseToDuplicate?.id || '']}>Duplicar y Retirar</Button></DialogFooter>
         </DialogContent>
       </Dialog>
-      <Dialog open={isDeathkeyModalOpen} onOpenChange={setIsDeathkeyModalOpen}><DialogContent><DialogHeader><AlertDialogTitle>Confirmar Acción "Deathkey"</AlertDialogTitle><DialogDescription>Esta acción reclasificará {selectedRows.length} caso(s) a "Reporte Corporativo", excluyéndolos de la lógica de Aforo. Es irreversible. Ingrese el PIN para confirmar.</DialogDescription></DialogHeader><div className="py-4 space-y-2"><Label htmlFor="pin-input" className="flex items-center gap-2"><span><KeyRound className="inline-block h-4 w-4" />PIN de Seguridad</span></Label><Input id="pin-input" type="password" value={pinInput} onChange={(e) => setPinInput(e.target.value)} placeholder="PIN de 6 dígitos"/></div><DialogFooter><Button variant="outline" onClick={() => setIsDeathkeyModalOpen(false)}>Cancelar</Button><Button variant="destructive" onClick={handleDeathkey} disabled={isLoading}>{isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin"/>}Confirmar y Ejecutar</Button></DialogFooter></DialogContent></Dialog>
+      <Dialog open={isDeathkeyModalOpen} onOpenChange={setIsDeathkeyModalOpen}><DialogContent><DialogHeader><AlertDialogTitle>Confirmar Acción "Deathkey"</AlertDialogTitle><DialogDescription>Esta acción reclasificará {selectedRows.length} caso(s) a "Reporte Corporativo", excluyéndolos de la lógica de Aforo. Es irreversible. Ingrese el PIN para confirmar.</DialogDescription></DialogHeader><div className="py-4 space-y-2"><Label htmlFor="pin-input" className="flex items-center gap-2"><KeyRound className="inline-block h-4 w-4" />PIN de Seguridad</Label><Input id="pin-input" type="password" value={pinInput} onChange={(e) => setPinInput(e.target.value)} placeholder="PIN de 6 dígitos"/></div><DialogFooter><Button variant="outline" onClick={() => setIsDeathkeyModalOpen(false)}>Cancelar</Button><Button variant="destructive" onClick={handleDeathkey} disabled={isLoading}>{isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin"/>}Confirmar y Ejecutar</Button></DialogFooter></DialogContent></Dialog>
       {modalState.payment && (<PaymentRequestModal isOpen={!!modalState.payment} onClose={() => setModalState(p => ({...p, payment: null}))} caseData={modalState.payment} />)}
       {isRequestPaymentModalOpen && (<PaymentRequestModal isOpen={isRequestPaymentModalOpen} onClose={() => setIsRequestPaymentModalOpen(false)} caseData={null} />)}
       <PaymentRequestFlow
@@ -649,5 +688,6 @@ export default function ExecutivePage() {
         </Suspense>
     );
 }
+
 
     
