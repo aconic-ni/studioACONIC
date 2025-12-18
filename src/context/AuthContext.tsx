@@ -43,9 +43,11 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }
       const userRole = userData.role || 'gestor'; // Default to 'gestor' if no role
       
       let visibilityGroupMembers: { uid: string; displayName: string; email: string; }[] = [];
-      if (userData.visibilityGroup && userData.visibilityGroup.length > 0) {
+      const groupUids = (userData.visibilityGroup as (string | {uid: string})[])?.map(member => typeof member === 'string' ? member : member.uid) || [];
+
+      if (groupUids.length > 0) {
           try {
-            const usersQuery = query(collection(db, "users"), where(documentId(), 'in', userData.visibilityGroup));
+            const usersQuery = query(collection(db, "users"), where(documentId(), 'in', groupUids));
             const userDocs = await getDocs(usersQuery);
             visibilityGroupMembers = userDocs.docs.map(d => ({
                 uid: d.id,
@@ -67,6 +69,8 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }
         hasPaymentAccess: userData.hasPaymentAccess || false,
         visibilityGroup: visibilityGroupMembers,
         canReviewUserEmails: userData.canReviewUserEmails || [],
+        agentLicense: userData.agentLicense || null,
+        cedula: userData.cedula || null,
       });
       setIsProfileComplete(!!userData.displayName);
 

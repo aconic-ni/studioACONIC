@@ -47,8 +47,8 @@ export interface AppUser {
   visibilityGroup?: (string | { uid: string; displayName: string; email: string; })[];
   canReviewUserEmails?: string[]; // For autorevisor_plus
   consigneeDirectory?: { name: string, createdAt: Timestamp }[]; // Subcollection
-  agentLicense?: string;
-  cedula?: string;
+  agentLicense?: string | null;
+  cedula?: string | null;
 }
 
 export interface ExamDocument extends ExamData {
@@ -78,7 +78,6 @@ export interface Comment {
   authorRole: UserRole;
   authorRoleTitle?: string | null;
   createdAt: Timestamp | Date;
-  solicitudId?: string; // Optional, useful for context
 }
 
 // Interface for data passed to downloadExcelFile
@@ -374,6 +373,11 @@ export interface Worksheet {
   // Totals for anexo
   cantidadTotal?: number;
   unidadMedidaTotal?: string;
+  valor?: number;
+  flete?: number;
+  seguro?: number;
+  otrosGastos?: number;
+  revisorAsignado?: string;
   resaNotificationDate?: Timestamp | null;
   resaDueDate?: Timestamp | null;
   isArchived?: boolean;

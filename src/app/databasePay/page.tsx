@@ -470,7 +470,6 @@ export default function DatabasePage() {
     try {
       const commentsCollectionRef = collection(db, foundInCollection, currentSolicitudIdForComments, "comments");
       const newCommentData: Omit<Comment, 'id' | 'createdAt'> & { createdAt: any } = {
-        solicitudId: currentSolicitudIdForComments,
         text: newCommentText.trim(),
         authorId: user.uid,
         authorName: user.displayName,
@@ -649,32 +648,27 @@ export default function DatabasePage() {
     const collectionsToQuery = ["SolicitudCheques", "Memorandum"];
     
     try {
-        // --- Visibility Logic ---
         let visibilityFilter: QueryConstraint | null = null;
         const globalVisibilityRoles = ['admin', 'supervisor', 'calificador'];
         const groupVisibilityRoles = ['ejecutivo', 'revisor', 'autorevisor_plus', 'coordinadora'];
 
         if (user.role && groupVisibilityRoles.includes(user.role)) {
-          const emails = new Set<string>();
-          if (user.email) emails.add(user.email);
-          if (user.visibilityGroup) {
-              user.visibilityGroup.forEach(member => {
-                  if (typeof member === 'string') {
-                      // If it's a string (UID), we'd need a lookup.
-                      // For now, let's assume it's an object with email.
-                  } else if (member && member.email) {
-                      emails.add(member.email);
-                  }
-              });
-          }
-          const groupEmails = Array.from(emails);
-           if (groupEmails.length > 0) {
-              visibilityFilter = where("savedBy", "in", groupEmails);
-          }
-      } else if (user.role === 'autorevisor' && user.email) {
+            const emails = new Set<string>();
+            if (user.email) emails.add(user.email);
+            
+            user.visibilityGroup?.forEach(member => {
+                if (typeof member === 'object' && member.email) {
+                    emails.add(member.email);
+                }
+            });
+
+            const groupEmails = Array.from(emails);
+            if (groupEmails.length > 0) {
+                visibilityFilter = where("savedBy", "in", groupEmails);
+            }
+        } else if (user.role === 'autorevisor' && user.email) {
             visibilityFilter = where("savedBy", "==", user.email);
         }
-        // For global roles, visibilityFilter remains null.
 
         // --- Date Logic ---
         let dateFilter: QueryConstraint[] = [];
