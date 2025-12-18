@@ -1,3 +1,4 @@
+
 "use client";
 import React, { useEffect, useState, useMemo, useCallback, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
@@ -10,8 +11,7 @@ import { Loader2, FilePlus, Search, Edit, Eye, History, PlusSquare, UserCheck, I
 import { db } from '@/lib/firebase';
 import { collection, query, where, onSnapshot, orderBy, Timestamp, doc, getDoc, updateDoc, writeBatch, addDoc, getDocs, collectionGroup, serverTimestamp, setDoc } from 'firebase/firestore';
 import type { Worksheet, AforoCase, AforadorStatus, AforoCaseStatus, DigitacionStatus, WorksheetWithCase, AforoCaseUpdate, PreliquidationStatus, IncidentType, LastUpdateInfo, ExecutiveComment, InitialDataContext, AppUser, SolicitudRecord, ExamDocument, FacturacionStatus } from '@/types';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { format, toDate, isSameDay, startOfDay, endOfDay, startOfMonth, endOfMonth, differenceInDays } from 'date-fns';
+import { format, toDate, isSameDay, startOfDay, endOfDay, differenceInDays, startOfMonth, endOfMonth } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { Input } from '@/components/ui/input';
 import { AforoCaseHistoryModal } from '@/components/reporter/AforoCaseHistoryModal';
@@ -108,7 +108,8 @@ function ExecutivePageContent() {
   const [savingState, setSavingState] = useState<{ [key: string]: boolean }>({});
   
   const [facturadoFilter, setFacturadoFilter] = useState({ facturado: false, noFacturado: true });
-  const [acuseFilter, setAcuseFilter] = useState({ conAcuse: true, sinAcuse: true });
+  const [acuseFilter, setAcuseFilter] = useState({ conAcuse: false, sinAcuse: true });
+  const [preliquidationFilter, setPreliquidationFilter] = useState(false);
   const [dateFilterType, setDateFilterType] = useState<DateFilterType>('range');
   const [dateRangeInput, setDateRangeInput] = useState<DateRange | undefined>();
   const [selectedMonth, setSelectedMonth] = useState<number>(new Date().getMonth());
@@ -131,8 +132,9 @@ function ExecutivePageContent() {
     searchTerm: '',
     facturado: false,
     noFacturado: true,
-    conAcuse: true,
+    conAcuse: false,
     sinAcuse: true,
+    preliquidation: false,
     dateFilterType: 'range' as DateFilterType,
     dateRange: undefined as DateRange | undefined,
     isSearchActive: false, 
@@ -385,11 +387,12 @@ function ExecutivePageContent() {
       searchTerm,
       ...facturadoFilter,
       ...acuseFilter,
+      preliquidation: preliquidationFilter,
       dateFilterType: dateFilterType,
       dateRange: dateRange,
-      isSearchActive: true, // Mark search as active
+      isSearchActive: true,
     });
-    setCurrentPage(1); // Reset to first page on new search
+    setCurrentPage(1);
   };
   
   const handleExport = async () => {
@@ -467,6 +470,7 @@ function ExecutivePageContent() {
     setSearchTerm('');
     setFacturadoFilter({ facturado: false, noFacturado: true });
     setAcuseFilter({ conAcuse: false, sinAcuse: true });
+    setPreliquidationFilter(false);
     setDateRangeInput(undefined);
     setNeFilter('');
     setEjecutivoFilter('');
@@ -474,7 +478,7 @@ function ExecutivePageContent() {
     setFacturaFilter('');
     setSelectividadFilter('');
     setIncidentTypeFilter('');
-    setAppliedFilters({ searchTerm: '', facturado: false, noFacturado: true, conAcuse: false, sinAcuse: true, dateFilterType: 'range', dateRange: undefined, isSearchActive: false });
+    setAppliedFilters({ searchTerm: '', facturado: false, noFacturado: true, conAcuse: false, sinAcuse: true, preliquidation: false, dateFilterType: 'range', dateRange: undefined, isSearchActive: false });
     setCurrentPage(1);
     setSearchHint(null);
   };
@@ -542,6 +546,12 @@ function ExecutivePageContent() {
           finalFiltered = finalFiltered.filter(c => c.entregadoAforoAt);
       } else if (appliedFilters.sinAcuse && !appliedFilters.conAcuse) {
           finalFiltered = finalFiltered.filter(c => !c.entregadoAforoAt);
+      }
+       if (appliedFilters.preliquidation) {
+        finalFiltered = finalFiltered.filter(c => {
+          const aforoData = (c as any).aforo || c;
+          return aforoData.revisorStatus === 'Aprobado' && aforoData.preliquidationStatus !== 'Aprobada';
+        });
       }
       // Apply date filter
       if (appliedFilters.dateRange?.from) {
@@ -999,6 +1009,9 @@ function ExecutivePageContent() {
                                       <label className="flex items-center gap-2 text-sm font-normal"><Checkbox checked={acuseFilter.sinAcuse} onCheckedChange={(checked) => setAcuseFilter(f => ({...f, sinAcuse: !!checked}))}/>Sin Acuse</label>
                                       <label className="flex items-center gap-2 text-sm font-normal"><Checkbox checked={acuseFilter.conAcuse} onCheckedChange={(checked) => setAcuseFilter(f => ({...f, conAcuse: !!checked}))}/>Con Acuse</label>
                                     </div>
+                                     <div className="grid gap-2 mt-2 pt-2 border-t">
+                                      <label className="flex items-center gap-2 text-sm font-normal text-amber-600"><Checkbox checked={preliquidationFilter} onCheckedChange={(checked) => setPreliquidationFilter(!!checked)}/>Pendiente Preliquidación</label>
+                                    </div>
                                 </PopoverContent>
                             </Popover>
                             <Button onClick={handleSearch}><Search className="mr-2 h-4 w-4" /> Buscar</Button>
@@ -1028,38 +1041,7 @@ function ExecutivePageContent() {
                         </div>
                     </div>
                     
-                    <TabsContent value="worksheets" className="mt-6">
-                        {renderTable()}
-                         {appliedFilters.isSearchActive && paginatedCases.length > 0 && (
-                            <div className="flex items-center justify-between space-x-2 py-4">
-                               <div className="flex items-center space-x-2">
-                                  <p className="text-sm font-medium">Filas por página</p>
-                                  <Select
-                                      value={String(itemsPerPage)}
-                                      onValueChange={(value) => {
-                                          setItemsPerPage(Number(value));
-                                          setCurrentPage(1);
-                                      }}
-                                  >
-                                      <SelectTrigger className="h-8 w-[70px]"><SelectValue /></SelectTrigger>
-                                      <SelectContent side="top">
-                                          {[20, 30, 50, 100].map((pageSize) => (
-                                              <SelectItem key={pageSize} value={`${pageSize}`}>{pageSize}</SelectItem>
-                                          ))}
-                                      </SelectContent>
-                                  </Select>
-                               </div>
-                               <div className="text-sm text-muted-foreground">
-                                   Total de casos: {filteredCases.length}
-                               </div>
-                               <div className="flex items-center space-x-2">
-                                  <span className="text-sm">Página {currentPage} de {totalPages}</span>
-                                  <Button variant="outline" size="sm" onClick={() => setCurrentPage(p => Math.max(p - 1, 1))} disabled={currentPage === 1}>Anterior</Button>
-                                  <Button variant="outline" size="sm" onClick={() => setCurrentPage(p => Math.min(p + 1, totalPages))} disabled={currentPage === totalPages}>Siguiente</Button>
-                               </div>
-                            </div>
-                        )}
-                    </TabsContent>
+                    <TabsContent value="worksheets" className="mt-6">{renderTable()}</TabsContent>
                     <TabsContent value="anexos" className="mt-6">{renderTable()}</TabsContent>
                     <TabsContent value="corporate" className="mt-6">{renderTable()}</TabsContent>
                 </CardContent>
@@ -1067,6 +1049,7 @@ function ExecutivePageContent() {
         </Tabs>
       </div>
     </AppShell>
+    {selectedCaseForDocs && (<ManageDocumentsModal isOpen={!!selectedCaseForDocs} onClose={() => setSelectedCaseForDocs(null)} caseData={selectedCaseForDocs} />)}
     {selectedCaseForHistory && (<AforoCaseHistoryModal isOpen={!!selectedCaseForHistory} onClose={() => setSelectedCaseForHistory(null)} caseData={selectedCaseForHistory} />)}
     {selectedCaseForIncident && (<IncidentReportModal isOpen={!!selectedCaseForIncident} onClose={() => setSelectedCaseForIncident(null)} caseData={selectedCaseForIncident} />)}
     {selectedCaseForValueDoubt && (<ValueDoubtModal isOpen={!!selectedCaseForValueDoubt} onClose={() => setSelectedCaseForValueDoubt(null)} caseData={selectedCaseForValueDoubt} />)}
