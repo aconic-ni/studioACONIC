@@ -1,4 +1,3 @@
-
 "use client";
 
 import { Dialog, DialogContent } from '@/components/ui/dialog';
@@ -18,15 +17,18 @@ export function WorksheetDetailModal({ isOpen, onClose, worksheet }: WorksheetDe
   if (!isOpen || !worksheet) return null;
 
   const renderContent = () => {
-    const ws = worksheet as Worksheet; // Cast for simplicity, properties are compatible
-    switch (ws.worksheetType) {
+    // We need to determine the type from the worksheet object itself.
+    const wsType = (worksheet as Worksheet).worksheetType;
+
+    switch (wsType) {
       case 'anexo_5':
-        return <Anexo5Details worksheet={ws} onClose={onClose} />;
+        return <Anexo5Details worksheet={worksheet as Worksheet} onClose={onClose} />;
       case 'anexo_7':
-        return <Anexo7Details worksheet={ws} onClose={onClose} />;
+        return <Anexo7Details worksheet={worksheet as Worksheet} onClose={onClose} />;
       case 'hoja_de_trabajo':
       default:
-        return <WorksheetDetails worksheet={ws as WorksheetWithCase} onClose={onClose} />;
+        // Aforo cases might have worksheetType undefined, so they fall here.
+        return <WorksheetDetails worksheet={worksheet as WorksheetWithCase} onClose={onClose} />;
     }
   };
 

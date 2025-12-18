@@ -9,7 +9,6 @@ import { Timestamp, collection, query, where, getDocs } from 'firebase/firestore
 import { format as formatDateFns } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { aduanas } from '@/lib/formData';
-import { WorksheetDetails } from '../WorksheetDetails';
 import { cn } from "@/lib/utils";
 import { db } from '@/lib/firebase';
 import Link from 'next/link';
@@ -72,14 +71,6 @@ export function Anexo5Details({ worksheet, onClose }: { worksheet: Worksheet; on
   const valorAduanero = (worksheet.valor || 0) + (worksheet.flete || 0) + (worksheet.seguro || 0) + (worksheet.otrosGastos || 0);
 
   const headerImageSrc = "/imagenes/HEADERANEX5DETAIL.svg";
-
-  if (worksheet.worksheetType === 'anexo_7') {
-    return <Anexo7Details worksheet={worksheet} onClose={onClose} />;
-  }
-
-  if (worksheet.worksheetType === 'hoja_de_trabajo' || !worksheet.worksheetType) {
-    return <WorksheetDetails worksheet={worksheet} onClose={onClose} />;
-  }
 
   const MIN_ROWS = 9;
   const productRows = worksheet.documents && worksheet.documents.length > 0 ? worksheet.documents : [];

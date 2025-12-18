@@ -2,7 +2,7 @@
 "use client";
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { db } from '@/lib/firebase';
-import { collection, query, where, onSnapshot, Timestamp, orderBy, getDocs, QueryConstraint, getDoc, writeBatch, doc, collectionGroup, serverTimestamp, documentId } from 'firebase/firestore';
+import { collection, query, where, onSnapshot, Timestamp, orderBy, getDocs, QueryConstraint, getDoc, writeBatch, doc, collectionGroup, documentId, serverTimestamp } from 'firebase/firestore';
 import { useAuth } from '@/context/AuthContext';
 import { AppShell } from '@/components/layout/AppShell';
 import { Loader2, Inbox, Eye, Search, Calendar, CalendarDays, CalendarRange, BookOpen, AlertTriangle, History, CheckSquare } from 'lucide-react';
@@ -117,14 +117,11 @@ export default function AgenteCasosPage() {
             const aforoData = aforoDataMap.get(wsId);
             if (wsData && aforoData) {
                  const combinedData: WorksheetWithCase = {
-                    ...wsData,
                     ...aforoData,
-                    id: wsId,
+                    ...wsData, // merge worksheet data at top level
+                    id: wsDoc.id, // Ensure worksheet ID is the main ID
                     worksheet: wsData,
-                    declarationPattern: aforoData.declarationPattern || wsData.patternRegime || '',
-                    merchandise: aforoData.merchandise || wsData.description || '',
-                    assignmentDate: aforoData.assignmentDate || null,
-                };
+                 };
                 casesData.push(combinedData);
             }
         }
@@ -225,7 +222,7 @@ export default function AgenteCasosPage() {
 
         const updateLog: Omit<AforoCaseUpdate, 'updatedAt'> & { updatedAt: any } = {
             updatedAt: serverTimestamp(),
-            updatedBy: user.displayName,
+            updatedBy: user.displayName || user.email || "Usuario desconocido",
             field: 'status_change',
             oldValue: originalCase?.revisorStatus || 'Pendiente',
             newValue: newStatus,
