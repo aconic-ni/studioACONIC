@@ -139,30 +139,31 @@ function ExecutivePageContent() {
   };
   
 const fetchCases = useCallback(async () => {
-    if (!user) return () => {};
+    if (!user) return;
     setIsLoading(true);
 
-    let worksheetsQuery: Query;
-    const globalVisibilityRoles = ['admin', 'supervisor', 'coordinadora'];
+    try {
+        let worksheetsQuery: Query;
+        const globalVisibilityRoles = ['admin', 'supervisor', 'coordinadora'];
 
-    if (user.role && globalVisibilityRoles.includes(user.role)) {
-        worksheetsQuery = query(collection(db, 'worksheets'), orderBy('createdAt', 'desc'));
-    } else if (user.role === 'ejecutivo') {
-        const groupDisplayNames = Array.from(new Set([user.displayName, ...(user.visibilityGroup?.map(m => m.displayName) || [])])).filter(Boolean) as string[];
-        if (groupDisplayNames.length > 0) {
-            worksheetsQuery = query(collection(db, 'worksheets'), where('executive', 'in', groupDisplayNames), orderBy('createdAt', 'desc'));
+        if (user.role && globalVisibilityRoles.includes(user.role)) {
+            worksheetsQuery = query(collection(db, 'worksheets'), orderBy('createdAt', 'desc'));
+        } else if (user.role === 'ejecutivo') {
+            const groupDisplayNames = Array.from(new Set([user.displayName, ...(user.visibilityGroup?.map(m => m.displayName) || [])])).filter(Boolean) as string[];
+            if (groupDisplayNames.length > 0) {
+                worksheetsQuery = query(collection(db, 'worksheets'), where('executive', 'in', groupDisplayNames), orderBy('createdAt', 'desc'));
+            } else {
+                setAllCases([]);
+                setIsLoading(false);
+                return;
+            }
         } else {
             setAllCases([]);
             setIsLoading(false);
-            return () => {};
+            return;
         }
-    } else {
-        setAllCases([]);
-        setIsLoading(false);
-        return () => {};
-    }
 
-    const unsubscribe = onSnapshot(worksheetsQuery, async (wsSnapshot) => {
+        const wsSnapshot = await getDocs(worksheetsQuery);
         const worksheetsData = wsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Worksheet));
         const aforoMetadataMap = new Map<string, AforoData>();
 
@@ -197,21 +198,19 @@ const fetchCases = useCallback(async () => {
 
         const combinedData = (await Promise.all(combinedDataPromises)) as WorksheetWithCase[];
         setAllCases(combinedData);
-        setIsLoading(false);
-    }, (error) => {
+
+    } catch (error) {
         console.error("Error fetching cases:", error);
         toast({ title: "Error de Carga", description: "No se pudieron cargar los datos de los casos.", variant: "destructive" });
+    } finally {
         setIsLoading(false);
-    });
-
-    return unsubscribe;
+    }
 }, [user, toast]);
 
 
   useEffect(() => {
     if (!authLoading && !user) router.push('/');
-    let unsubscribe: (() => void) | undefined;
-    fetchCases().then(unsub => { if(unsub) unsubscribe = unsub; });
+    fetchCases();
     const fetchAssignableUsers = async () => {
         const usersQuery = query(collection(db, 'users'), where('role', 'in', ['aforador', 'coordinadora']));
         const querySnapshot = await getDocs(usersQuery);
@@ -219,7 +218,6 @@ const fetchCases = useCallback(async () => {
         setAssignableUsers(users);
     };
     fetchAssignableUsers();
-    return () => { if(unsubscribe) unsubscribe(); };
   }, [authLoading, user, router, fetchCases]);
   
   const handleAssignAforador = async (caseId: string, aforadorName: string) => {
@@ -705,8 +703,8 @@ const fetchCases = useCallback(async () => {
         </div>
       </AppShell>
     {modalState.history && (<AforoHistoryModal isOpen={!!modalState.history} onClose={() => setModalState(p => ({...p, history: null}))} caseData={modalState.history} />)}
-    {modalState.incident && (<IncidentReportModal isOpen={!!modalState.incident} onClose={() => setModalState(p => ({...p, incident: null}))} caseData={modalState.incident} />)}
-    {modalState.valueDoubt && (<ValueDoubtModal isOpen={!!modalState.valueDoubt} onClose={() => setModalState(p => ({...p, valueDoubt: null}))} caseData={modalState.valueDoubt} />)}
+    {modalState.incident && (<IncidentReportModal isOpen={!!modalState.incident} onClose={() => setModalState(p => ({...p, incident: null}))} caseData={modalState.incident as any} />)}
+    {modalState.valueDoubt && (<ValueDoubtModal isOpen={!!modalState.valueDoubt} onClose={() => setModalState(p => ({...p, valueDoubt: null}))} caseData={modalState.valueDoubt as any} />)}
     {modalState.comment && (<ExecutiveCommentModal isOpen={!!modalState.comment} onClose={() => setModalState(p => ({...p, comment: null}))} caseData={modalState.comment} />)}
     {modalState.quickRequest && (<QuickRequestModal isOpen={!!modalState.quickRequest} onClose={() => setModalState(p => ({...p, quickRequest: null}))} caseWithWorksheet={modalState.quickRequest} />)}
     {modalState.payment && (<PaymentRequestModal isOpen={!!modalState.payment} onClose={() => setModalState(p => ({...p, payment: null}))} caseData={modalState.payment as any} />)}
