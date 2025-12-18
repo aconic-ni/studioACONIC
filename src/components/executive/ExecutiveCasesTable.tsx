@@ -39,6 +39,7 @@ interface ExecutiveCasesTableProps {
   selectividadFilter: string; setSelectividadFilter: (value: string) => void;
   incidentTypeFilter: string; setIncidentTypeFilter: (value: string) => void;
   handleSendToFacturacion: (caseId: string) => void;
+  onSearch: () => void;
 }
 
 const formatDate = (date: Date | Timestamp | null | undefined, includeTime: boolean = true): string => {
@@ -83,10 +84,17 @@ export function ExecutiveCasesTable({
   facturaFilter, setFacturaFilter,
   selectividadFilter, setSelectividadFilter,
   incidentTypeFilter, setIncidentTypeFilter,
-  handleSendToFacturacion
+  handleSendToFacturacion,
+  onSearch
 }: ExecutiveCasesTableProps) {
   const { user } = useAuth();
   
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') {
+      onSearch();
+    }
+  };
+
   return (
     <div className="overflow-x-auto table-container rounded-lg border">
       <TooltipProvider>
@@ -101,16 +109,16 @@ export function ExecutiveCasesTable({
                 />
               </TableHead>
               <TableHead>Acciones</TableHead>
-              <TableHead><Input placeholder="NE..." className="h-8 text-xs" value={neFilter} onChange={e => setNeFilter(e.target.value)}/></TableHead>
+              <TableHead><Input placeholder="NE..." className="h-8 text-xs" value={neFilter} onChange={e => setNeFilter(e.target.value)} onKeyDown={handleKeyDown} /></TableHead>
               <TableHead>Insignias</TableHead>
-              <TableHead><Input placeholder="Ejecutivo..." className="h-8 text-xs" value={ejecutivoFilter} onChange={e => setEjecutivoFilter(e.target.value)}/></TableHead>
-              <TableHead><Input placeholder="Consignatario..." className="h-8 text-xs" value={consignatarioFilter} onChange={e => setConsignatarioFilter(e.target.value)}/></TableHead>
-              <TableHead><Input placeholder="Factura..." className="h-8 text-xs" value={facturaFilter} onChange={e => setFacturaFilter(e.target.value)}/></TableHead>
+              <TableHead><Input placeholder="Ejecutivo..." className="h-8 text-xs" value={ejecutivoFilter} onChange={e => setEjecutivoFilter(e.target.value)} onKeyDown={handleKeyDown} /></TableHead>
+              <TableHead><Input placeholder="Consignatario..." className="h-8 text-xs" value={consignatarioFilter} onChange={e => setConsignatarioFilter(e.target.value)} onKeyDown={handleKeyDown} /></TableHead>
+              <TableHead><Input placeholder="Factura..." className="h-8 text-xs" value={facturaFilter} onChange={e => setFacturaFilter(e.target.value)} onKeyDown={handleKeyDown} /></TableHead>
               <TableHead>Preliquidación</TableHead>
               <TableHead>Estado General</TableHead>
-              <TableHead><Input placeholder="Selectividad..." className="h-8 text-xs" value={selectividadFilter} onChange={e => setSelectividadFilter(e.target.value)}/></TableHead>
+              <TableHead><Input placeholder="Selectividad..." className="h-8 text-xs" value={selectividadFilter} onChange={e => setSelectividadFilter(e.target.value)} onKeyDown={handleKeyDown} /></TableHead>
               <TableHead>Fecha Despacho</TableHead>
-              <TableHead><Input placeholder="Incidencia..." className="h-8 text-xs" value={incidentTypeFilter} onChange={e => setIncidentTypeFilter(e.target.value)}/></TableHead>
+              <TableHead><Input placeholder="Incidencia..." className="h-8 text-xs" value={incidentTypeFilter} onChange={e => setIncidentTypeFilter(e.target.value)} onKeyDown={handleKeyDown} /></TableHead>
               <TableHead>Facturado</TableHead>
             </TableRow>
           </TableHeader>
@@ -256,5 +264,3 @@ export function ExecutiveCasesTable({
     </div>
   );
 }
-
-    

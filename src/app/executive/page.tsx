@@ -1,3 +1,4 @@
+
 "use client";
 import React, { useEffect, useState, useMemo, useCallback, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
@@ -107,7 +108,7 @@ function ExecutivePageContent() {
   const [savingState, setSavingState] = useState<{ [key: string]: boolean }>({});
   
   const [facturadoFilter, setFacturadoFilter] = useState({ facturado: false, noFacturado: true });
-  const [acuseFilter, setAcuseFilter] = useState({ conAcuse: false, sinAcuse: true });
+  const [acuseFilter, setAcuseFilter] = useState({ conAcuse: true, sinAcuse: true });
   const [dateFilterType, setDateFilterType] = useState<DateFilterType>('range');
   const [dateRangeInput, setDateRangeInput] = useState<DateRange | undefined>();
   const [selectedMonth, setSelectedMonth] = useState<number>(new Date().getMonth());
@@ -130,7 +131,7 @@ function ExecutivePageContent() {
     searchTerm: '',
     facturado: false,
     noFacturado: true,
-    conAcuse: false,
+    conAcuse: true,
     sinAcuse: true,
     dateFilterType: 'range' as DateFilterType,
     dateRange: undefined as DateRange | undefined,
@@ -240,7 +241,7 @@ function ExecutivePageContent() {
   
 
   useEffect(() => {
-    let unsubscribe: () => void;
+    let unsubscribe: (() => void) | undefined;
     fetchCases().then(unsub => {
         if(unsub) unsubscribe = unsub;
     });
@@ -466,7 +467,7 @@ function ExecutivePageContent() {
   const clearFilters = () => {
     setSearchTerm('');
     setFacturadoFilter({ facturado: false, noFacturado: true });
-    setAcuseFilter({ conAcuse: false, sinAcuse: true });
+    setAcuseFilter({ conAcuse: true, sinAcuse: true });
     setDateRangeInput(undefined);
     setNeFilter('');
     setEjecutivoFilter('');
@@ -474,7 +475,7 @@ function ExecutivePageContent() {
     setFacturaFilter('');
     setSelectividadFilter('');
     setIncidentTypeFilter('');
-    setAppliedFilters({ searchTerm: '', facturado: false, noFacturado: true, conAcuse: false, sinAcuse: true, dateFilterType: 'range', dateRange: undefined, isSearchActive: false });
+    setAppliedFilters({ searchTerm: '', facturado: false, noFacturado: true, conAcuse: true, sinAcuse: true, dateFilterType: 'range', dateRange: undefined, isSearchActive: false });
     setCurrentPage(1);
     setSearchHint(null);
   };
@@ -846,11 +847,11 @@ function ExecutivePageContent() {
   };
 
   const renderTable = () => {
-    if (isLoading) {
-      return <div className="flex justify-center items-center py-10"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>;
-    }
-    if (filteredCases.length === 0 && appliedFilters.isSearchActive) {
-      return (
+      if (isLoading) {
+        return <div className="flex justify-center items-center py-10"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>
+      }
+      if (filteredCases.length === 0 && appliedFilters.isSearchActive) {
+        return (
         <div className="text-center py-10">
           <p className="text-muted-foreground">No se encontraron casos con los filtros actuales.</p>
           {searchHint && (
@@ -865,32 +866,33 @@ function ExecutivePageContent() {
           )}
         </div>
       );
-    }
-    if (filteredCases.length === 0 && !appliedFilters.isSearchActive) {
-      return <p className="text-muted-foreground text-center py-10">No hay casos recientes para mostrar. Use la búsqueda para encontrar casos más antiguos.</p>;
-    }
-
-    if (isMobile) {
-      return <MobileCasesList cases={paginatedCases} savingState={savingState} onAutoSave={handleAutoSave} approvePreliquidation={approvePreliquidation} caseActions={caseActions} />;
-    }
-
-    return <ExecutiveCasesTable 
-              cases={paginatedCases} 
-              savingState={savingState}
-              onAutoSave={handleAutoSave}
-              approvePreliquidation={approvePreliquidation}
-              caseActions={caseActions}
-              selectedRows={selectedRows}
-              onSelectRow={setSelectedRows}
-              onSelectAllRows={handleSelectAllForPreliquidation}
-              neFilter={neFilter} setNeFilter={setNeFilter}
-              ejecutivoFilter={ejecutivoFilter} setEjecutivoFilter={setEjecutivoFilter}
-              consignatarioFilter={consignatarioFilter} setConsignatarioFilter={setConsignatarioFilter}
-              facturaFilter={facturaFilter} setFacturaFilter={setFacturaFilter}
-              selectividadFilter={selectividadFilter} setSelectividadFilter={setSelectividadFilter}
-              incidentTypeFilter={incidentTypeFilter} setIncidentTypeFilter={setIncidentTypeFilter}
-              handleSendToFacturacion={handleSendToFacturacion}
-            />;
+      }
+      if (filteredCases.length === 0 && !appliedFilters.isSearchActive) {
+        return <p className="text-muted-foreground text-center py-10">No hay casos recientes para mostrar. Use la búsqueda para encontrar casos más antiguos.</p>
+      }
+  
+      if (isMobile) {
+        return <MobileCasesList cases={paginatedCases} savingState={savingState} onAutoSave={handleAutoSave} approvePreliquidation={approvePreliquidation} caseActions={caseActions} />;
+      }
+  
+      return <ExecutiveCasesTable 
+                cases={paginatedCases} 
+                savingState={savingState}
+                onAutoSave={handleAutoSave}
+                approvePreliquidation={approvePreliquidation}
+                caseActions={caseActions}
+                selectedRows={selectedRows}
+                onSelectRow={setSelectedRows}
+                onSelectAllRows={handleSelectAllForPreliquidation}
+                neFilter={neFilter} setNeFilter={setNeFilter}
+                ejecutivoFilter={ejecutivoFilter} setEjecutivoFilter={setEjecutivoFilter}
+                consignatarioFilter={consignatarioFilter} setConsignatarioFilter={setConsignatarioFilter}
+                facturaFilter={facturaFilter} setFacturaFilter={setFacturaFilter}
+                selectividadFilter={selectividadFilter} setSelectividadFilter={setSelectividadFilter}
+                incidentTypeFilter={incidentTypeFilter} setIncidentTypeFilter={setIncidentTypeFilter}
+                handleSendToFacturacion={handleSendToFacturacion}
+                onSearch={handleSearch}
+              />;
   }
   return (
     <>
@@ -974,7 +976,7 @@ function ExecutivePageContent() {
                         <div className="flex flex-wrap items-center justify-between gap-4">
                             <div className="relative w-full sm:max-w-xs">
                             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
-                            <Input placeholder="Buscar por NE o Consignatario..." className="pl-10" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
+                            <Input placeholder="Buscar por NE o Consignatario..." className="pl-10" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && handleSearch()} />
                             </div>
                             <div className="flex items-center flex-wrap gap-4">
                             <Popover>
@@ -1079,3 +1081,4 @@ export default function ExecutivePage() {
         </Suspense>
     );
 }
+
