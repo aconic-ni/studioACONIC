@@ -16,8 +16,8 @@ export enum ExamStep {
   PRODUCT_LIST = 2,
   PREVIEW = 3,
   SUCCESS = 4,
-  INITIAL_DATA = 1, // Re-using for examinerPay
-  SOLICITUD_LIST = 2, // Re-using for examinerPay
+  // Payment Request Flow steps, reusing enum values
+  SOLICITUD_LIST = 2, 
 }
 
 interface AppContextType {
@@ -46,7 +46,10 @@ interface AppContextType {
   toggleSelectAllProducts: () => void;
   deleteSelectedProducts: () => void;
 
-  // New state for examinerPay flow
+  // For examinerPay flow (now modal flow)
+  isPaymentRequestFlowOpen: boolean;
+  openPaymentRequestFlow: () => void;
+  closePaymentRequestFlow: () => void;
   initialContextData: InitialDataContext | null;
   setInitialContextData: (data: InitialDataContext) => void;
   solicitudes: SolicitudData[];
@@ -60,7 +63,6 @@ interface AppContextType {
   solicitudToViewInline: SolicitudData | null;
   setSolicitudToViewInline: (solicitud: SolicitudData | null) => void;
 
-  // For PSMT special flow
   caseToAssignAforador: AforoCase | null;
   setCaseToAssignAforador: (caseData: AforoCase | null) => void;
 }
@@ -75,17 +77,16 @@ export const AppProvider: React.FC<{children: React.ReactNode}> = ({ children })
   const [isAddProductModalOpen, setIsAddProductModalOpen] = useState(false);
   const [isProductDetailModalOpen, setIsProductDetailModalOpen] = useState(false);
   const [productToView, setProductToView] = useState<Product | null>(null);
-  const [isRecoveryMode, setIsRecoveryMode] = useState(false); // New state for audit trail
+  const [isRecoveryMode, setIsRecoveryMode] = useState(false);
   const [selectedProducts, setSelectedProducts] = useState<string[]>([]);
   
-  // State for examinerPay flow
+  const [isPaymentRequestFlowOpen, setIsPaymentRequestFlowOpen] = useState(false);
   const [initialContextData, setInitialContextDataState] = useState<InitialDataContext | null>(null);
   const [solicitudes, setSolicitudes] = useState<SolicitudData[]>([]);
   const [editingSolicitud, setEditingSolicitud] = useState<SolicitudData | null>(null);
   const [isMemorandumMode, setIsMemorandumMode] = useState(false);
   const [solicitudToViewInline, setSolicitudToViewInline] = useState<SolicitudData | null>(null);
 
-  // For PSMT special flow
   const [caseToAssignAforador, setCaseToAssignAforador] = useState<AforoCase | null>(null);
 
   const { user: authUser } = useAuth();
@@ -102,14 +103,28 @@ export const AppProvider: React.FC<{children: React.ReactNode}> = ({ children })
     setProductToView(null);
     setIsRecoveryMode(false);
     setSelectedProducts([]);
-    // Reset examinerPay state
     setInitialContextDataState(null);
     setSolicitudes([]);
     setEditingSolicitud(null);
     setIsMemorandumMode(false);
     setSolicitudToViewInline(null);
     setCaseToAssignAforador(null);
+    setIsPaymentRequestFlowOpen(false);
   }, []);
+  
+  const openPaymentRequestFlow = () => {
+    setCurrentStepState(ExamStep.SOLICITUD_LIST); // Set initial step for this flow
+    setIsPaymentRequestFlowOpen(true);
+  };
+  const closePaymentRequestFlow = () => {
+      // Don't reset everything, just close the modal and reset its specific state.
+      setIsPaymentRequestFlowOpen(false);
+      setInitialContextDataState(null);
+      setSolicitudes([]);
+      setEditingSolicitud(null);
+      setCurrentStepState(ExamStep.SUCCESS); // Go back to success screen of the main flow
+  };
+
 
   useEffect(() => {
     const authUserChanged = authUser?.uid !== internalUser?.uid || (authUser && !internalUser) || (!authUser && internalUser);
@@ -134,7 +149,6 @@ export const AppProvider: React.FC<{children: React.ReactNode}> = ({ children })
         return;
     }
     const now = new Date();
-    // NE-DDMMYY-HHMMSS
     const formattedDate = format(now, "ddMMyy-HHmmss");
     const newId = `${initialContextData.ne}-${formattedDate}`;
     
@@ -182,7 +196,7 @@ export const AppProvider: React.FC<{children: React.ReactNode}> = ({ children })
   const softSaveExam = useCallback(async (currentExamData: ExamData | null, currentProducts: Product[]) => {
       if (!currentExamData?.ne || !authUser?.email) {
           console.log("Soft save prerequisites not met.", {ne: currentExamData?.ne, user: authUser?.email})
-          return; // Don't save if there's no NE or user
+          return;
       }
   
       const examDocRef = doc(db, "examenesPrevios", currentExamData.ne.toUpperCase());
@@ -191,19 +205,17 @@ export const AppProvider: React.FC<{children: React.ReactNode}> = ({ children })
           ...currentExamData,
           products: currentProducts,
           savedBy: authUser.email,
-          status: 'incomplete', // Add a status field
+          status: 'incomplete',
           lastUpdated: Timestamp.fromDate(new Date()),
       };
       
       try {
           const docSnap = await getDoc(examDocRef);
           
-          // Set createdAt timestamp only when the FIRST product is added
           if (currentProducts.length === 1 && (!docSnap.exists() || !docSnap.data().createdAt)) {
               dataToSave.createdAt = Timestamp.fromDate(new Date());
           }
 
-          // Always update savedAt timestamp for any save
           dataToSave.savedAt = Timestamp.fromDate(new Date());
 
           await setDoc(examDocRef, dataToSave, { merge: true });
@@ -383,7 +395,9 @@ export const AppProvider: React.FC<{children: React.ReactNode}> = ({ children })
         toggleSelectAllProducts,
         deleteSelectedProducts,
 
-        // For examinerPay flow
+        isPaymentRequestFlowOpen,
+        openPaymentRequestFlow,
+        closePaymentRequestFlow,
         initialContextData,
         setInitialContextData,
         solicitudes,
@@ -397,7 +411,6 @@ export const AppProvider: React.FC<{children: React.ReactNode}> = ({ children })
         solicitudToViewInline,
         setSolicitudToViewInline,
 
-        // For PSMT flow
         caseToAssignAforador,
         setCaseToAssignAforador,
       }}

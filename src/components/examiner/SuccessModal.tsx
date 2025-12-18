@@ -4,13 +4,13 @@ import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { useAppContext, ExamStep } from '@/context/AppContext';
-import { CheckCircle, RotateCcw, Save, Home, MessageSquare } from 'lucide-react';
+import { CheckCircle, RotateCcw, Save, Home, MessageSquare, Banknote } from 'lucide-react';
 import Link from 'next/link';
 import { db } from '@/lib/firebase';
 import { doc, setDoc, Timestamp } from "firebase/firestore";
 import { useAuth } from '@/context/AuthContext';
 import { useToast } from '@/hooks/use-toast';
-import type { ExamDocument, Product } from '@/types';
+import type { ExamDocument, Product, InitialDataContext } from '@/types';
 import { downloadExcelFile } from '@/lib/fileExporter';
 import {
   AlertDialog,
@@ -27,7 +27,16 @@ import { useRouter } from 'next/navigation';
 
 
 export function SuccessModal() {
-  const { currentStep, setCurrentStep, resetApp, examData, products } = useAppContext();
+  const { 
+    currentStep, 
+    setCurrentStep, 
+    resetApp, 
+    examData, 
+    products,
+    openPaymentRequestFlow,
+    setInitialContextData,
+    setIsMemorandumMode,
+  } = useAppContext();
   const { user } = useAuth();
   const { toast } = useToast();
   const router = useRouter();
@@ -81,10 +90,7 @@ export function SuccessModal() {
         description: `El examen NE: ${examData.ne} ha sido guardado en la base de datos.`,
       });
 
-      // Trigger automatic Excel download
       downloadExcelFile({ ...examData, products });
-
-      // Open the instruction alert
       setIsInstructionAlertOpen(true);
 
     } catch (error: any) {
@@ -101,6 +107,22 @@ export function SuccessModal() {
     resetApp();
     router.push('/');
   }
+  
+  const handleOpenPaymentFlow = () => {
+    if (!examData) return;
+    const initialData: InitialDataContext = {
+      ne: examData.ne,
+      reference: examData.reference,
+      manager: examData.manager,
+      date: new Date(),
+      recipient: 'Contabilidad',
+      isMemorandum: false,
+      consignee: examData.consignee,
+    };
+    setInitialContextData(initialData);
+    setIsMemorandumMode(false);
+    openPaymentRequestFlow();
+  };
 
   if (currentStep !== ExamStep.SUCCESS) {
     return null;
@@ -141,37 +163,37 @@ export function SuccessModal() {
           </DialogDescription>
           <div className="mt-6 flex flex-col space-y-3 items-center">
             <div className="flex flex-col sm:flex-row gap-3 w-full">
-              <Button
-                onClick={handleSaveToDatabase}
-                variant="default"
-                className="btn-primary w-full"
-                aria-label="Finalizar y Guardar en Base de Datos"
-              >
+              <Button onClick={handleSaveToDatabase} variant="default" className="btn-primary w-full" aria-label="Finalizar y Guardar en Base de Datos">
                 <Save className="h-5 w-5 mr-2" /> Finalizar y Guardar
               </Button>
               <Button onClick={() => setCurrentStep(ExamStep.PREVIEW)} variant="outline" className="w-full">
                  <RotateCcw className="mr-2 h-4 w-4" /> Revisar Examen
               </Button>
             </div>
-            <AlertDialog>
-                <AlertDialogTrigger asChild>
-                  <Button className="btn-secondary w-full">
-                    <Home className="mr-2 h-4 w-4" /> Volver al Inicio
-                  </Button>
-                </AlertDialogTrigger>
-                <AlertDialogContent>
-                    <AlertDialogHeader>
-                        <AlertDialogTitle>¿Está seguro?</AlertDialogTitle>
-                        <AlertDialogDescription>
-                            Está a punto de volver al inicio. Se borrará toda la información del examen actual que no haya sido guardada en la base de datos.
-                        </AlertDialogDescription>
-                    </AlertDialogHeader>
-                    <AlertDialogFooter>
-                        <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                        <AlertDialogAction onClick={handleGoHome}>Sí, volver al inicio</AlertDialogAction>
-                    </AlertDialogFooter>
-                </AlertDialogContent>
-            </AlertDialog>
+            <div className="flex flex-col sm:flex-row gap-3 w-full">
+                <Button onClick={handleOpenPaymentFlow} variant="secondary" className="w-full">
+                  <Banknote className="mr-2 h-4 w-4" /> Solicitar Cheque
+                </Button>
+                <AlertDialog>
+                    <AlertDialogTrigger asChild>
+                      <Button className="btn-secondary w-full">
+                        <Home className="mr-2 h-4 w-4" /> Volver al Inicio
+                      </Button>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent>
+                        <AlertDialogHeader>
+                            <AlertDialogTitle>¿Está seguro?</AlertDialogTitle>
+                            <AlertDialogDescription>
+                                Se borrará toda la información del examen actual que no haya sido guardada.
+                            </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                            <AlertDialogAction onClick={handleGoHome}>Sí, volver al inicio</AlertDialogAction>
+                        </AlertDialogFooter>
+                    </AlertDialogContent>
+                </AlertDialog>
+            </div>
           </div>
         </DialogContent>
       </Dialog>

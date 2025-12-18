@@ -11,10 +11,11 @@ import { SuccessModal } from '@/components/examiner/SuccessModal';
 import { ExaminerWelcome } from '@/components/examiner/ExaminerWelcome';
 import { Loader2 } from 'lucide-react';
 import { SetDisplayNameModal } from '@/components/auth/SetDisplayNameModal';
+import { InitialDataForm as PaymentRequestFlow } from '@/components/examinerPay/InitialInfoForm';
 
 export default function ExaminerPage() {
   const { user, loading: authLoading, isProfileComplete } = useAuth();
-  const { currentStep } = useAppContext();
+  const { currentStep, isPaymentRequestFlowOpen, closePaymentRequestFlow } = useAppContext();
   const router = useRouter();
   const [isDisplayNameModalOpen, setIsDisplayNameModalOpen] = useState(false);
 
@@ -32,7 +33,6 @@ export default function ExaminerPage() {
   }, [user, authLoading, router]);
 
   useEffect(() => {
-    // an admin should not be forced to set a display name if they are just viewing
     if (!authLoading && user && !isProfileComplete && user.role !== 'admin') {
       setIsDisplayNameModalOpen(true);
     } else {
@@ -40,23 +40,18 @@ export default function ExaminerPage() {
     }
   }, [user, authLoading, isProfileComplete]);
 
-  // Add a beforeunload listener to prevent accidental navigation
   useEffect(() => {
     const handleBeforeUnload = (event: BeforeUnloadEvent) => {
-      // Show confirmation dialog only if an exam is in progress
       if (currentStep > ExamStep.WELCOME && currentStep < ExamStep.SUCCESS) {
         event.preventDefault();
-        event.returnValue = ''; // For Chrome
+        event.returnValue = '';
       }
     };
-
     window.addEventListener('beforeunload', handleBeforeUnload);
-
     return () => {
       window.removeEventListener('beforeunload', handleBeforeUnload);
     };
   }, [currentStep]);
-
 
   if (authLoading || (user && !isProfileComplete && user.role !== 'admin') || !user || (user.role && !['gestor', 'admin', 'calificador'].includes(user.role))) {
     return (
@@ -69,7 +64,6 @@ export default function ExaminerPage() {
   }
 
   if (!user) {
-     // This typically won't be seen due to redirect, but good for robustness
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
         <p className="text-lg">Redirigiendo a inicio de sesión...</p>
@@ -88,8 +82,7 @@ export default function ExaminerPage() {
       case ExamStep.PREVIEW:
         return <PreviewScreen />;
       case ExamStep.SUCCESS:
-        // SuccessModal is a dialog, typically shown over other content.
-        return <> <PreviewScreen /> <SuccessModal /> </>; // Show preview underneath success
+        return <> <PreviewScreen /> <SuccessModal /> </>;
       default:
         return <ExaminerWelcome />;
     }
@@ -101,8 +94,8 @@ export default function ExaminerPage() {
       <div className="py-2 md:py-5">
          {renderStepContent()}
       </div>
-      {/* SuccessModal is rendered conditionally inside renderStepContent or always if it handles its own visibility based on currentStep */}
       {currentStep === ExamStep.SUCCESS && <SuccessModal />}
+      {isPaymentRequestFlowOpen && <PaymentRequestFlow isOpen={isPaymentRequestFlowOpen} onClose={closePaymentRequestFlow} />}
     </AppShell>
   );
 }
