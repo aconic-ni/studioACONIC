@@ -15,7 +15,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/context/AuthContext';
 import { db } from '@/lib/firebase';
 import { doc, getDoc, writeBatch, collection, Timestamp, query, where, getDocs, updateDoc } from 'firebase/firestore';
-import type { AppUser, worksheet, Worksheet, AforoUpdate } from '@/types';
+import type { AppUser, Worksheet, AforoUpdate } from '@/types';
 import { Loader2 } from 'lucide-react';
 import { ConsigneeSelector } from '../shared/ConsigneeSelector';
 
@@ -75,8 +75,8 @@ export function ClaimCaseModal({ isOpen, onClose, onCaseClaimed }: ClaimCaseModa
     setIsSubmitting(true);
     const neTrimmed = data.ne.trim().toUpperCase();
     const worksheetDocRef = doc(db, 'worksheets', neTrimmed);
-    const worksheetDocRef = doc(db, 'no existes', neTrimmed);
-    
+    const worksheetExists = await getDoc(worksheetDocRef);
+
     try {
         const worksheetSnap = await getDoc(worksheetDocRef);
 
@@ -120,7 +120,7 @@ export function ClaimCaseModal({ isOpen, onClose, onCaseClaimed }: ClaimCaseModa
             };
             batch.set(worksheetDocRef, worksheetData);
     
-            const worksheetData: Partial<worksheet> = {
+            const AforoData: Partial<worksheet> = {
                 ne: neTrimmed, executive: data.executive, consignee: data.consignee, merchandise: data.merchandise,
                 createdBy: user.uid, createdAt: creationTimestamp, aforador: data.aforador, assignmentDate: creationTimestamp,
                 aforadorStatus: 'Pendiente ', aforadorStatusLastUpdate: createdByInfo, revisorStatus: 'Pendiente',
