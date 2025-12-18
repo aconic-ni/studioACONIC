@@ -1,4 +1,3 @@
-
 "use client";
 import React from 'react';
 import type { AforoCase, AforoCaseStatus, DigitacionStatus, PreliquidationStatus, WorksheetWithCase } from '@/types';
@@ -38,6 +37,7 @@ interface ExecutiveCasesTableProps {
   setColumnFilters: React.Dispatch<React.SetStateAction<{ ne: string; ejecutivo: string; consignatario: string; factura: string; selectividad: string; incidentType: string; }>>;
   handleSendToFacturacion: (caseId: string) => void;
   onSearch: () => void;
+  getIncidentTypeDisplay: (c: AforoCase) => string;
 }
 
 const getOverallStatus = (caseData: AforoCase): { text: string; variant: "default" | "destructive" | "secondary" | "outline" } => {
@@ -66,7 +66,8 @@ export function ExecutiveCasesTable({
   columnFilters,
   setColumnFilters,
   handleSendToFacturacion,
-  onSearch
+  onSearch,
+  getIncidentTypeDisplay
 }: ExecutiveCasesTableProps) {
   const { user } = useAuth();
   
@@ -158,7 +159,12 @@ export function ExecutiveCasesTable({
                         <TableCell>
                             <StatusBadges caseData={c} />
                         </TableCell>
-                        <TableCell>{c.executive}</TableCell>
+                        <TableCell>
+                            <div className="flex items-center gap-1">
+                                <span>{c.executive}</span>
+                                <LastUpdateTooltip lastUpdate={{ by: c.executive, at: c.createdAt }} caseCreation={c.createdAt} />
+                            </div>
+                        </TableCell>
                         <TableCell>
                             {c.consignee.length > 13 ? (
                                 <Tooltip>
@@ -206,7 +212,7 @@ export function ExecutiveCasesTable({
                         </TableCell>
                          <TableCell>
                             <div className="flex items-center">
-                                {(aforoData.revisorStatus === 'Aprobado' && aforoData.preliquidationStatus !== 'Aprobada') ? (
+                                {aforoData.revisorStatus === 'Aprobado' && aforoData.preliquidationStatus !== 'Aprobada' ? (
                                     <Button size="sm" onClick={() => approvePreliquidation(c.id)} disabled={savingState[c.id]}>
                                         <CheckCircle className="mr-2 h-4 w-4" /> Aprobar
                                     </Button>
