@@ -1,3 +1,4 @@
+
 "use client";
 import React from 'react';
 import { Button } from '@/components/ui/button';
@@ -25,7 +26,6 @@ export function InitialDataForm({ isOpen, onClose }: PaymentRequestFlowProps) {
     openAddProductModal, 
     solicitudes,
     currentStep: currentPaymentStep, // Renamed to avoid conflict
-    closePaymentRequestFlow
   } = useAppContext();
   const { toast } = useToast();
 

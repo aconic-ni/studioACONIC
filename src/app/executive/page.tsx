@@ -1,3 +1,4 @@
+
 "use client";
 import React, { useEffect, useState, useMemo, useCallback, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
@@ -8,17 +9,23 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Loader2, FilePlus, Search, Edit, Eye, History, PlusSquare, UserCheck, Inbox, AlertTriangle, Download, ChevronsUpDown, Info, CheckCircle, CalendarRange, Calendar, CalendarDays, ShieldAlert, BookOpen, FileCheck2, MessageSquare, View, Banknote, Bell as BellIcon, RefreshCw, Send, StickyNote, Scale, Briefcase, KeyRound, Copy, Archive } from 'lucide-react';
 import { db } from '@/lib/firebase';
-import { collection, query, where, onSnapshot, orderBy, Timestamp, doc, getDoc, updateDoc, writeBatch, addDoc, getDocs, collectionGroup, documentId, setDoc } from 'firebase/firestore';
+import { collection, query, where, onSnapshot, orderBy, Timestamp, doc, getDoc, updateDoc, writeBatch, addDoc, getDocs, collectionGroup, documentId, serverTimestamp, setDoc } from 'firebase/firestore';
 import type { Worksheet, AforoCase, AforadorStatus, AforoCaseStatus, DigitacionStatus, WorksheetWithCase, AforoCaseUpdate, PreliquidationStatus, IncidentType, LastUpdateInfo, ExecutiveComment, InitialDataContext, AppUser, SolicitudRecord, ExamDocument, FacturacionStatus } from '@/types';
 import { format, toDate, isSameDay, startOfDay, endOfDay, differenceInDays, startOfMonth, endOfMonth } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { AforoCaseHistoryModal } from '@/components/reporter/AforoCaseHistoryModal';
 import { IncidentReportModal } from '@/components/reporter/IncidentReportModal';
+import { Badge } from '@/components/ui/badge';
 import { IncidentReportDetails } from '@/components/reporter/IncidentReportDetails';
 import { ValueDoubtModal } from '@/components/executive/ValueDoubtModal';
 import { Checkbox } from '@/components/ui/checkbox';
+import { downloadExecutiveReportAsExcel } from '@/lib/fileExporter';
+import { downloadCorporateReportAsExcel } from '@/lib/fileExporterCorporateReport';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { useToast } from '@/hooks/use-toast';
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuLabel } from '@/components/ui/dropdown-menu';
+import { Tooltip, TooltipProvider, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip';
+import { DatePickerWithRange } from '@/components/reports/DatePickerWithRange';
 import { WorksheetDetails } from '@/components/executive/WorksheetDetails';
 import { ExecutiveCommentModal } from '@/components/executive/ExecutiveCommentModal';
 import { QuickRequestModal } from '@/components/executive/QuickRequestModal';
@@ -27,17 +34,21 @@ import { PaymentListModal } from '@/components/executive/PaymentListModal';
 import { AnnouncementsCarousel } from '@/components/executive/AnnouncementsCarousel';
 import { AssignUserModal } from '@/components/reporter/AssignUserModal';
 import { ResaNotificationModal } from '@/components/executive/ResaNotificationModal';
+import { useIsMobile } from '@/hooks/use-mobile';
+import { MobileCasesList } from '@/components/executive/MobileCasesList';
+import { useAppContext } from '@/context/AppContext';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { ViewIncidentsModal } from '@/components/executive/ViewIncidentsModal';
-import { useAppContext } from '@/context/AppContext';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { StatusProcessModal } from '@/components/executive/StatusProcessModal';
 import { ExecutiveCasesTable } from '@/components/executive/ExecutiveCasesTable';
 import { ExecutiveFilters } from '@/components/executive/ExecutiveFilters';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { v4 as uuidv4 } from 'uuid';
+import { Label } from '@/components/ui/label';
+import { InitialDataForm as PaymentRequestFlow } from '@/components/examinerPay/InitialInfoForm';
 
 
 type DateFilterType = 'range' | 'month' | 'today';
@@ -59,7 +70,7 @@ function ExecutivePageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { toast } = useToast();
-  const { openAddProductModal, setInitialContextData, setIsMemorandumMode, caseToAssignAforador, setCaseToAssignAforador } = useAppContext();
+  const { isPaymentRequestFlowOpen, closePaymentRequestFlow, setInitialContextData, setIsMemorandumMode, caseToAssignAforador, setCaseToAssignAforador } = useAppContext();
   const [allCases, setAllCases] = useState<WorksheetWithCase[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isExporting, setIsExporting] = useState(false);
@@ -91,7 +102,7 @@ function ExecutivePageContent() {
   const [appliedFilters, setAppliedFilters] = useState({ searchTerm: '', facturado: false, noFacturado: true, conAcuse: false, sinAcuse: true, preliquidation: false, dateFilterType: 'range' as DateFilterType, dateRange: undefined as DateRange | undefined, isSearchActive: false });
   const [columnFilters, setColumnFilters] = useState({ ne: '', ejecutivo: '', consignatario: '', factura: '', selectividad: '', incidentType: '' });
   const [savingState, setSavingState] = useState<{ [key: string]: boolean }>({});
-  const [newNeForDuplicate, setNewNeForDuplicateState] = useState('');
+  const [newNeForDuplicate, setNewNeForDuplicate] = useState('');
   const [duplicateReason, setDuplicateReason] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(15);
@@ -333,9 +344,7 @@ function ExecutivePageContent() {
       else if (appliedFilters.facturado && !appliedFilters.noFacturado) finalFiltered = finalFiltered.filter(c => c.facturado === true);
       if (appliedFilters.conAcuse && !appliedFilters.sinAcuse) finalFiltered = finalFiltered.filter(c => c.entregadoAforoAt);
       else if (appliedFilters.sinAcuse && !appliedFilters.conAcuse) finalFiltered = finalFiltered.filter(c => !c.entregadoAforoAt);
-       if (appliedFilters.preliquidation) {
-            finalFiltered = finalFiltered.filter(c => c.revisorStatus === 'Aprobado' && c.preliquidationStatus !== 'Aprobada');
-        }
+      if (appliedFilters.preliquidation) finalFiltered = finalFiltered.filter(c => c.revisorStatus === 'Aprobado' && c.preliquidationStatus !== 'Aprobada');
       
       if (appliedFilters.dateRange?.from) { finalFiltered = finalFiltered.filter(item => item.createdAt?.toDate() >= appliedFilters.dateRange!.from! && item.createdAt?.toDate() <= (appliedFilters.dateRange!.to ? appliedFilters.dateRange!.to : appliedFilters.dateRange!.from!)); }
       
@@ -364,7 +373,7 @@ function ExecutivePageContent() {
     
     setSearchHint(null);
     return tabFiltered.slice(0, 15);
-  }, [allCases, appliedFilters, activeTab, columnFilters, acuseFilter, preliquidationFilter]);
+  }, [allCases, appliedFilters, activeTab, columnFilters]);
 
   const totalPages = Math.ceil(filteredCases.length / itemsPerPage);
   const paginatedCases = appliedFilters.isSearchActive ? filteredCases.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage) : filteredCases;
@@ -566,8 +575,8 @@ function ExecutivePageContent() {
     {modalState.valueDoubt && (<ValueDoubtModal isOpen={!!modalState.valueDoubt} onClose={() => setModalState(p => ({...p, valueDoubt: null}))} caseData={modalState.valueDoubt} />)}
     {modalState.comment && (<ExecutiveCommentModal isOpen={!!modalState.comment} onClose={() => setModalState(p => ({...p, comment: null}))} caseData={modalState.comment} />)}
     {modalState.quickRequest && (<QuickRequestModal isOpen={!!modalState.quickRequest} onClose={() => setModalState(p => ({...p, quickRequest: null}))} caseWithWorksheet={modalState.quickRequest} />)}
-    {modalState.payment && (<PaymentRequestModal isOpen={!!modalState.payment} onClose={() => setModalState(p => ({...p, payment: null}))} />)}
-    {isRequestPaymentModalOpen && (<PaymentRequestModal isOpen={isRequestPaymentModalOpen} onClose={() => setIsRequestPaymentModalOpen(false)} />)}
+    {modalState.payment && (<PaymentRequestModal isOpen={!!modalState.payment} onClose={() => setModalState(p => ({...p, payment: null}))} caseData={modalState.payment} />)}
+    {isRequestPaymentModalOpen && (<PaymentRequestModal isOpen={isRequestPaymentModalOpen} onClose={() => setIsRequestPaymentModalOpen(false)} caseData={null} />)}
     {modalState.paymentList && (<PaymentListModal isOpen={!!modalState.paymentList} onClose={() => setModalState(p => ({...p, paymentList: null}))} caseData={modalState.paymentList} />)}
     {modalState.resa && (<ResaNotificationModal isOpen={!!modalState.resa} onClose={() => setModalState(p => ({...p, resa: null}))} caseData={modalState.resa} />)}
     {caseToAssignAforador && (<AssignUserModal isOpen={!!caseToAssignAforador} onClose={() => setCaseToAssignAforador(null)} caseData={caseToAssignAforador} assignableUsers={assignableUsers} onAssign={() => {}} title="Asignar Aforador (PSMT)" description={`Como el consignatario es PSMT, debe asignar un aforador para el caso NE: ${caseToAssignAforador.ne}.`}/>)}
@@ -583,13 +592,19 @@ function ExecutivePageContent() {
                 </DialogDescription>
             </DialogHeader>
             <div className="py-4 space-y-4">
-                <div><Label htmlFor="new-ne">Nuevo NE</Label><Input id="new-ne" value={newNeForDuplicate} onChange={e => setNewNeForDuplicateState(e.target.value)} placeholder="Ingrese el nuevo NE" /></div>
+                <div><Label htmlFor="new-ne">Nuevo NE</Label><Input id="new-ne" value={newNeForDuplicate} onChange={e => setNewNeForDuplicate(e.target.value)} placeholder="Ingrese el nuevo NE" /></div>
                 <div><Label htmlFor="reason">Motivo</Label><Textarea id="reason" value={duplicateReason} onChange={e => setDuplicateReason(e.target.value)} placeholder="Explique brevemente el motivo de la duplicación" /></div>
             </div>
             <DialogFooter><Button variant="outline" onClick={() => setDuplicateAndRetireModalOpen(false)}>Cancelar</Button><Button onClick={handleDuplicateAndRetire} disabled={savingState[caseToDuplicate?.id || '']}>Duplicar y Retirar</Button></DialogFooter>
         </DialogContent>
       </Dialog>
       <Dialog open={isDeathkeyModalOpen} onOpenChange={setIsDeathkeyModalOpen}><DialogContent><DialogHeader><AlertDialogTitle>Confirmar Acción "Deathkey"</AlertDialogTitle><DialogDescription>Esta acción reclasificará {selectedRows.length} caso(s) a "Reporte Corporativo", excluyéndolos de la lógica de Aforo. Es irreversible. Ingrese el PIN para confirmar.</DialogDescription></DialogHeader><div className="py-4 space-y-2"><Label htmlFor="pin-input" className="flex items-center gap-2"><KeyRound/>PIN de Seguridad</Label><Input id="pin-input" type="password" value={pinInput} onChange={(e) => setPinInput(e.target.value)} placeholder="PIN de 6 dígitos"/></div><DialogFooter><Button variant="outline" onClick={() => setIsDeathkeyModalOpen(false)}>Cancelar</Button><Button variant="destructive" onClick={handleDeathkey} disabled={isLoading}>{isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin"/>}Confirmar y Ejecutar</Button></DialogFooter></DialogContent></Dialog>
+      {isPaymentRequestFlowOpen && (
+        <PaymentRequestFlow
+          isOpen={isPaymentRequestFlowOpen}
+          onClose={closePaymentRequestFlow}
+        />
+      )}
     </>
   );
 }
