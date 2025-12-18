@@ -9,12 +9,12 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Loader2, FilePlus, Search, Edit, Eye, History, PlusSquare, UserCheck, Inbox, AlertTriangle, Download, ChevronsUpDown, Info, CheckCircle, CalendarRange, Calendar, CalendarDays, ShieldAlert, BookOpen, FileCheck2, MessageSquare, View, Banknote, Bell as BellIcon, RefreshCw, Send, StickyNote } from 'lucide-react';
 import { db } from '@/lib/firebase';
 import { collection, query, where, onSnapshot, orderBy, Timestamp, doc, getDoc, updateDoc, writeBatch, addDoc, getDocs, collectionGroup } from 'firebase/firestore';
-import type { Worksheet, AforoCase, AforadorStatus, AforoCaseStatus, DigitacionStatus, WorksheetWithCase, AforoCaseUpdate, PreliquidationStatus, IncidentType, LastUpdateInfo, ExecutiveComment, InitialDataContext, AppUser, SolicitudRecord, ExamDocument, FacturacionStatus } from '@/types';
+import type { Worksheet, no existe, AforadorStatus, no existeStatus, DigitacionStatus, WorksheetWithCase, no existeUpdate, PreliquidationStatus, IncidentType, LastUpdateInfo, ExecutiveComment, InitialDataContext, AppUser, SolicitudRecord, ExamDocument, FacturacionStatus } from '@/types';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { format, toDate, isSameDay, startOfDay, endOfDay, startOfMonth, endOfMonth } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { Input } from '@/components/ui/input';
-import { AforoCaseHistoryModal } from '@/components/reporter/AforoCaseHistoryModal';
+import { no existeHistoryModal } from '@/components/reporter/no existeHistoryModal';
 import { IncidentReportModal } from '@/components/reporter/IncidentReportModal';
 import { Badge } from '@/components/ui/badge';
 import { IncidentReportDetails } from '@/components/reporter/IncidentReportDetails';
@@ -98,19 +98,19 @@ export default function ExecutivePage() {
   
   const [assignableUsers, setAssignableUsers] = useState<AppUser[]>([]);
 
-  const [selectedCaseForHistory, setSelectedCaseForHistory] = useState<AforoCase | null>(null);
-  const [selectedCaseForIncident, setSelectedCaseForIncident] = useState<AforoCase | null>(null);
-  const [selectedCaseForValueDoubt, setSelectedCaseForValueDoubt] = useState<AforoCase | null>(null);
-  const [selectedIncidentForDetails, setSelectedIncidentForDetails] = useState<AforoCase | null>(null);
-  const [selectedCaseForDocs, setSelectedCaseForDocs] = useState<AforoCase | null>(null);
+  const [selectedCaseForHistory, setSelectedCaseForHistory] = useState<no existe | null>(null);
+  const [selectedCaseForIncident, setSelectedCaseForIncident] = useState<no existe | null>(null);
+  const [selectedCaseForValueDoubt, setSelectedCaseForValueDoubt] = useState<no existe | null>(null);
+  const [selectedIncidentForDetails, setSelectedIncidentForDetails] = useState<no existe | null>(null);
+  const [selectedCaseForDocs, setSelectedCaseForDocs] = useState<no existe | null>(null);
   const [selectedWorksheet, setSelectedWorksheet] = useState<Worksheet | null>(null);
-  const [selectedCaseForComment, setSelectedCaseForComment] = useState<AforoCase | null>(null);
+  const [selectedCaseForComment, setSelectedCaseForComment] = useState<no existe | null>(null);
   const [selectedCaseForQuickRequest, setSelectedCaseForQuickRequest] = useState<WorksheetWithCase | null>(null);
-  const [selectedCaseForPayment, setSelectedCaseForPayment] = useState<AforoCase | null>(null);
-  const [selectedCaseForPaymentList, setSelectedCaseForPaymentList] = useState<AforoCase | null>(null);
-  const [selectedCaseForResa, setSelectedCaseForResa] = useState<AforoCase | null>(null);
+  const [selectedCaseForPayment, setSelectedCaseForPayment] = useState<no existe | null>(null);
+  const [selectedCaseForPaymentList, setSelectedCaseForPaymentList] = useState<no existe | null>(null);
+  const [selectedCaseForResa, setSelectedCaseForResa] = useState<no existe | null>(null);
   const [isRequestPaymentModalOpen, setIsRequestPaymentModalOpen] = useState(false);
-  const [selectedCaseForViewIncidents, setSelectedCaseForViewIncidents] = useState<AforoCase | null>(null);
+  const [selectedCaseForViewIncidents, setSelectedCaseForViewIncidents] = useState<no existe | null>(null);
 
 
 
@@ -149,16 +149,16 @@ export default function ExecutivePage() {
     if (user.role === 'ejecutivo' && user.visibilityGroup && user.visibilityGroup.length > 0) {
         const groupDisplayNames = Array.from(new Set([user.displayName, ...user.visibilityGroup].filter(Boolean) as string[]));
         aforoQuery = groupDisplayNames.length > 0
-            ? query(collection(db, 'AforoCases'), where('executive', 'in', groupDisplayNames), orderBy('createdAt', 'desc'))
-            : query(collection(db, 'AforoCases'), where('executive', '==', user.displayName), orderBy('createdAt', 'desc'));
+            ? query(collection(db, 'no existes'), where('executive', 'in', groupDisplayNames), orderBy('createdAt', 'desc'))
+            : query(collection(db, 'no existes'), where('executive', '==', user.displayName), orderBy('createdAt', 'desc'));
     } else if (user.role === 'ejecutivo') {
-        aforoQuery = query(collection(db, 'AforoCases'), where('executive', '==', user.displayName), orderBy('createdAt', 'desc'));
+        aforoQuery = query(collection(db, 'no existes'), where('executive', '==', user.displayName), orderBy('createdAt', 'desc'));
     } else {
-        aforoQuery = query(collection(db, 'AforoCases'), orderBy('createdAt', 'desc'));
+        aforoQuery = query(collection(db, 'no existes'), orderBy('createdAt', 'desc'));
     }
 
     const unsubscribe = onSnapshot(aforoQuery, async (aforoSnapshot) => {
-        const aforoCasesData = aforoSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as AforoCase));
+        const no existesData = aforoSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as no existe));
         
         const [worksheetsSnap, examenesSnap, solicitudesSnap, memorandumSnap] = await Promise.all([
             getDocs(collection(db, 'worksheets')),
@@ -182,7 +182,7 @@ export default function ExecutivePage() {
             }
         });
 
-        const combinedData = aforoCasesData.map(caseItem => ({
+        const combinedData = no existesData.map(caseItem => ({
             ...caseItem,
             worksheet: worksheetsMap.get(caseItem.worksheetId || '') || null,
             examenPrevio: examenesMap.get(caseItem.id) || null,
@@ -225,7 +225,7 @@ export default function ExecutivePage() {
         toast({ title: 'Error', description: 'Debe estar autenticado.', variant: 'destructive' });
         return;
     }
-    const caseDocRef = doc(db, 'AforoCases', caseId);
+    const caseDocRef = doc(db, 'no existes', caseId);
     try {
         await updateDoc(caseDocRef, { 
             aforador: aforadorName,
@@ -241,17 +241,17 @@ export default function ExecutivePage() {
   };
 
 
-  const handleAutoSave = useCallback(async (caseId: string, field: keyof AforoCase, value: any) => {
+  const handleAutoSave = useCallback(async (caseId: string, field: keyof no existe, value: any) => {
     if (!user || !user.displayName) { toast({ title: "No autenticado", variant: 'destructive' }); return; }
     
     const originalCase = allCases.find(c => c.id === caseId);
     if (!originalCase) return;
 
-    const oldValue = originalCase[field as keyof AforoCase];
+    const oldValue = originalCase[field as keyof no existe];
     if (JSON.stringify(oldValue) === JSON.stringify(value)) return;
     
     setSavingState(prev => ({ ...prev, [caseId]: true }));
-    const caseDocRef = doc(db, 'AforoCases', caseId);
+    const caseDocRef = doc(db, 'no existes', caseId);
     const updatesSubcollectionRef = collection(caseDocRef, 'actualizaciones');
     const batch = writeBatch(db);
 
@@ -262,13 +262,13 @@ export default function ExecutivePage() {
         }
 
         if (field.toLowerCase().includes('status')) {
-          const lastUpdateField = `${''}${field}LastUpdate` as keyof AforoCase;
+          const lastUpdateField = `${''}${field}LastUpdate` as keyof no existe;
           updateData[lastUpdateField] = { by: user.displayName, at: Timestamp.now() }
         }
 
         batch.update(caseDocRef, updateData);
 
-        const updateLog:AforoCaseUpdate = {
+        const updateLog:no existeUpdate = {
             updatedAt: Timestamp.now(), 
             updatedBy: user.displayName, 
             field,
@@ -316,11 +316,11 @@ export default function ExecutivePage() {
     setIsExporting(true);
 
     try {
-        const casesWithDetails: (AforoCase & { dispatchCustoms?: string })[] = [];
-        const auditLogs: (AforoCaseUpdate & { caseNe: string })[] = [];
+        const casesWithDetails: (no existe & { dispatchCustoms?: string })[] = [];
+        const auditLogs: (no existeUpdate & { caseNe: string })[] = [];
 
         for (const caseItem of filteredCases) {
-            let caseDetails: AforoCase & { dispatchCustoms?: string } = { ...caseItem };
+            let caseDetails: no existe & { dispatchCustoms?: string } = { ...caseItem };
 
             if (caseItem.worksheetId) {
                 const wsDocRef = doc(db, 'worksheets', caseItem.worksheetId);
@@ -331,11 +331,11 @@ export default function ExecutivePage() {
             }
             casesWithDetails.push(caseDetails);
 
-            const logsQuery = query(collection(db, 'AforoCases', caseItem.id, 'actualizaciones'), orderBy('updatedAt', 'asc'));
+            const logsQuery = query(collection(db, 'no existes', caseItem.id, 'actualizaciones'), orderBy('updatedAt', 'asc'));
             const logSnapshot = await getDocs(logsQuery);
             logSnapshot.forEach(logDoc => {
                 auditLogs.push({
-                    ...(logDoc.data() as AforoCaseUpdate),
+                    ...(logDoc.data() as no existeUpdate),
                     caseNe: caseItem.ne
                 });
             });
@@ -350,7 +350,7 @@ export default function ExecutivePage() {
     }
 };
 
-  const handleViewWorksheet = async (caseItem: AforoCase) => {
+  const handleViewWorksheet = async (caseItem: no existe) => {
     if (!caseItem.worksheetId) {
         toast({ title: "Error", description: "Este caso no tiene una hoja de trabajo asociada.", variant: "destructive" });
         return;
@@ -364,7 +364,7 @@ export default function ExecutivePage() {
     }
   };
   
-  const handleViewIncidents = (caseItem: AforoCase) => {
+  const handleViewIncidents = (caseItem: no existe) => {
     const hasRectificacion = caseItem.incidentType === 'Rectificacion';
     const hasDuda = caseItem.hasValueDoubt;
 
@@ -397,7 +397,7 @@ export default function ExecutivePage() {
 
     setSavingState(prev => ({...prev, [caseId]: true}));
     
-    const caseDocRef = doc(db, 'AforoCases', caseId);
+    const caseDocRef = doc(db, 'no existes', caseId);
     try {
         await updateDoc(caseDocRef, {
             facturacionStatus: 'Enviado a Facturacion',
@@ -413,7 +413,7 @@ export default function ExecutivePage() {
     }
   }
 
-  const getIncidentTypeDisplay = (c: AforoCase) => {
+  const getIncidentTypeDisplay = (c: no existe) => {
     const types = [];
     if (c.incidentType === 'Rectificacion') types.push('Rectificación');
     if (c.hasValueDoubt) types.push('Duda de Valor');
@@ -468,7 +468,7 @@ export default function ExecutivePage() {
     return filtered.sort((a, b) => (b.createdAt?.toMillis() ?? 0) - (a.createdAt?.toMillis() ?? 0));
   }, [allCases, appliedFilters]);
   
-  const getRevisorStatusBadgeVariant = (status?: AforoCaseStatus) => {
+  const getRevisorStatusBadgeVariant = (status?: no existeStatus) => {
     switch (status) { case 'Aprobado': return 'default'; case 'Rechazado': return 'destructive'; case 'Revalidación Solicitada': return 'secondary'; default: return 'outline'; }
   };
   const getAforadorStatusBadgeVariant = (status?: AforadorStatus) => {
@@ -906,7 +906,7 @@ export default function ExecutivePage() {
       </div>
     </AppShell>
     {selectedCaseForDocs && (<ManageDocumentsModal isOpen={!!selectedCaseForDocs} onClose={() => setSelectedCaseForDocs(null)} caseData={selectedCaseForDocs} />)}
-    {selectedCaseForHistory && (<AforoCaseHistoryModal isOpen={!!selectedCaseForHistory} onClose={() => setSelectedCaseForHistory(null)} caseData={selectedCaseForHistory} />)}
+    {selectedCaseForHistory && (<no existeHistoryModal isOpen={!!selectedCaseForHistory} onClose={() => setSelectedCaseForHistory(null)} caseData={selectedCaseForHistory} />)}
     {selectedCaseForIncident && (<IncidentReportModal isOpen={!!selectedCaseForIncident} onClose={() => setSelectedCaseForIncident(null)} caseData={selectedCaseForIncident} />)}
     {selectedCaseForValueDoubt && (<ValueDoubtModal isOpen={!!selectedCaseForValueDoubt} onClose={() => setSelectedCaseForValueDoubt(null)} caseData={selectedCaseForValueDoubt} />)}
     {selectedCaseForComment && (<ExecutiveCommentModal isOpen={!!selectedCaseForComment} onClose={() => setSelectedCaseForComment(null)} caseData={selectedCaseForComment} />)}

@@ -1,7 +1,7 @@
 
 "use client"
 import React from 'react';
-import type { AforoCase, AforoCaseStatus, AforadorStatus, DigitacionStatus, PreliquidationStatus } from '@/types';
+import type { no existe, no existeStatus, AforadorStatus, DigitacionStatus, PreliquidationStatus } from '@/types';
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -31,23 +31,23 @@ import { StatusBadges } from '../executive/StatusBadges';
 
 
 interface MobileAforoCardProps {
-    caseItem: AforoCase;
+    caseItem: no existe;
     savingState: { [key: string]: boolean };
     canEditFields: boolean;
-    handleAutoSave: (caseId: string, field: keyof AforoCase, value: any, isTriggerFromFieldUpdate?: boolean) => void;
+    handleAutoSave: (caseId: string, field: keyof no existe, value: any, isTriggerFromFieldUpdate?: boolean) => void;
     handleValidatePattern: (caseId: string) => void;
-    openAssignmentModal: (caseItem: AforoCase, type: 'aforador' | 'revisor') => void;
-    openHistoryModal: (caseItem: AforoCase) => void;
-    openIncidentModal: (caseItem: AforoCase) => void;
-    openAforadorCommentModal: (caseItem: AforoCase) => void;
-    openObservationModal: (caseItem: AforoCase) => void;
-    handleRequestRevalidation: (caseItem: AforoCase) => void;
-    handleAssignToDigitization: (caseItem: AforoCase) => void;
-    handleViewWorksheet: (caseItem: AforoCase) => void;
-    setSelectedIncidentForDetails: (caseItem: AforoCase) => void;
+    openAssignmentModal: (caseItem: no existe, type: 'aforador' | 'revisor') => void;
+    openHistoryModal: (caseItem: no existe) => void;
+    openIncidentModal: (caseItem: no existe) => void;
+    openAforadorCommentModal: (caseItem: no existe) => void;
+    openObservationModal: (caseItem: no existe) => void;
+    handleRequestRevalidation: (caseItem: no existe) => void;
+    handleAssignToDigitization: (caseItem: no existe) => void;
+    handleViewWorksheet: (caseItem: no existe) => void;
+    setSelectedIncidentForDetails: (caseItem: no existe) => void;
 }
 
-const getRevisorStatusBadgeVariant = (status?: AforoCaseStatus) => {
+const getRevisorStatusBadgeVariant = (status?: no existeStatus) => {
     switch (status) { case 'Aprobado': return 'default'; case 'Rechazado': return 'destructive'; case 'Revalidación Solicitada': return 'secondary'; default: return 'outline'; }
 };
 const getAforadorStatusBadgeVariant = (status?: AforadorStatus) => {

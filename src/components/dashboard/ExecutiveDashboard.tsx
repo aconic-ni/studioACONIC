@@ -1,7 +1,7 @@
 
 "use client";
 import { useState, useMemo, useCallback, useEffect } from 'react';
-import type { AforoCase, Worksheet, SolicitudRecord, AppUser } from '@/types';
+import type { no existe, Worksheet, SolicitudRecord, AppUser } from '@/types';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { DatePickerWithRange } from '@/components/reports/DatePickerWithRange';
@@ -15,7 +15,7 @@ import { AforoPieChartCard } from './AforoPieChartCard';
 
 
 interface ExecutiveDashboardProps {
-    allCases: AforoCase[];
+    allCases: no existe[];
     allWorksheets: Worksheet[];
     allSolicitudes: SolicitudRecord[];
 }

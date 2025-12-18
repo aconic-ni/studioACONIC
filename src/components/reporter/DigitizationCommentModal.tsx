@@ -14,7 +14,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/context/AuthContext';
 import { db } from '@/lib/firebase';
 import { doc, updateDoc, addDoc, collection, Timestamp } from 'firebase/firestore';
-import type { AforoCase, AforoCaseUpdate } from '@/types';
+import type { no existe, no existeUpdate } from '@/types';
 import { Loader2 } from 'lucide-react';
 
 const commentSchema = z.object({
@@ -26,7 +26,7 @@ type CommentFormData = z.infer<typeof commentSchema>;
 interface DigitizationCommentModalProps {
   isOpen: boolean;
   onClose: () => void;
-  caseData: AforoCase;
+  caseData: no existe;
 }
 
 export function DigitizationCommentModal({ isOpen, onClose, caseData }: DigitizationCommentModalProps) {
@@ -53,7 +53,7 @@ export function DigitizationCommentModal({ isOpen, onClose, caseData }: Digitiza
     }
 
     setIsSubmitting(true);
-    const caseDocRef = doc(db, 'AforoCases', caseData.id);
+    const caseDocRef = doc(db, 'no existes', caseData.id);
     const updatesSubcollectionRef = collection(caseDocRef, 'actualizaciones');
 
     try {
@@ -62,7 +62,7 @@ export function DigitizationCommentModal({ isOpen, onClose, caseData }: Digitiza
             digitacionStatusLastUpdate: { by: user.displayName, at: Timestamp.now() }
         });
 
-        const updateLog: AforoCaseUpdate = {
+        const updateLog: no existeUpdate = {
             updatedAt: Timestamp.now(),
             updatedBy: user.displayName,
             field: 'digitacionComment',

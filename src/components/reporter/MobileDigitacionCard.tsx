@@ -1,6 +1,6 @@
 "use client";
 import React from 'react';
-import type { AforoCase, DigitacionStatus } from '@/types';
+import type { no existe, DigitacionStatus } from '@/types';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -10,15 +10,15 @@ import { Input } from '../ui/input';
 import { History, Edit, User, PlusSquare } from 'lucide-react';
 
 interface MobileDigitacionCardProps {
-  caseItem: AforoCase;
+  caseItem: no existe;
   canEdit: boolean;
   isDigitador: boolean;
   savingState: { [key: string]: boolean };
   handleStatusChange: (caseId: string, value: DigitacionStatus) => void;
-  handleAutoSave: (caseId: string, field: keyof AforoCase, value: any) => void;
-  openCommentModal: (caseItem: AforoCase) => void;
-  openHistoryModal: (caseItem: AforoCase) => void;
-  setSelectedCaseForAssignment: (caseItem: AforoCase) => void;
+  handleAutoSave: (caseId: string, field: keyof no existe, value: any) => void;
+  openCommentModal: (caseItem: no existe) => void;
+  openHistoryModal: (caseItem: no existe) => void;
+  setSelectedCaseForAssignment: (caseItem: no existe) => void;
 }
 
 const DetailRow: React.FC<{ label: string; children: React.ReactNode }> = ({ label, children }) => (

@@ -39,7 +39,7 @@
       "density": "SPARSE_ALL"
     },
     {
-      "collectionGroup": "AforoCases",
+      "collectionGroup": "no existes",
       "queryScope": "COLLECTION",
       "fields": [
         {
@@ -62,7 +62,7 @@
       "density": "SPARSE_ALL"
     },
     {
-      "collectionGroup": "AforoCases",
+      "collectionGroup": "no existes",
       "queryScope": "COLLECTION",
       "fields": [
         {
@@ -81,7 +81,7 @@
       "density": "SPARSE_ALL"
     },
     {
-      "collectionGroup": "AforoCases",
+      "collectionGroup": "no existes",
       "queryScope": "COLLECTION",
       "fields": [
         {
@@ -100,7 +100,7 @@
       "density": "SPARSE_ALL"
     },
     {
-      "collectionGroup": "AforoCases",
+      "collectionGroup": "no existes",
       "queryScope": "COLLECTION",
       "fields": [
         {
@@ -119,7 +119,7 @@
       "density": "SPARSE_ALL"
     },
     {
-      "collectionGroup": "AforoCases",
+      "collectionGroup": "no existes",
       "queryScope": "COLLECTION",
       "fields": [
         {
@@ -138,7 +138,7 @@
       "density": "SPARSE_ALL"
     },
     {
-      "collectionGroup": "AforoCases",
+      "collectionGroup": "no existes",
       "queryScope": "COLLECTION",
       "fields": [
         {
@@ -157,7 +157,7 @@
       "density": "SPARSE_ALL"
     },
     {
-      "collectionGroup": "AforoCases",
+      "collectionGroup": "no existes",
       "queryScope": "COLLECTION",
       "fields": [
         {
@@ -180,7 +180,7 @@
       "density": "SPARSE_ALL"
     },
     {
-      "collectionGroup": "AforoCases",
+      "collectionGroup": "no existes",
       "queryScope": "COLLECTION",
       "fields": [
         {
@@ -207,7 +207,7 @@
       "density": "SPARSE_ALL"
     },
     {
-      "collectionGroup": "AforoCases",
+      "collectionGroup": "no existes",
       "queryScope": "COLLECTION",
       "fields": [
         {
@@ -226,7 +226,7 @@
       "density": "SPARSE_ALL"
     },
     {
-      "collectionGroup": "AforoCases",
+      "collectionGroup": "no existes",
       "queryScope": "COLLECTION",
       "fields": [
         {
@@ -249,7 +249,7 @@
       "density": "SPARSE_ALL"
     },
     {
-      "collectionGroup": "AforoCases",
+      "collectionGroup": "no existes",
       "queryScope": "COLLECTION",
       "fields": [
         {
@@ -268,7 +268,7 @@
       "density": "SPARSE_ALL"
     },
     {
-      "collectionGroup": "AforoCases",
+      "collectionGroup": "no existes",
       "queryScope": "COLLECTION",
       "fields": [
         {
@@ -287,7 +287,7 @@
       "density": "SPARSE_ALL"
     },
     {
-      "collectionGroup": "AforoCases",
+      "collectionGroup": "no existes",
       "queryScope": "COLLECTION",
       "fields": [
         {
@@ -306,7 +306,7 @@
       "density": "SPARSE_ALL"
     },
     {
-      "collectionGroup": "AforoCases",
+      "collectionGroup": "no existes",
       "queryScope": "COLLECTION",
       "fields": [
         {
@@ -329,7 +329,7 @@
       "density": "SPARSE_ALL"
     },
     {
-      "collectionGroup": "AforoCases",
+      "collectionGroup": "no existes",
       "queryScope": "COLLECTION",
       "fields": [
         {
@@ -348,7 +348,7 @@
       "density": "SPARSE_ALL"
     },
     {
-      "collectionGroup": "AforoCases",
+      "collectionGroup": "no existes",
       "queryScope": "COLLECTION",
       "fields": [
         {
@@ -367,7 +367,7 @@
       "density": "SPARSE_ALL"
     },
     {
-      "collectionGroup": "AforoCases",
+      "collectionGroup": "no existes",
       "queryScope": "COLLECTION",
       "fields": [
         {
@@ -386,7 +386,7 @@
       "density": "SPARSE_ALL"
     },
     {
-      "collectionGroup": "AforoCases",
+      "collectionGroup": "no existes",
       "queryScope": "COLLECTION",
       "fields": [
         {

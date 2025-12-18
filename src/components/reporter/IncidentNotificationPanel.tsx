@@ -6,7 +6,7 @@ import Link from 'next/link';
 import { db } from '@/lib/firebase';
 import { collection, query, where, onSnapshot, doc, updateDoc, addDoc, Timestamp } from 'firebase/firestore';
 import { useAuth } from '@/context/AuthContext';
-import type { AforoCase, IncidentStatus, AforoCaseUpdate } from '@/types';
+import type { no existe, IncidentStatus, no existeUpdate } from '@/types';
 import { Button } from '@/components/ui/button';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -19,7 +19,7 @@ import { cn } from '@/lib/utils';
 export function IncidentNotificationPanel({ isMobile = false }: { isMobile?: boolean }) {
   const { user } = useAuth();
   const { toast } = useToast();
-  const [incidents, setIncidents] = useState<AforoCase[]>([]);
+  const [incidents, setIncidents] = useState<no existe[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
@@ -27,15 +27,15 @@ export function IncidentNotificationPanel({ isMobile = false }: { isMobile?: boo
     
     setIsLoading(true);
     let q = query(
-      collection(db, 'AforoCases'),
+      collection(db, 'no existes'),
       where('incidentReported', '==', true),
       where('incidentStatus', '==', 'Pendiente')
     );
 
     const unsubscribe = onSnapshot(q, (snapshot) => {
-      const fetchedIncidents: AforoCase[] = [];
+      const fetchedIncidents: no existe[] = [];
       snapshot.forEach(doc => {
-        fetchedIncidents.push({ id: doc.id, ...doc.data() } as AforoCase);
+        fetchedIncidents.push({ id: doc.id, ...doc.data() } as no existe);
       });
       setIncidents(fetchedIncidents);
       setIsLoading(false);
@@ -47,7 +47,7 @@ export function IncidentNotificationPanel({ isMobile = false }: { isMobile?: boo
   const handleReview = async (caseId: string, newStatus: IncidentStatus) => {
     if (!user || !user.displayName) return;
 
-    const caseDocRef = doc(db, 'AforoCases', caseId);
+    const caseDocRef = doc(db, 'no existes', caseId);
     const updatesSubcollectionRef = collection(caseDocRef, 'actualizaciones');
     const originalCase = incidents.find(inc => inc.id === caseId);
 
@@ -59,7 +59,7 @@ export function IncidentNotificationPanel({ isMobile = false }: { isMobile?: boo
         incidentStatusLastUpdate: { by: user.displayName, at: Timestamp.now() }
       });
 
-      const updateLog: AforoCaseUpdate = {
+      const updateLog: no existeUpdate = {
         updatedAt: Timestamp.now(),
         updatedBy: user.displayName,
         field: 'incident_report',

@@ -4,7 +4,7 @@
 import { useState, useEffect } from 'react';
 import { db } from '@/lib/firebase';
 import { doc, updateDoc, writeBatch, collection, Timestamp } from 'firebase/firestore';
-import type { AppUser, AforoCase, AforoCaseUpdate } from '@/types';
+import type { AppUser, no existe, no existeUpdate } from '@/types';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
@@ -18,7 +18,7 @@ import { ScrollArea } from '../ui/scroll-area';
 interface InvolvedUsersModalProps {
   isOpen: boolean;
   onClose: () => void;
-  caseData: AforoCase;
+  caseData: no existe;
   allUsers: AppUser[];
 }
 
@@ -55,7 +55,7 @@ export function InvolvedUsersModal({ isOpen, onClose, caseData, allUsers }: Invo
     if (!adminUser || !caseData) return;
     setIsSubmitting(true);
     
-    const caseDocRef = doc(db, 'AforoCases', caseData.id);
+    const caseDocRef = doc(db, 'no existes', caseData.id);
     const updatesSubcollectionRef = collection(caseDocRef, 'actualizaciones');
     const batch = writeBatch(db);
     
@@ -63,7 +63,7 @@ export function InvolvedUsersModal({ isOpen, onClose, caseData, allUsers }: Invo
 
     batch.update(caseDocRef, { involvedUsers: newInvolvedUids });
 
-    const updateLog: AforoCaseUpdate = {
+    const updateLog: no existeUpdate = {
         updatedAt: Timestamp.now(),
         updatedBy: adminUser.displayName || 'Admin',
         field: 'involvedUsers',

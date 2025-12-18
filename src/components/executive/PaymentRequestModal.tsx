@@ -10,7 +10,7 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/context/AuthContext';
-import type { AforoCase, InitialDataContext } from '@/types';
+import type { no existe, InitialDataContext } from '@/types';
 import { StickyNote } from 'lucide-react';
 import { useAppContext } from '@/context/AppContext';
 import { useRouter } from 'next/navigation';
@@ -28,7 +28,7 @@ type PaymentRequestFormData = z.infer<typeof paymentRequestSchema>;
 interface PaymentRequestModalProps {
   isOpen: boolean;
   onClose: () => void;
-  caseData: AforoCase | null;
+  caseData: no existe | null;
 }
 
 export function PaymentRequestModal({ isOpen, onClose, caseData }: PaymentRequestModalProps) {

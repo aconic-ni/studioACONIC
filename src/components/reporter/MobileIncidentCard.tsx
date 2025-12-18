@@ -2,7 +2,7 @@
 "use client";
 
 import React from 'react';
-import type { AforoCase, IncidentStatus } from '@/types';
+import type { no existe, IncidentStatus } from '@/types';
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -12,8 +12,8 @@ import { es } from 'date-fns/locale';
 import { Eye, Clock, CheckCircle, XCircle, User } from 'lucide-react';
 
 interface MobileIncidentCardProps {
-  incident: AforoCase;
-  onReview: (incident: AforoCase) => void;
+  incident: no existe;
+  onReview: (incident: no existe) => void;
 }
 
 const formatDate = (timestamp: Timestamp | Date | null | undefined): string => {

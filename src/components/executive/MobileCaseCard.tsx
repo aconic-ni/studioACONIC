@@ -1,7 +1,7 @@
 
 "use client";
 import React from 'react';
-import type { AforoCase, AforoCaseStatus, AforadorStatus, DigitacionStatus, PreliquidationStatus, WorksheetWithCase } from '@/types';
+import type { no existe, no existeStatus, AforadorStatus, DigitacionStatus, PreliquidationStatus, WorksheetWithCase } from '@/types';
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -32,7 +32,7 @@ interface MobileCaseCardProps {
     caseData: WorksheetWithCase;
     savingState: { [key: string]: boolean };
     caseActions: any;
-    onAutoSave: (caseId: string, field: keyof AforoCase, value: any) => void;
+    onAutoSave: (caseId: string, field: keyof no existe, value: any) => void;
     approvePreliquidation: (caseId: string) => void;
 }
 
@@ -43,7 +43,7 @@ const formatDate = (date: Date | Timestamp | null | undefined, includeTime: bool
     return format(d, formatString, { locale: es });
 };
 
-const getRevisorStatusBadgeVariant = (status?: AforoCaseStatus) => {
+const getRevisorStatusBadgeVariant = (status?: no existeStatus) => {
     switch (status) { case 'Aprobado': return 'default'; case 'Rechazado': return 'destructive'; case 'Revalidación Solicitada': return 'secondary'; default: return 'outline'; }
 };
 const getAforadorStatusBadgeVariant = (status?: AforadorStatus) => {
@@ -61,7 +61,7 @@ const getPreliquidationStatusBadge = (status?: PreliquidationStatus) => {
     }
 };
 
-const getIncidentTypeDisplay = (c: AforoCase) => {
+const getIncidentTypeDisplay = (c: no existe) => {
     const types = [];
     if (c.incidentType === 'Rectificacion') types.push('Rectificación');
     if (c.hasValueDoubt) types.push('Duda de Valor');

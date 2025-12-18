@@ -6,7 +6,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tooltip, TooltipProvider, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import type { AforoCase, LastUpdateInfo } from '@/types';
+import type { no existe, LastUpdateInfo } from '@/types';
 import { ArrowRight, CheckCircle, Clock, Hourglass, XCircle, Loader2 } from "lucide-react";
 import { format, toDate } from 'date-fns';
 import { es } from 'date-fns/locale';
@@ -16,7 +16,7 @@ import { db } from '@/lib/firebase';
 interface StatusProcessModalProps {
     isOpen: boolean;
     onClose: () => void;
-    caseData: AforoCase;
+    caseData: no existe;
 }
 
 const formatDate = (date: Date | Timestamp | null | undefined): string => {
@@ -67,7 +67,7 @@ const StatusStep = ({ title, status, lastUpdate, icon }: { title: string; status
 }
 
 export function StatusProcessModal({ isOpen, onClose, caseData }: StatusProcessModalProps) {
-    const [aforoData, setAforoData] = useState<Partial<AforoCase> | null>(null);
+    const [aforoData, setAforoData] = useState<Partial<no existe> | null>(null);
     const [isLoading, setIsLoading] = useState(true);
 
     useEffect(() => {
@@ -78,7 +78,7 @@ export function StatusProcessModal({ isOpen, onClose, caseData }: StatusProcessM
         
         const unsubscribe = onSnapshot(aforoMetaRef, (docSnap) => {
             if (docSnap.exists()) {
-                setAforoData(docSnap.data() as Partial<AforoCase>);
+                setAforoData(docSnap.data() as Partial<no existe>);
             } else {
                 // If no subcollection data, fall back to the main case data for display
                 setAforoData(caseData);

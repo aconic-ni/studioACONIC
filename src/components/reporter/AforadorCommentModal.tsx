@@ -13,7 +13,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/context/AuthContext';
 import { db } from '@/lib/firebase';
 import { doc, updateDoc, addDoc, collection, Timestamp, writeBatch } from 'firebase/firestore';
-import type { AforoCase, AforoCaseUpdate } from '@/types';
+import type { no existe, no existeUpdate } from '@/types';
 import { Loader2 } from 'lucide-react';
 
 const commentSchema = z.object({
@@ -25,7 +25,7 @@ type CommentFormData = z.infer<typeof commentSchema>;
 interface AforadorCommentModalProps {
   isOpen: boolean;
   onClose: () => void;
-  caseData: AforoCase;
+  caseData: no existe;
 }
 
 export function AforadorCommentModal({ isOpen, onClose, caseData }: AforadorCommentModalProps) {
@@ -52,7 +52,7 @@ export function AforadorCommentModal({ isOpen, onClose, caseData }: AforadorComm
     }
 
     setIsSubmitting(true);
-    const caseDocRef = doc(db, 'AforoCases', caseData.id);
+    const caseDocRef = doc(db, 'no existes', caseData.id);
     const updatesSubcollectionRef = collection(caseDocRef, 'actualizaciones');
     const batch = writeBatch(db);
 
@@ -62,7 +62,7 @@ export function AforadorCommentModal({ isOpen, onClose, caseData }: AforadorComm
             aforadorStatusLastUpdate: { by: user.displayName, at: Timestamp.now() }
         });
 
-        const updateLog: AforoCaseUpdate = {
+        const updateLog: no existeUpdate = {
             updatedAt: Timestamp.now(),
             updatedBy: user.displayName,
             field: 'aforadorComment',

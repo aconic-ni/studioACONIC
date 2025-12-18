@@ -13,7 +13,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/context/AuthContext';
 import { db } from '@/lib/firebase';
 import { doc, updateDoc, getDoc, arrayUnion, writeBatch, collection, Timestamp } from 'firebase/firestore';
-import type { RequiredPermit, PermitComment, AforoCaseUpdate, Worksheet } from '@/types';
+import type { RequiredPermit, PermitComment, no existeUpdate, Worksheet } from '@/types';
 import { Loader2, Send } from 'lucide-react';
 import { v4 as uuidv4 } from 'uuid';
 import { ScrollArea } from '../ui/scroll-area';
@@ -91,10 +91,10 @@ export function PermitCommentModal({ isOpen, onClose, permit, worksheetId, onCom
         const batch = writeBatch(db);
         batch.update(worksheetRef, { requiredPermits: updatedPermits });
 
-        // Also add log to AforoCase
-        const caseDocRef = doc(db, 'AforoCases', worksheetId);
+        // Also add log to no existe
+        const caseDocRef = doc(db, 'no existes', worksheetId);
         const updatesSubcollectionRef = collection(caseDocRef, 'actualizaciones');
-        const updateLog: AforoCaseUpdate = {
+        const updateLog: no existeUpdate = {
             updatedAt: Timestamp.now(),
             updatedBy: user.displayName,
             field: 'document_update',

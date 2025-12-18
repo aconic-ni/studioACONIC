@@ -7,7 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Loader2, ArrowLeft, RefreshCw, Database } from 'lucide-react';
 import { db } from '@/lib/firebase';
 import { collection, getDocs, query, where, writeBatch, doc, getDoc, setDoc, documentId, collectionGroup, getCountFromServer } from 'firebase/firestore';
-import type { AforoCase, Worksheet } from '@/types';
+import type { no existe, Worksheet } from '@/types';
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
@@ -22,9 +22,9 @@ function EntregadoAforoMigrator() {
     const fetchStats = useCallback(async () => {
         setIsLoading(true);
         try {
-            const q = query(collection(db, 'AforoCases'), where('entregadoAforoAt', '!=', null));
+            const q = query(collection(db, 'no existes'), where('entregadoAforoAt', '!=', null));
             const querySnapshot = await getDocs(q);
-            const casesWithDate = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as AforoCase));
+            const casesWithDate = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as no existe));
             
             let worksheetsToUpdateCount = 0;
             for (const caseItem of casesWithDate) {
@@ -55,9 +55,9 @@ function EntregadoAforoMigrator() {
         toast({ title: 'Migración iniciada', description: 'Transfiriendo fechas de "Entregado a Aforo". Esto puede tardar unos minutos...'});
         
         try {
-            const q = query(collection(db, 'AforoCases'), where('entregadoAforoAt', '!=', null));
+            const q = query(collection(db, 'no existes'), where('entregadoAforoAt', '!=', null));
             const querySnapshot = await getDocs(q);
-            const casesToProcess = querySnapshot.docs.map(doc => doc.data() as AforoCase);
+            const casesToProcess = querySnapshot.docs.map(doc => doc.data() as no existe);
             
             let migratedCount = 0;
             const batch = writeBatch(db);
@@ -95,7 +95,7 @@ function EntregadoAforoMigrator() {
             <CardHeader>
                 <CardTitle>Migrador de Fechas "Entregado a Aforo"</CardTitle>
                 <CardDescription>
-                    Esta herramienta transfiere la fecha `entregadoAforoAt` desde `AforoCases` a los documentos `Worksheet` correspondientes.
+                    Esta herramienta transfiere la fecha `entregadoAforoAt` desde `no existes` a los documentos `Worksheet` correspondientes.
                 </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
@@ -125,9 +125,9 @@ function TotalPosicionesMigrator() {
     const fetchStats = useCallback(async () => {
         setIsLoading(true);
         try {
-            const q = query(collection(db, 'AforoCases'), where('totalPosiciones', '>', 0));
+            const q = query(collection(db, 'no existes'), where('totalPosiciones', '>', 0));
             const querySnapshot = await getDocs(q);
-            const casesWithData = querySnapshot.docs.map(doc => doc.data() as AforoCase);
+            const casesWithData = querySnapshot.docs.map(doc => doc.data() as no existe);
             
             let worksheetsToUpdateCount = 0;
             for (const caseItem of casesWithData) {
@@ -157,9 +157,9 @@ function TotalPosicionesMigrator() {
         toast({ title: 'Migración iniciada', description: 'Transfiriendo el total de posiciones...'});
         
         try {
-            const q = query(collection(db, 'AforoCases'), where('totalPosiciones', '>', 0));
+            const q = query(collection(db, 'no existes'), where('totalPosiciones', '>', 0));
             const querySnapshot = await getDocs(q);
-            const casesToProcess = querySnapshot.docs.map(doc => doc.data() as AforoCase);
+            const casesToProcess = querySnapshot.docs.map(doc => doc.data() as no existe);
             
             const batch = writeBatch(db);
             let migratedCount = 0;
@@ -195,7 +195,7 @@ function TotalPosicionesMigrator() {
             <CardHeader>
                 <CardTitle>Migrador de Total de Posiciones</CardTitle>
                 <CardDescription>
-                    Esta herramienta transfiere el valor de `totalPosiciones` desde `AforoCases` a la subcolección `aforo/metadata` en `Worksheets`.
+                    Esta herramienta transfiere el valor de `totalPosiciones` desde `no existes` a la subcolección `aforo/metadata` en `Worksheets`.
                 </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
@@ -225,7 +225,7 @@ function WorksheetTypeSynchronizer() {
     const fetchStats = useCallback(async () => {
         setIsLoading(true);
         try {
-            const q = query(collection(db, 'AforoCases'));
+            const q = query(collection(db, 'no existes'));
             const querySnapshot = await getDocs(q);
             const allCases = querySnapshot.docs.map(doc => doc.data());
             const missingTypeCount = allCases.filter(c => !c.worksheetType).length;
@@ -246,7 +246,7 @@ function WorksheetTypeSynchronizer() {
         toast({ title: 'Sincronización iniciada', description: 'Buscando y actualizando casos. Esto puede tardar unos minutos...'});
         
         try {
-            const allCasesSnapshot = await getDocs(collection(db, 'AforoCases'));
+            const allCasesSnapshot = await getDocs(collection(db, 'no existes'));
             const casesToUpdate = allCasesSnapshot.docs.filter(doc => !doc.data().worksheetType);
 
             if (casesToUpdate.length === 0) {
@@ -321,8 +321,8 @@ function AforoDataMigrator() {
     const fetchStats = useCallback(async () => {
         setIsLoading(true);
         try {
-            const aforoSnapshot = await getDocs(query(collection(db, 'AforoCases')));
-            const allCases = aforoSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as AforoCase));
+            const aforoSnapshot = await getDocs(query(collection(db, 'no existes')));
+            const allCases = aforoSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as no existe));
             
             const relevantCases = allCases.filter(c => c.worksheetId);
             let casesToMigrateCount = 0;
@@ -370,10 +370,10 @@ function AforoDataMigrator() {
         toast({ title: 'Migración iniciada', description: 'Transfiriendo datos de aforo. Esto puede tardar unos minutos...'});
         
         try {
-            const q = query(collection(db, 'AforoCases'), where('worksheetId', '!=', null));
+            const q = query(collection(db, 'no existes'), where('worksheetId', '!=', null));
             const querySnapshot = await getDocs(q);
             const casesToProcess = querySnapshot.docs
-                .map(doc => ({ id: doc.id, ...doc.data() } as AforoCase))
+                .map(doc => ({ id: doc.id, ...doc.data() } as no existe))
                 .filter(c => c.worksheetId);
 
             let migratedCount = 0;
@@ -494,14 +494,14 @@ function BitacoraMigrator() {
         
         let migratedCount = 0;
         try {
-            const aforoCasesSnapshot = await getDocs(query(collection(db, 'AforoCases'), where('worksheetId', '!=', null)));
+            const no existesSnapshot = await getDocs(query(collection(db, 'no existes'), where('worksheetId', '!=', null)));
             
-            for (const caseDoc of aforoCasesSnapshot.docs) {
+            for (const caseDoc of no existesSnapshot.docs) {
                 const caseData = caseDoc.data();
                 const worksheetId = caseData.worksheetId;
 
                 if (worksheetId) {
-                    const sourceUpdatesRef = collection(db, 'AforoCases', caseDoc.id, 'actualizaciones');
+                    const sourceUpdatesRef = collection(db, 'no existes', caseDoc.id, 'actualizaciones');
                     // Corrected target path
                     const targetUpdatesRef = collection(db, 'worksheets', worksheetId, 'actualizaciones');
                     
@@ -537,7 +537,7 @@ function BitacoraMigrator() {
             <CardHeader>
                 <CardTitle>Migrador de Bitácora de Aforo</CardTitle>
                 <CardDescription>
-                    Esta herramienta transfiere la subcolección `actualizaciones` desde `AforoCases` a `worksheets/{'{ID}'}/actualizaciones`.
+                    Esta herramienta transfiere la subcolección `actualizaciones` desde `no existes` a `worksheets/{'{ID}'}/actualizaciones`.
                 </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">

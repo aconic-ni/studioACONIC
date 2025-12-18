@@ -9,7 +9,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogD
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { ArrowLeft, Printer, Loader2 } from 'lucide-react';
-import type { AforoCase, Remision, RemisionCase } from '@/types';
+import type { no existe, Remision, RemisionCase } from '@/types';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { useAuth } from '@/context/AuthContext';
@@ -18,7 +18,7 @@ import { db } from '@/lib/firebase';
 import { collection, addDoc, Timestamp, writeBatch, doc } from 'firebase/firestore';
 
 interface RemisionPrintProps {
-  cases: AforoCase[];
+  cases: no existe[];
   onClose: () => void;
 }
 
@@ -65,7 +65,7 @@ export const RemisionPrint: React.FC<RemisionPrintProps> = ({ cases, onClose }) 
 
       // Update the remisionId for each case included
       cases.forEach(caseItem => {
-        const caseDocRef = doc(db, 'AforoCases', caseItem.id);
+        const caseDocRef = doc(db, 'no existes', caseItem.id);
         batch.update(caseDocRef, { remisionId: newRemisionRef.id });
       });
 

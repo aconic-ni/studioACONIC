@@ -14,7 +14,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/context/AuthContext';
 import { db } from '@/lib/firebase';
 import { doc, updateDoc, addDoc, collection, Timestamp, writeBatch } from 'firebase/firestore';
-import type { AforoCase, AforoCaseUpdate } from '@/types';
+import type { no existe, no existeUpdate } from '@/types';
 import { Loader2 } from 'lucide-react';
 import { ScrollArea } from '../ui/scroll-area';
 
@@ -40,7 +40,7 @@ type IncidentFormData = z.infer<typeof incidentSchema>;
 interface IncidentReportModalProps {
   isOpen: boolean;
   onClose: () => void;
-  caseData: AforoCase;
+  caseData: no existe;
 }
 
 export function IncidentReportModal({ isOpen, onClose, caseData }: IncidentReportModalProps) {
@@ -83,12 +83,12 @@ export function IncidentReportModal({ isOpen, onClose, caseData }: IncidentRepor
     }
 
     setIsSubmitting(true);
-    const caseDocRef = doc(db, 'AforoCases', caseData.id);
+    const caseDocRef = doc(db, 'no existes', caseData.id);
     const updatesSubcollectionRef = collection(db, 'worksheets', caseData.worksheetId, 'actualizaciones');
     const batch = writeBatch(db);
 
     try {
-      const updatePayload: Partial<AforoCase> = {
+      const updatePayload: Partial<no existe> = {
         ...data,
         incidentType: 'Rectificacion',
         incidentReported: true,
@@ -100,7 +100,7 @@ export function IncidentReportModal({ isOpen, onClose, caseData }: IncidentRepor
       
       batch.update(caseDocRef, updatePayload);
 
-      const updateLog: AforoCaseUpdate = {
+      const updateLog: no existeUpdate = {
         updatedAt: Timestamp.now(),
         updatedBy: user.displayName,
         field: 'incident_report',

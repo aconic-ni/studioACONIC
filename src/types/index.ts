@@ -141,7 +141,7 @@ export interface ReportAccessRequest {
   processedAt?: Timestamp;
 }
 
-export type AforoCaseStatus = 'Pendiente' | 'Aprobado' | 'Rechazado' | 'Revalidación Solicitada' | 'Zona Franca';
+export type AforoDataStatus = 'Pendiente' | 'Aprobado' | 'Rechazado' | 'Revalidación Solicitada' | 'Zona Franca';
 export type AforadorStatus = 'En proceso' | 'Incompleto' | 'En revisión' | 'Pendiente ' | 'Zona Franca';
 export type DigitacionStatus = 'Pendiente de Digitación' | 'En Proceso' | 'Almacenado' | 'Completar Trámite' | 'Trámite Completo' | 'Pendiente';
 export type IncidentStatus = 'Pendiente' | 'Aprobada' | 'Rechazada';
@@ -159,7 +159,7 @@ export interface ExecutiveComment {
 }
 
 
-export interface AforoCase {
+export interface AforoData {
   id: string; // Will be the NE value
   ne: string;
   executive: string;
@@ -178,7 +178,7 @@ export interface AforoCase {
   
   revisorAsignado?: string | null;
   revisorAsignadoLastUpdate?: LastUpdateInfo | null;
-  revisorStatus?: AforoCaseStatus;
+  revisorStatus?: AforoDataStatus;
   revisorStatusLastUpdate?: LastUpdateInfo | null;
   
   observacionRevisor?: string | null;
@@ -250,10 +250,10 @@ export interface AforoCase {
   isArchived?: boolean;
 }
 
-export interface AforoCaseUpdate {
+export interface AforoDataUpdate {
     updatedAt: Timestamp | Date;
     updatedBy: string; // displayName of the user
-    field: keyof AforoCase | 'status_change' | 'creation' | 'incident_report' | 'document_update' | 'value_doubt_report';
+    field: keyof AforoData | 'status_change' | 'creation' | 'incident_report' | 'document_update' | 'value_doubt_report';
     oldValue: any;
     newValue: any;
     comment?: string; // For rejection reasons
@@ -383,10 +383,11 @@ export interface Worksheet {
   isArchived?: boolean;
 }
 
-export interface WorksheetWithCase extends AforoCase {
-    worksheet: Worksheet | null;
-    acuseDeRecibido?: boolean;
-    acuseLog?: AforoCaseUpdate | null;
+export interface WorksheetWithCase extends Worksheet {
+    aforo: AforoData | null;
+    acuseLog?: AforoDataUpdate | null;
+    pagos?: SolicitudRecord[];
+    examenPrevio?: ExamDocument | null;
 }
 
 export interface PreliquidacionItem {
@@ -416,10 +417,10 @@ export interface InitialDataContext {
   date: Date;
   recipient: string;
   isMemorandum: boolean;
-  // New fields for pre-filling data from AforoCase
+  // New fields for pre-filling data from AforoData
   consignee?: string;
   declaracionAduanera?: string | null;
-  caseId?: string; // To link back to the AforoCase
+  caseId?: string; // To link back to the AforoData
 }
 
 export interface SolicitudData {

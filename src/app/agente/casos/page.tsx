@@ -11,7 +11,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import type { AforoCaseStatus, PreliquidationStatus, DigitacionStatus, Worksheet, AforoCaseUpdate, WorksheetWithCase } from '@/types';
+import type { no existeStatus, PreliquidationStatus, DigitacionStatus, Worksheet, no existeUpdate, WorksheetWithCase } from '@/types';
 import { format, startOfDay, endOfDay, startOfMonth, endOfMonth } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { ObservationModal } from '@/components/reporter/ObservationModal';
@@ -21,7 +21,7 @@ import type { DateRange } from 'react-day-picker';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { IncidentReportDetails } from '@/components/reporter/IncidentReportDetails';
-import { AforoCaseHistoryModal } from '@/components/reporter/AforoCaseHistoryModal';
+import { no existeHistoryModal } from '@/components/reporter/no existeHistoryModal';
 import { useToast } from '@/hooks/use-toast';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { MobileAgenteCaseCard } from '@/components/agente/MobileAgenteCaseCard';
@@ -204,7 +204,7 @@ export default function AgenteCasosPage() {
     if (selectedRows.length === 0 || !user || !user.displayName) return;
     setIsBulkApproving(true);
     const batch = writeBatch(db);
-    const newStatus: AforoCaseStatus = 'Aprobado';
+    const newStatus: no existeStatus = 'Aprobado';
     const comment = "Aprobado masivamente por agente aduanero.";
 
     selectedRows.forEach(caseId => {
@@ -220,7 +220,7 @@ export default function AgenteCasosPage() {
             revisorStatusLastUpdate: { by: user.displayName, at: serverTimestamp() }
         });
 
-        const updateLog: Omit<AforoCaseUpdate, 'updatedAt'> & { updatedAt: any } = {
+        const updateLog: Omit<no existeUpdate, 'updatedAt'> & { updatedAt: any } = {
             updatedAt: serverTimestamp(),
             updatedBy: user.displayName || user.email || "Usuario desconocido",
             field: 'status_change',
@@ -275,7 +275,7 @@ export default function AgenteCasosPage() {
     }
   };
 
-  const getStatusBadgeVariant = (status?: AforoCaseStatus) => {
+  const getStatusBadgeVariant = (status?: no existeStatus) => {
     switch (status) {
         case 'Aprobado': return 'default';
         case 'Rechazado': return 'destructive';
@@ -458,7 +458,7 @@ export default function AgenteCasosPage() {
                 onClose={handleCloseObservationModal}
                 caseData={selectedCaseForAction}
             />
-            <AforoCaseHistoryModal
+            <no existeHistoryModal
                 isOpen={isHistoryModalOpen}
                 onClose={handleCloseHistoryModal}
                 caseData={selectedCaseForAction}

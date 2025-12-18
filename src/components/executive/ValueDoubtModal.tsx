@@ -13,7 +13,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/context/AuthContext';
 import { db } from '@/lib/firebase';
 import { doc, updateDoc, writeBatch, collection, Timestamp } from 'firebase/firestore';
-import type { AforoCase, AforoCaseUpdate, ValueDoubtStatus } from '@/types';
+import type { no existe, no existeUpdate, ValueDoubtStatus } from '@/types';
 import { Loader2 } from 'lucide-react';
 import { DatePicker } from '../reports/DatePicker';
 import { calculateDueDate } from '@/lib/date-utils';
@@ -37,7 +37,7 @@ type ValueDoubtFormData = z.infer<typeof valueDoubtSchema>;
 interface ValueDoubtModalProps {
   isOpen: boolean;
   onClose: () => void;
-  caseData: AforoCase;
+  caseData: no existe;
 }
 
 export function ValueDoubtModal({ isOpen, onClose, caseData }: ValueDoubtModalProps) {
@@ -80,7 +80,7 @@ export function ValueDoubtModal({ isOpen, onClose, caseData }: ValueDoubtModalPr
     }
 
     setIsSubmitting(true);
-    const caseDocRef = doc(db, 'AforoCases', caseData.id);
+    const caseDocRef = doc(db, 'no existes', caseData.id);
     const updatesSubcollectionRef = collection(db, 'worksheets', caseData.worksheetId, 'actualizaciones');
     const batch = writeBatch(db);
 
@@ -92,7 +92,7 @@ export function ValueDoubtModal({ isOpen, onClose, caseData }: ValueDoubtModalPr
             setIsSubmitting(false); return;
         }
 
-        const updatePayload: Partial<AforoCase> = {
+        const updatePayload: Partial<no existe> = {
             valueDoubtNotificationDate: Timestamp.fromDate(data.valueDoubtNotificationDate),
             valueDoubtAmount: data.valueDoubtAmount || null,
             valueDoubtDueDate: Timestamp.fromDate(dueDate),
@@ -114,7 +114,7 @@ export function ValueDoubtModal({ isOpen, onClose, caseData }: ValueDoubtModalPr
 
         batch.update(caseDocRef, updatePayload);
 
-        const updateLog: AforoCaseUpdate = {
+        const updateLog: no existeUpdate = {
             updatedAt: Timestamp.now(),
             updatedBy: user.displayName,
             field: 'value_doubt_report',

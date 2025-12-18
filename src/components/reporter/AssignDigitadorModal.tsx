@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback, useMemo } from 'react';
 import { db } from '@/lib/firebase';
 import { collection, query, where, onSnapshot, Timestamp, orderBy, doc, updateDoc, addDoc, getDocs, writeBatch, getCountFromServer, getDoc, documentId, type Query } from 'firebase/firestore';
 import { useAuth } from '@/context/AuthContext';
-import type { AforoCase, DigitacionStatus, AforoCaseUpdate, AppUser, LastUpdateInfo, Worksheet, WorksheetWithCase } from '@/types';
+import type { no existe, DigitacionStatus, no existeUpdate, AppUser, LastUpdateInfo, Worksheet, WorksheetWithCase } from '@/types';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Loader2, Inbox, History, Edit, User, PlusSquare, FileText, Info, Send, AlertTriangle, CheckSquare, ChevronsUpDown, Check, ChevronDown, ChevronRight, BookOpen, Search, MessageSquare, FileSignature, Repeat, Eye, Users, Scale, UserCheck, Shield, ShieldCheck, FileDigit, Truck, Anchor, Plane } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
@@ -13,7 +13,7 @@ import { es } from 'date-fns/locale';
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
-import { AforoCaseHistoryModal } from './AforoCaseHistoryModal';
+import { no existeHistoryModal } from './no existeHistoryModal';
 import { DigitizationCommentModal } from './DigitizationCommentModal';
 import { CompleteDigitizationModal } from './CompleteDigitizationModal';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -46,8 +46,8 @@ interface DigitizationCasesTableProps {
   filters: {
     ne?: string;
   };
-  setAllFetchedCases: (cases: AforoCase[]) => void;
-  displayCases: AforoCase[];
+  setAllFetchedCases: (cases: no existe[]) => void;
+  displayCases: no existe[];
 }
 
 const formatDate = (date: Date | Timestamp | null | undefined): string => {
@@ -87,13 +87,13 @@ export function DigitizationCasesTable({ filters, setAllFetchedCases, displayCas
   const [isLoading, setIsLoading] = useState(true);
   const [savingState, setSavingState] = useState<{ [key: string]: boolean }>({});
   
-  const [selectedCaseForHistory, setSelectedCaseForHistory] = useState<AforoCase | null>(null);
-  const [selectedCaseForComment, setSelectedCaseForComment] = useState<AforoCase | null>(null);
-  const [selectedCaseForCompletion, setSelectedCaseForCompletion] = useState<AforoCase | null>(null);
-  const [selectedCaseForAssignment, setSelectedCaseForAssignment] = useState<AforoCase | null>(null);
+  const [selectedCaseForHistory, setSelectedCaseForHistory] = useState<no existe | null>(null);
+  const [selectedCaseForComment, setSelectedCaseForComment] = useState<no existe | null>(null);
+  const [selectedCaseForCompletion, setSelectedCaseForCompletion] = useState<no existe | null>(null);
+  const [selectedCaseForAssignment, setSelectedCaseForAssignment] = useState<no existe | null>(null);
 
 
-  const handleAutoSave = useCallback(async (caseId: string, field: keyof AforoCase, value: any, isTriggerFromFieldUpdate: boolean = false) => {
+  const handleAutoSave = useCallback(async (caseId: string, field: keyof no existe, value: any, isTriggerFromFieldUpdate: boolean = false) => {
     if (!user || !user.displayName) {
         toast({ title: "No autenticado", description: "Debe iniciar sesión para guardar cambios." });
         return;
@@ -102,14 +102,14 @@ export function DigitizationCasesTable({ filters, setAllFetchedCases, displayCas
     const originalCase = displayCases.find(c => c.id === caseId);
     if (!originalCase) return;
 
-    const oldValue = originalCase[field as keyof AforoCase];
+    const oldValue = originalCase[field as keyof no existe];
     if (JSON.stringify(oldValue) === JSON.stringify(value)) {
         return;
     }
     
     setSavingState(prev => ({ ...prev, [caseId]: true }));
     
-    const caseDocRef = doc(db, 'AforoCases', caseId);
+    const caseDocRef = doc(db, 'no existes', caseId);
     const updatesSubcollectionRef = collection(caseDocRef, 'actualizaciones');
     const batch = writeBatch(db);
 
@@ -127,10 +127,10 @@ export function DigitizationCasesTable({ filters, setAllFetchedCases, displayCas
         
         batch.update(caseDocRef, updateData);
 
-        const updateLog: AforoCaseUpdate = {
+        const updateLog: no existeUpdate = {
             updatedAt: now,
             updatedBy: user.displayName,
-            field: field as keyof AforoCase,
+            field: field as keyof no existe,
             oldValue: oldValue ?? null,
             newValue: value,
         };
@@ -179,11 +179,11 @@ export function DigitizationCasesTable({ filters, setAllFetchedCases, displayCas
     let qCases;
 
     if (filters.ne?.trim()) {
-        qCases = query(collection(db, 'AforoCases'), where('ne', '==', filters.ne.trim().toUpperCase()));
+        qCases = query(collection(db, 'no existes'), where('ne', '==', filters.ne.trim().toUpperCase()));
     } else {
         const statuses = ['Pendiente de Digitación', 'En Proceso', 'Almacenado'];
         qCases = query(
-            collection(db, 'AforoCases'),
+            collection(db, 'no existes'),
             where('digitacionStatus', 'in', statuses),
             orderBy('revisorStatus', 'desc'), 
             orderBy('createdAt', 'desc')
@@ -191,9 +191,9 @@ export function DigitizationCasesTable({ filters, setAllFetchedCases, displayCas
     }
 
     const unsubscribe = onSnapshot(qCases, (snapshot) => {
-        const fetchedCases: AforoCase[] = [];
+        const fetchedCases: no existe[] = [];
         snapshot.forEach((doc) => {
-            fetchedCases.push({ id: doc.id, ...doc.data() } as AforoCase);
+            fetchedCases.push({ id: doc.id, ...doc.data() } as no existe);
         });
         setAllFetchedCases(fetchedCases);
         setIsLoading(false);
@@ -222,8 +222,8 @@ export function DigitizationCasesTable({ filters, setAllFetchedCases, displayCas
     }
   }
 
-  const openHistoryModal = (caseItem: AforoCase) => setSelectedCaseForHistory(caseItem);
-  const openCommentModal = (caseItem: AforoCase) => setSelectedCaseForComment(caseItem);
+  const openHistoryModal = (caseItem: no existe) => setSelectedCaseForHistory(caseItem);
+  const openCommentModal = (caseItem: no existe) => setSelectedCaseForComment(caseItem);
     
   if (isLoading) {
     return (
@@ -347,7 +347,7 @@ export function DigitizationCasesTable({ filters, setAllFetchedCases, displayCas
     </div>
     </TooltipProvider>
     {selectedCaseForHistory && (
-        <AforoCaseHistoryModal
+        <no existeHistoryModal
             isOpen={!!selectedCaseForHistory}
             onClose={() => setSelectedCaseForHistory(null)}
             caseData={selectedCaseForHistory}

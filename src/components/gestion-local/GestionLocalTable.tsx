@@ -1,7 +1,7 @@
 
 "use client";
 import React, { useState, useMemo, useRef } from 'react';
-import type { Worksheet, AforoCaseUpdate, LastUpdateInfo } from '@/types';
+import type { Worksheet, no existeUpdate, LastUpdateInfo } from '@/types';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Button } from '@/components/ui/button';

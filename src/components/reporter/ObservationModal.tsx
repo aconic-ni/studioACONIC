@@ -12,7 +12,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/context/AuthContext';
 import { db } from '@/lib/firebase';
 import { doc, updateDoc, addDoc, collection, Timestamp, writeBatch } from 'firebase/firestore';
-import type { AforoCase, AforoCaseStatus, AforoCaseUpdate, WorksheetWithCase } from '@/types';
+import type { no existe, no existeStatus, no existeUpdate, WorksheetWithCase } from '@/types';
 import { Loader2 } from 'lucide-react';
 import { Badge } from '../ui/badge';
 
@@ -49,7 +49,7 @@ export function ObservationModal({ isOpen, onClose, caseData }: ObservationModal
   const canEdit = user?.roleTitle === 'agente aduanero' || user?.role === 'admin' || user?.role === 'supervisor';
 
 
-  const handleStatusUpdate = async (newStatus: AforoCaseStatus, comment: string = '') => {
+  const handleStatusUpdate = async (newStatus: no existeStatus, comment: string = '') => {
     if (!user || !user.displayName) {
         toast({ title: 'Error', description: 'Debe estar autenticado.', variant: 'destructive' });
         return;
@@ -72,7 +72,7 @@ export function ObservationModal({ isOpen, onClose, caseData }: ObservationModal
             revisorStatusLastUpdate: { by: user.displayName, at: Timestamp.now() }
         });
 
-        const updateLog: AforoCaseUpdate = {
+        const updateLog: no existeUpdate = {
             updatedAt: Timestamp.now(),
             updatedBy: user.displayName,
             field: 'status_change',

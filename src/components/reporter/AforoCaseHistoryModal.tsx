@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { db } from '@/lib/firebase';
 import { collection, query, orderBy, onSnapshot, Timestamp } from 'firebase/firestore';
-import type { AforoCase, AforoCaseUpdate, WorksheetWithCase } from '@/types';
+import type { no existe, no existeUpdate, WorksheetWithCase } from '@/types';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -12,14 +12,14 @@ import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
 
-interface AforoCaseHistoryModalProps {
+interface no existeHistoryModalProps {
   isOpen: boolean;
   onClose: () => void;
-  caseData: AforoCase | null;
+  caseData: no existe | null;
 }
 
-export function AforoCaseHistoryModal({ isOpen, onClose, caseData }: AforoCaseHistoryModalProps) {
-  const [history, setHistory] = useState<AforoCaseUpdate[]>([]);
+export function no existeHistoryModal({ isOpen, onClose, caseData }: no existeHistoryModalProps) {
+  const [history, setHistory] = useState<no existeUpdate[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
@@ -33,9 +33,9 @@ export function AforoCaseHistoryModal({ isOpen, onClose, caseData }: AforoCaseHi
     const q = query(updatesRef, orderBy('updatedAt', 'desc'));
 
     const unsubscribe = onSnapshot(q, (querySnapshot) => {
-      const fetchedHistory: AforoCaseUpdate[] = [];
+      const fetchedHistory: no existeUpdate[] = [];
       querySnapshot.forEach((doc) => {
-        fetchedHistory.push(doc.data() as AforoCaseUpdate);
+        fetchedHistory.push(doc.data() as no existeUpdate);
       });
       setHistory(fetchedHistory);
       setIsLoading(false);
@@ -66,7 +66,7 @@ export function AforoCaseHistoryModal({ isOpen, onClose, caseData }: AforoCaseHi
       return String(value);
   }
 
-  const renderChange = (item: AforoCaseUpdate) => {
+  const renderChange = (item: no existeUpdate) => {
     if (item.field === 'creation') {
          return (
              <div className="pl-4 border-l-2 border-blue-500">
@@ -82,7 +82,7 @@ export function AforoCaseHistoryModal({ isOpen, onClose, caseData }: AforoCaseHi
 
     if (item.field === 'status_change') {
       let Icon, title, color;
-      switch(item.newValue as AforoCase['revisorStatus']) {
+      switch(item.newValue as no existe['revisorStatus']) {
         case 'Aprobado':
             Icon = CheckCircle; title = 'Caso Aprobado'; color = 'text-green-500';
             break;

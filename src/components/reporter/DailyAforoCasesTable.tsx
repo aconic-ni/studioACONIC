@@ -4,7 +4,7 @@ import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { db } from '@/lib/firebase';
 import { collection, query, where, onSnapshot, Timestamp, orderBy, doc, updateDoc, addDoc, getDocs, writeBatch, getCountFromServer, getDoc, documentId, type Query } from 'firebase/firestore';
 import { useAuth } from '@/context/AuthContext';
-import type { AforoCase, DigitacionStatus, AforoCaseUpdate, AppUser, LastUpdateInfo, Worksheet, WorksheetWithCase } from '@/types';
+import type { no existe, DigitacionStatus, no existeUpdate, AppUser, LastUpdateInfo, Worksheet, WorksheetWithCase } from '@/types';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Loader2, Inbox, History, Edit, User, PlusSquare, FileText, Info, Send, AlertTriangle, CheckSquare, ChevronsUpDown, Check, ChevronDown, ChevronRight, BookOpen, Search, MessageSquare, FileSignature, Repeat, Eye, Users, Scale, UserCheck, Shield, ShieldCheck, FileDigit, Truck, Anchor, Plane, KeyRound } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
@@ -13,7 +13,7 @@ import { es } from 'date-fns/locale';
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
-import { AforoCaseHistoryModal } from './AforoCaseHistoryModal';
+import { no existeHistoryModal } from './no existeHistoryModal';
 import { DigitizationCommentModal } from './DigitizationCommentModal';
 import { CompleteDigitizationModal } from './CompleteDigitizationModal';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -45,7 +45,7 @@ import { Label } from '../ui/label';
 import { AforadorCommentModal } from './AforadorCommentModal';
 
 
-interface DailyAforoCasesTableProps {
+interface Dailyno existesTableProps {
   cases: WorksheetWithCase[];
   isLoading: boolean;
   error: string | null;
@@ -82,7 +82,7 @@ const LastUpdateTooltip: React.FC<{ lastUpdate?: LastUpdateInfo | null; defaultU
 };
 
 
-export function DailyAforoCasesTable({ cases, isLoading, error, onRefresh }: DailyAforoCasesTableProps) {
+export function Dailyno existesTable({ cases, isLoading, error, onRefresh }: Dailyno existesTableProps) {
   const { user } = useAuth();
   const { toast } = useToast();
   const [assignableUsers, setAssignableUsers] = useState<AppUser[]>([]);
@@ -90,14 +90,14 @@ export function DailyAforoCasesTable({ cases, isLoading, error, onRefresh }: Dai
   const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
   const [selectedRows, setSelectedRows] = useState<string[]>([]);
   
-  const [selectedCaseForHistory, setSelectedCaseForHistory] = useState<AforoCase | null>(null);
-  const [selectedCaseForAforadorComment, setSelectedCaseForAforadorComment] = useState<AforoCase | null>(null);
-  const [selectedCaseForIncident, setSelectedCaseForIncident] = useState<AforoCase | null>(null);
+  const [selectedCaseForHistory, setSelectedCaseForHistory] = useState<no existe | null>(null);
+  const [selectedCaseForAforadorComment, setSelectedCaseForAforadorComment] = useState<no existe | null>(null);
+  const [selectedCaseForIncident, setSelectedCaseForIncident] = useState<no existe | null>(null);
   const [selectedWorksheet, setSelectedWorksheet] = useState<Worksheet | null>(null);
-  const [selectedIncidentForDetails, setSelectedIncidentForDetails] = useState<AforoCase | null>(null);
-  const [assignmentModal, setAssignmentModal] = useState<{ isOpen: boolean; case: AforoCase | null; type: 'aforador' | 'revisor' | 'bulk-aforador' | 'bulk-revisor' }>({ isOpen: false, case: null, type: 'aforador' });
+  const [selectedIncidentForDetails, setSelectedIncidentForDetails] = useState<no existe | null>(null);
+  const [assignmentModal, setAssignmentModal] = useState<{ isOpen: boolean; case: no existe | null; type: 'aforador' | 'revisor' | 'bulk-aforador' | 'bulk-revisor' }>({ isOpen: false, case: null, type: 'aforador' });
   const [statusModal, setStatusModal] = useState<{isOpen: boolean}>({isOpen: false});
-  const [involvedUsersModal, setInvolvedUsersModal] = useState<{ isOpen: boolean; caseData: AforoCase | null }>({ isOpen: false, caseData: null });
+  const [involvedUsersModal, setInvolvedUsersModal] = useState<{ isOpen: boolean; caseData: no existe | null }>({ isOpen: false, caseData: null });
   const [bulkActionResult, setBulkActionResult] = useState<{ isOpen: boolean, success: string[], skipped: string[] }>({ isOpen: false, success: [], skipped: [] });
   const [isDeathkeyModalOpen, setIsDeathkeyModalOpen] = useState(false);
   const isMobile = useIsMobile();
@@ -127,7 +127,7 @@ export function DailyAforoCasesTable({ cases, isLoading, error, onRefresh }: Dai
   }, []);
 
 
-  const handleAutoSave = useCallback(async (caseId: string, field: keyof AforoCase, value: any, isTriggerFromFieldUpdate: boolean = false) => {
+  const handleAutoSave = useCallback(async (caseId: string, field: keyof no existe, value: any, isTriggerFromFieldUpdate: boolean = false) => {
     if (!user || !user.displayName) {
         toast({ title: "No autenticado", description: "Debe iniciar sesión para guardar cambios." });
         return;
@@ -136,7 +136,7 @@ export function DailyAforoCasesTable({ cases, isLoading, error, onRefresh }: Dai
     const originalCase = cases.find(c => c.id === caseId);
     if (!originalCase) return;
 
-    const oldValue = originalCase[field as keyof AforoCase];
+    const oldValue = originalCase[field as keyof no existe];
     if (JSON.stringify(oldValue) === JSON.stringify(value)) {
         return;
     }
@@ -152,7 +152,7 @@ export function DailyAforoCasesTable({ cases, isLoading, error, onRefresh }: Dai
         const now = Timestamp.now();
         const userInfo = { by: user.displayName, at: now };
 
-        const statusFieldMap: {[key: string]: keyof AforoCase} = {
+        const statusFieldMap: {[key: string]: keyof no existe} = {
             'aforadorStatus': 'aforadorStatusLastUpdate',
             'revisorStatus': 'revisorStatusLastUpdate',
             'digitacionStatus': 'digitacionStatusLastUpdate',
@@ -169,10 +169,10 @@ export function DailyAforoCasesTable({ cases, isLoading, error, onRefresh }: Dai
 
         batch.set(caseDocRef, updateData, { merge: true });
 
-        const updateLog: AforoCaseUpdate = {
+        const updateLog: no existeUpdate = {
             updatedAt: now,
             updatedBy: user.displayName,
-            field: field as keyof AforoCase,
+            field: field as keyof no existe,
             oldValue: oldValue ?? null,
             newValue: value,
         };
@@ -204,7 +204,7 @@ export function DailyAforoCasesTable({ cases, isLoading, error, onRefresh }: Dai
       
       batch.update(caseDocRef, { isPatternValidated: true });
 
-      const validationLog: AforoCaseUpdate = {
+      const validationLog: no existeUpdate = {
         updatedAt: Timestamp.now(),
         updatedBy: user.displayName,
         field: 'isPatternValidated',
@@ -282,7 +282,7 @@ export function DailyAforoCasesTable({ cases, isLoading, error, onRefresh }: Dai
     const batch = writeBatch(db);
 
     try {
-        const logEntry: AforoCaseUpdate = {
+        const logEntry: no existeUpdate = {
             updatedAt: Timestamp.now(),
             updatedBy: user.displayName,
             field: 'document_update',
@@ -303,7 +303,7 @@ export function DailyAforoCasesTable({ cases, isLoading, error, onRefresh }: Dai
     }
   };
 
-  const handleRequestRevalidation = async (caseItem: AforoCase) => {
+  const handleRequestRevalidation = async (caseItem: no existe) => {
     if (!user || !user.displayName) return;
     const caseDocRef = doc(db, 'worksheets', caseItem.id, 'aforo', 'metadata');
     const updatesSubcollectionRef = collection(doc(db, 'worksheets', caseItem.id), 'actualizaciones');
@@ -312,7 +312,7 @@ export function DailyAforoCasesTable({ cases, isLoading, error, onRefresh }: Dai
     try {
         batch.update(caseDocRef, { revisorStatus: 'Revalidación Solicitada' });
         
-        const logEntry: AforoCaseUpdate = {
+        const logEntry: no existeUpdate = {
             updatedAt: Timestamp.now(),
             updatedBy: user.displayName,
             field: 'status_change',
@@ -330,7 +330,7 @@ export function DailyAforoCasesTable({ cases, isLoading, error, onRefresh }: Dai
      }
   };
   
-  const handleAssignToDigitization = async (caseItem: AforoCase) => {
+  const handleAssignToDigitization = async (caseItem: no existe) => {
      if (!user || !user.displayName) return;
      const caseDocRef = doc(db, 'worksheets', caseItem.id, 'aforo', 'metadata');
      const updatesSubcollectionRef = collection(doc(db, 'worksheets', caseItem.id), 'actualizaciones');
@@ -339,7 +339,7 @@ export function DailyAforoCasesTable({ cases, isLoading, error, onRefresh }: Dai
      try {
         batch.update(caseDocRef, { digitacionStatus: 'Pendiente de Digitación' });
 
-        const logEntry: AforoCaseUpdate = {
+        const logEntry: no existeUpdate = {
             updatedAt: Timestamp.now(),
             updatedBy: user.displayName,
             field: 'status_change',
@@ -375,7 +375,7 @@ export function DailyAforoCasesTable({ cases, isLoading, error, onRefresh }: Dai
         const now = Timestamp.now();
         const userInfo = { by: user.displayName, at: now };
 
-        const statusFieldMap: {[key: string]: keyof AforoCase} = {
+        const statusFieldMap: {[key: string]: keyof no existe} = {
             'revisorAsignado': 'revisorAsignadoLastUpdate',
             'aforador': 'aforadorStatusLastUpdate',
             'digitadorAsignado': 'digitadorAsignadoLastUpdate',
@@ -390,11 +390,11 @@ export function DailyAforoCasesTable({ cases, isLoading, error, onRefresh }: Dai
 
         batch.set(aforoMetadataRef, updateData, { merge: true });
 
-        const logEntry: AforoCaseUpdate = {
+        const logEntry: no existeUpdate = {
           updatedAt: now,
           updatedBy: user.displayName,
-          field: field as keyof AforoCase,
-          oldValue: originalCase[field as keyof AforoCase] || null,
+          field: field as keyof no existe,
+          oldValue: originalCase[field as keyof no existe] || null,
           newValue: value,
           comment: `Acción masiva: ${field} actualizado a ${value}.`
         };
@@ -434,7 +434,7 @@ export function DailyAforoCasesTable({ cases, isLoading, error, onRefresh }: Dai
             
             batch.update(caseDocRef, { digitacionStatus: newStatus });
             
-            const logEntry: AforoCaseUpdate = {
+            const logEntry: no existeUpdate = {
                 updatedAt: Timestamp.now(),
                 updatedBy: user.displayName,
                 field: 'digitacionStatus',
@@ -520,7 +520,7 @@ export function DailyAforoCasesTable({ cases, isLoading, error, onRefresh }: Dai
                 batch.update(worksheetRef, { worksheetType: 'corporate_report' });
 
                 const updatesSubcollectionRef = collection(worksheetRef, 'actualizaciones');
-                const updateLog: AforoCaseUpdate = {
+                const updateLog: no existeUpdate = {
                     updatedAt: Timestamp.now(),
                     updatedBy: user?.displayName || 'Sistema',
                     field: 'worksheetType',
@@ -549,15 +549,15 @@ export function DailyAforoCasesTable({ cases, isLoading, error, onRefresh }: Dai
 
 
 
-  const openHistoryModal = (caseItem: AforoCase) => setSelectedCaseForHistory(caseItem);
-  const openAforadorCommentModal = (caseItem: AforoCase) => setSelectedCaseForAforadorComment(caseItem);
-  const openIncidentModal = (caseItem: AforoCase) => setSelectedCaseForIncident(caseItem);
-  const openObservationModal = (caseItem: AforoCase) => {
+  const openHistoryModal = (caseItem: no existe) => setSelectedCaseForHistory(caseItem);
+  const openAforadorCommentModal = (caseItem: no existe) => setSelectedCaseForAforadorComment(caseItem);
+  const openIncidentModal = (caseItem: no existe) => setSelectedCaseForIncident(caseItem);
+  const openObservationModal = (caseItem: no existe) => {
     setSelectedCaseForAforadorComment(caseItem);
   };
-  const openAssignmentModal = (caseItem: AforoCase, type: 'aforador' | 'revisor') => setAssignmentModal({ isOpen: true, case: caseItem, type });
+  const openAssignmentModal = (caseItem: no existe, type: 'aforador' | 'revisor') => setAssignmentModal({ isOpen: true, case: caseItem, type });
   
-  const handleViewWorksheet = async (caseItem: AforoCase) => {
+  const handleViewWorksheet = async (caseItem: no existe) => {
     if (!caseItem.worksheetId) {
         toast({ title: "Error", description: "Este caso no tiene una hoja de trabajo asociada.", variant: "destructive" });
         return;
@@ -571,7 +571,7 @@ export function DailyAforoCasesTable({ cases, isLoading, error, onRefresh }: Dai
     }
   };
   
-  const getRevisorStatusBadgeVariant = (status?: AforoCase['revisorStatus']) => {
+  const getRevisorStatusBadgeVariant = (status?: no existe['revisorStatus']) => {
     switch (status) { case 'Aprobado': return 'default'; case 'Rechazado': return 'destructive'; case 'Revalidación Solicitada': return 'secondary'; default: return 'outline'; }
   };
   const getAforadorStatusBadgeVariant = (status?: AforadorStatus) => {
@@ -973,7 +973,7 @@ export function DailyAforoCasesTable({ cases, isLoading, error, onRefresh }: Dai
     </div>
     </TooltipProvider>
     {selectedCaseForHistory && (
-        <AforoCaseHistoryModal
+        <no existeHistoryModal
             isOpen={!!selectedCaseForHistory}
             onClose={() => setSelectedCaseForHistory(null)}
             caseData={selectedCaseForHistory}

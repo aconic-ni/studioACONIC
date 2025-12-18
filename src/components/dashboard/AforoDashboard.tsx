@@ -1,7 +1,7 @@
 
 "use client";
 import { useState, useMemo, useCallback } from 'react';
-import type { AforoCase, WorksheetWithCase, Worksheet } from '@/types';
+import type { no existe, WorksheetWithCase, Worksheet } from '@/types';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../ui/card';
 import type { DateRange } from 'react-day-picker';

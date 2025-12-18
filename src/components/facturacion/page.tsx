@@ -9,7 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
-import type { AforoCase, AppUser, Remision } from '@/types';
+import type { no existe, AppUser, Remision } from '@/types';
 import { format, startOfMonth, endOfMonth } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { FacturacionFinalizeModal } from '@/components/facturacion/FacturacionFinalizeModal';
@@ -39,12 +39,12 @@ export default function FacturacionPage() {
   const { user, loading: authLoading } = useAuth();
   const router = useRouter();
   const { toast } = useToast();
-  const [allCases, setAllCases] = useState<AforoCase[]>([]);
+  const [allCases, setAllCases] = useState<no existe[]>([]);
   const [assignableUsers, setAssignableUsers] = useState<AppUser[]>([]);
   const [remisiones, setRemisiones] = useState<Remision[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isLoadingRemisiones, setIsLoadingRemisiones] = useState(true);
-  const [selectedCase, setSelectedCase] = useState<AforoCase | null>(null);
+  const [selectedCase, setSelectedCase] = useState<no existe | null>(null);
   const [selectedRows, setSelectedRows] = useState<string[]>([]);
   const [isRemisionModalOpen, setIsRemisionModalOpen] = useState(false);
   const [selectedRemision, setSelectedRemision] = useState<Remision | null>(null);
@@ -75,12 +75,12 @@ export default function FacturacionPage() {
 
     if (canAssign) {
         // Supervisors/Admins see cases sent for billing or already billed but not yet in a remision
-        q = query(collection(db, "AforoCases"), 
+        q = query(collection(db, "no existes"), 
             where('facturacionStatus', 'in', ['Enviado a Facturacion', 'Facturado']),
             orderBy("facturadoAt", "desc")
         );
     } else { // Facturador role
-        q = query(collection(db, 'AforoCases'), 
+        q = query(collection(db, 'no existes'), 
             where("facturadorAsignado", "==", user.displayName),
             where('facturacionStatus', 'in', ['Enviado a Facturacion', 'Facturado']),
             orderBy("facturadoAt", "desc")
@@ -89,7 +89,7 @@ export default function FacturacionPage() {
     
     const unsubscribe = onSnapshot(q, (snapshot) => {
       const fetchedCases = snapshot.docs
-        .map(doc => ({ id: doc.id, ...doc.data() } as AforoCase))
+        .map(doc => ({ id: doc.id, ...doc.data() } as no existe))
         .filter(c => c.facturacionStatus === 'Enviado a Facturacion' || (c.facturacionStatus === 'Facturado' && !c.remisionId));
 
       setAllCases(fetchedCases);
@@ -170,7 +170,7 @@ export default function FacturacionPage() {
   }, [canAssign]);
 
   const handleAssignment = useCallback(async (caseId: string, facturadorName: string) => {
-    const caseDocRef = doc(db, 'AforoCases', caseId);
+    const caseDocRef = doc(db, 'no existes', caseId);
     try {
         await updateDoc(caseDocRef, {
             facturadorAsignado: facturadorName,
@@ -183,7 +183,7 @@ export default function FacturacionPage() {
     }
   }, [toast]);
 
-  const handleFinalizeClick = (caseItem: AforoCase) => {
+  const handleFinalizeClick = (caseItem: no existe) => {
     setSelectedCase(caseItem);
   };
 

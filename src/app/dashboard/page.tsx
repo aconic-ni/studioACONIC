@@ -8,7 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Loader2, KeyRound } from 'lucide-react';
 import { db } from '@/lib/firebase';
 import { collection, getDocs, query, orderBy, Timestamp, collectionGroup, getDoc } from 'firebase/firestore';
-import type { ExamDocument, AforoCase, Worksheet, SolicitudRecord, WorksheetWithCase } from '@/types';
+import type { ExamDocument, no existe, Worksheet, SolicitudRecord, WorksheetWithCase } from '@/types';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { PrevioDashboard } from '@/components/dashboard/PrevioDashboard';
 import { AforoDashboard } from '@/components/dashboard/AforoDashboard';
@@ -28,7 +28,7 @@ export default function DashboardPage() {
   const [errorPin, setErrorPin] = useState(false);
 
   const [allExams, setAllExams] = useState<ExamDocument[]>([]);
-  const [allAforoCases, setAllAforoCases] = useState<WorksheetWithCase[]>([]);
+  const [allno existes, setAllno existes] = useState<WorksheetWithCase[]>([]);
   const [allWorksheets, setAllWorksheets] = useState<Worksheet[]>([]);
   const [allSolicitudes, setAllSolicitudes] = useState<SolicitudRecord[]>([]);
   const [allLogs, setAllLogs] = useState<CombinedActivityLog[]>([]);
@@ -45,14 +45,14 @@ export default function DashboardPage() {
     try {
       const [
         examsSnap, 
-        aforoCasesSnap, 
+        no existesSnap, 
         worksheetsSnap, 
         solicitudesSnap, 
         memorandumSnap,
         updatesLogsSnap
       ] = await Promise.all([
           getDocs(query(collection(db, "examenesPrevios"), orderBy("ne", "desc"))),
-          getDocs(query(collection(db, "AforoCases"), orderBy("ne", "desc"))),
+          getDocs(query(collection(db, "no existes"), orderBy("ne", "desc"))),
           getDocs(query(collection(db, "worksheets"), orderBy("createdAt", "desc"))),
           getDocs(query(collection(db, "SolicitudCheques"), orderBy("savedAt", "desc"))),
           getDocs(query(collection(db, "Memorandum"), orderBy("savedAt", "desc"))),
@@ -63,12 +63,12 @@ export default function DashboardPage() {
       setAllExams(fetchedExams.filter(exam => exam.isArchived !== true));
       
       const worksheetsMap = new Map(worksheetsSnap.docs.map(doc => [doc.id, doc.data() as Worksheet]));
-      const aforoCasesData = aforoCasesSnap.docs.map(doc => ({
+      const no existesData = no existesSnap.docs.map(doc => ({
         id: doc.id,
         ...doc.data(),
         worksheet: worksheetsMap.get(doc.id) || null
       } as WorksheetWithCase));
-      setAllAforoCases(aforoCasesData);
+      setAllno existes(no existesData);
       
       const fetchedWorksheets = worksheetsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Worksheet));
       setAllWorksheets(fetchedWorksheets);
@@ -190,7 +190,7 @@ export default function DashboardPage() {
             {(user.role === 'ejecutivo' || user.role === 'admin' || user.role === 'coordinadora' || user.role === 'supervisor') && (
               <TabsContent value="ejecutivo">
                   <ExecutiveDashboard 
-                    allCases={allAforoCases} 
+                    allCases={allno existes} 
                     allWorksheets={allWorksheets}
                     allSolicitudes={allSolicitudes}
                   />
@@ -202,7 +202,7 @@ export default function DashboardPage() {
                     <PrevioDashboard allExams={allExams} />
                 </TabsContent>
                 <TabsContent value="aforo">
-                    <AforoDashboard allCases={allAforoCases} />
+                    <AforoDashboard allCases={allno existes} />
                 </TabsContent>
               </>
             )}

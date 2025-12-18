@@ -4,7 +4,7 @@
 import { useState, useEffect } from 'react';
 import { db } from '@/lib/firebase';
 import { collection, query, onSnapshot, orderBy, Timestamp, where } from 'firebase/firestore';
-import type { AforoCase, SolicitudRecord, InitialDataContext } from '@/types';
+import type { no existe, SolicitudRecord, InitialDataContext } from '@/types';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription, DialogClose } from '@/components/ui/dialog';
 import { Loader2, Package, Eye, ArrowLeft, X, CheckCircle2, AlertCircle } from 'lucide-react';
@@ -17,7 +17,7 @@ import { Badge } from '../ui/badge';
 interface PaymentListModalProps {
   isOpen: boolean;
   onClose: () => void;
-  caseData: AforoCase;
+  caseData: no existe;
 }
 
 const getPaymentStatusBadge = (solicitud: SolicitudRecord) => {

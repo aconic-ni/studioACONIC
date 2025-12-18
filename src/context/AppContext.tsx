@@ -2,7 +2,7 @@
 "use client";
 import type React from 'react';
 import { createContext, useContext, useState, useCallback, useEffect } from 'react';
-import type { ExamData, Product, AppUser as AuthAppUser, ExamDocument, AuditLogEntry, SolicitudData, InitialDataContext, AforoCase } from '@/types';
+import type { ExamData, Product, AppUser as AuthAppUser, ExamDocument, AuditLogEntry, SolicitudData, InitialDataContext, AforoData } from '@/types';
 import { v4 as uuidv4 } from 'uuid';
 import { useAuth } from './AuthContext';
 import { doc, setDoc, Timestamp, addDoc, collection, getDoc } from 'firebase/firestore';
@@ -63,8 +63,8 @@ interface AppContextType {
   solicitudToViewInline: SolicitudData | null;
   setSolicitudToViewInline: (solicitud: SolicitudData | null) => void;
 
-  caseToAssignAforador: AforoCase | null;
-  setCaseToAssignAforador: (caseData: AforoCase | null) => void;
+  caseToAssignAforador: AforoData | null;
+  setCaseToAssignAforador: (caseData: AforoData | null) => void;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -87,7 +87,7 @@ export const AppProvider: React.FC<{children: React.ReactNode}> = ({ children })
   const [isMemorandumMode, setIsMemorandumMode] = useState(false);
   const [solicitudToViewInline, setSolicitudToViewInline] = useState<SolicitudData | null>(null);
 
-  const [caseToAssignAforador, setCaseToAssignAforador] = useState<AforoCase | null>(null);
+  const [caseToAssignAforador, setCaseToAssignAforador] = useState<AforoData | null>(null);
 
   const { user: authUser } = useAuth();
   const { toast } = useToast();

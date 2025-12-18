@@ -1,6 +1,6 @@
 "use client";
 import React from 'react';
-import type { WorksheetWithCase, AforoCaseStatus, PreliquidationStatus, DigitacionStatus } from '@/types';
+import type { WorksheetWithCase, no existeStatus, PreliquidationStatus, DigitacionStatus } from '@/types';
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -24,7 +24,7 @@ const DetailRow: React.FC<{ label: string; children: React.ReactNode }> = ({ lab
     </div>
 );
 
-const getStatusBadgeVariant = (status?: AforoCaseStatus) => {
+const getStatusBadgeVariant = (status?: no existeStatus) => {
     switch (status) {
         case 'Aprobado': return 'default';
         case 'Rechazado': return 'destructive';
@@ -33,7 +33,7 @@ const getStatusBadgeVariant = (status?: AforoCaseStatus) => {
     }
 };
 
-const getStatusIcon = (status?: AforoCaseStatus) => {
+const getStatusIcon = (status?: no existeStatus) => {
     switch (status) {
         case 'Aprobado': return <CheckCircle className="h-4 w-4 text-green-500"/>;
         case 'Rechazado': return <XCircle className="h-4 w-4 text-red-500"/>;

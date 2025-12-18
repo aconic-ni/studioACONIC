@@ -20,7 +20,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '../ui/popover';
 import { tiposDeclaracion } from '@/lib/formData';
 import { cn } from '@/lib/utils';
 
-const aforoCaseSchema = z.object({
+const no existeSchema = z.object({
   ne: z.string().min(1, "El NE es requerido."),
   consignee: z.string().min(1, "El Consignatario es requerido."),
   declarationPattern: z.string().min(1, "El Modelo (Patrón) es requerido."),
@@ -35,20 +35,20 @@ const aforoCaseSchema = z.object({
   executive: z.string().min(1, "El ejecutivo es requerido."),
 });
 
-type AforoCaseFormData = z.infer<typeof aforoCaseSchema>;
+type no existeFormData = z.infer<typeof no existeSchema>;
 
-interface AforoCaseModalProps {
+interface no existeModalProps {
   isOpen: boolean;
   onClose: () => void;
 }
 
-export function AforoCaseModal({ isOpen, onClose }: AforoCaseModalProps) {
+export function no existeModal({ isOpen, onClose }: no existeModalProps) {
   const { user } = useAuth();
   const { toast } = useToast();
   const [executives, setExecutives] = useState<AppUser[]>([]);
 
-  const form = useForm<AforoCaseFormData>({
-    resolver: zodResolver(aforoCaseSchema),
+  const form = useForm<no existeFormData>({
+    resolver: zodResolver(no existeSchema),
     defaultValues: {
       ne: '',
       consignee: '',
@@ -75,14 +75,14 @@ export function AforoCaseModal({ isOpen, onClose }: AforoCaseModalProps) {
     
   }, [user, form]);
 
-  const onSubmit = async (data: AforoCaseFormData) => {
+  const onSubmit = async (data: no existeFormData) => {
     if (!user) {
         toast({ title: 'Error', description: 'Debe estar autenticado.', variant: 'destructive'});
         return;
     }
 
     const neTrimmed = data.ne.trim().toUpperCase();
-    const caseDocRef = doc(db, 'AforoCases', neTrimmed);
+    const caseDocRef = doc(db, 'no existes', neTrimmed);
 
     try {
         const docSnap = await getDoc(caseDocRef);

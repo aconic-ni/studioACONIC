@@ -12,7 +12,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/context/AuthContext';
 import { db } from '@/lib/firebase';
 import { doc, updateDoc, arrayUnion, writeBatch, collection, Timestamp } from 'firebase/firestore';
-import type { AforoCase, AforoCaseUpdate, ExecutiveComment } from '@/types';
+import type { no existe, no existeUpdate, ExecutiveComment } from '@/types';
 import { Loader2 } from 'lucide-react';
 import { v4 as uuidv4 } from 'uuid';
 import { ScrollArea } from '../ui/scroll-area';
@@ -28,7 +28,7 @@ type CommentFormData = z.infer<typeof commentSchema>;
 interface ExecutiveCommentModalProps {
   isOpen: boolean;
   onClose: () => void;
-  caseData: AforoCase;
+  caseData: no existe;
 }
 
 const formatDate = (timestamp: Timestamp) => {
@@ -62,7 +62,7 @@ export function ExecutiveCommentModal({ isOpen, onClose, caseData }: ExecutiveCo
     }
 
     setIsSubmitting(true);
-    const caseDocRef = doc(db, 'AforoCases', caseData.id);
+    const caseDocRef = doc(db, 'no existes', caseData.id);
     const updatesSubcollectionRef = collection(db, 'worksheets', caseData.worksheetId, 'actualizaciones');
     const batch = writeBatch(db);
 
@@ -83,7 +83,7 @@ export function ExecutiveCommentModal({ isOpen, onClose, caseData }: ExecutiveCo
         });
 
         // Add a log entry to the audit trail
-        const updateLog: AforoCaseUpdate = {
+        const updateLog: no existeUpdate = {
             updatedAt: Timestamp.now(),
             updatedBy: user.displayName,
             field: 'executiveComments',

@@ -38,7 +38,7 @@ export function AnexosTable() {
         setIsLoading(true);
 
         const aforoQuery = query(
-            collection(db, 'AforoCases'), 
+            collection(db, 'no existes'), 
             where('worksheet.worksheetType', 'in', ['anexo_5', 'anexo_7']),
             orderBy('createdAt', 'desc')
         );

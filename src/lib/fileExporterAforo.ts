@@ -1,5 +1,5 @@
 
-import type { AforoCase, AforoCaseUpdate } from '@/types';
+import type { no existe, no existeUpdate } from '@/types';
 import { Timestamp } from 'firebase/firestore';
 import * as XLSX from 'xlsx';
 import { format } from 'date-fns';
@@ -39,7 +39,7 @@ const generateSheet = (headers: string[], rows: (string|number|null|undefined)[]
     return ws;
 };
 
-export async function downloadAforoReportAsExcel(cases: Partial<AforoCase>[], auditLogs: (AforoCaseUpdate & { caseNe: string })[]) {
+export async function downloadAforoReportAsExcel(cases: Partial<no existe>[], auditLogs: (no existeUpdate & { caseNe: string })[]) {
     const now = new Date();
     const fechaHoraExportacion = format(now, 'dd/MM/yy HH:mm', { locale: es });
 

@@ -51,7 +51,7 @@ export default function AdminControlPage() {
   const [viewMode, setViewMode] = useState<ViewMode>('activeExamenes');
 
   const [allExams, setAllExams] = useState<ExamDocument[]>([]);
-  const [allAforoCases, setAllAforoCases] = useState<WorksheetWithCase[]>([]);
+  const [allno existes, setAllno existes] = useState<WorksheetWithCase[]>([]);
   const [filteredItems, setFilteredItems] = useState<(ExamDocument | WorksheetWithCase)[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -65,7 +65,7 @@ export default function AdminControlPage() {
     setError(null);
     try {
       const qExamenes = query(collection(db, "examenesPrevios"), orderBy("createdAt", "desc"));
-      const qAforo = query(collection(db, 'AforoCases'), orderBy('createdAt', 'desc'));
+      const qAforo = query(collection(db, 'no existes'), orderBy('createdAt', 'desc'));
       
       const [examenesSnapshot, aforoSnapshot] = await Promise.all([
           getDocs(qExamenes),
@@ -75,8 +75,8 @@ export default function AdminControlPage() {
       const fetchedExams = examenesSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as ExamDocument));
       setAllExams(fetchedExams);
 
-      const fetchedAforoCases = aforoSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as WorksheetWithCase));
-      setAllAforoCases(fetchedAforoCases);
+      const fetchedno existes = aforoSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as WorksheetWithCase));
+      setAllno existes(fetchedno existes);
 
     } catch (err: any) {
       console.error("Error fetching data:", err);
@@ -102,7 +102,7 @@ export default function AdminControlPage() {
     } else if (viewMode === 'archivedExamenes') {
         sourceData = allExams.filter(e => e.isArchived === true);
     } else if (viewMode === 'archivedAforo') {
-        sourceData = allAforoCases.filter(c => c.isArchived === true);
+        sourceData = allno existes.filter(c => c.isArchived === true);
     }
 
     let dateFiltered = sourceData;
@@ -126,11 +126,11 @@ export default function AdminControlPage() {
         });
     }
     setFilteredItems(dateFiltered);
-  }, [allExams, allAforoCases, dateRange, searchMode, specificDate, viewMode]);
+  }, [allExams, allno existes, dateRange, searchMode, specificDate, viewMode]);
   
   useEffect(() => {
     applyFilters();
-  }, [viewMode, allExams, allAforoCases, applyFilters]);
+  }, [viewMode, allExams, allno existes, applyFilters]);
   
   const handleSearch = () => {
     applyFilters();
@@ -192,7 +192,7 @@ export default function AdminControlPage() {
     }
 
     const isExamen = 'products' in item;
-    const collectionName = isExamen ? "examenesPrevios" : "AforoCases";
+    const collectionName = isExamen ? "examenesPrevios" : "no existes";
     const docRef = doc(db, collectionName, item.id!);
     const batch = writeBatch(db);
 
@@ -253,7 +253,7 @@ export default function AdminControlPage() {
             {'products' in selectedExam ? (
                 <EditableExamDetails exam={selectedExam as ExamDocument} onClose={handleCloseDetails} />
             ) : (
-                <p>Vista de detalle para AforoCase no implementada aún.</p> // Replace with actual component
+                <p>Vista de detalle para no existe no implementada aún.</p> // Replace with actual component
             )}
           </div>
         </AppShell>

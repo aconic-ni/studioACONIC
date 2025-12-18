@@ -12,7 +12,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/context/AuthContext';
 import { db } from '@/lib/firebase';
 import { doc, updateDoc } from 'firebase/firestore';
-import type { AforoCase } from '@/types';
+import type { no existe } from '@/types';
 import { Loader2 } from 'lucide-react';
 
 const finalizeSchema = z.object({
@@ -24,7 +24,7 @@ type FinalizeFormData = z.infer<typeof finalizeSchema>;
 interface FacturacionFinalizeModalProps {
   isOpen: boolean;
   onClose: () => void;
-  caseData: AforoCase;
+  caseData: no existe;
 }
 
 export function FacturacionFinalizeModal({ isOpen, onClose, caseData }: FacturacionFinalizeModalProps) {
@@ -46,7 +46,7 @@ export function FacturacionFinalizeModal({ isOpen, onClose, caseData }: Facturac
     }
 
     setIsSubmitting(true);
-    const caseDocRef = doc(db, 'AforoCases', caseData.id);
+    const caseDocRef = doc(db, 'no existes', caseData.id);
 
     try {
         await updateDoc(caseDocRef, {
