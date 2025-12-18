@@ -383,9 +383,9 @@ const fetchCases = useCallback(async () => {
   const handleSendToFacturacion = async (caseId: string) => {
     if (!user || !user.displayName) return;
     setSavingState(prev => ({ ...prev, [caseId]: true }));
-    const caseDocRef = doc(db, 'worksheets', caseId, 'aforo', 'metadata');
+    const aforoMetadataRef = doc(db, 'worksheets', caseId, 'aforo', 'metadata');
     try {
-      await setDoc(caseDocRef, {
+      await setDoc(aforoMetadataRef, {
         facturacionStatus: 'Enviado a Facturacion',
         enviadoAFacturacionAt: Timestamp.now(),
         facturadorAsignado: 'Alvaro Gonzalez',
@@ -567,6 +567,40 @@ const fetchCases = useCallback(async () => {
       return <AppShell><div className="py-2 md:py-5"><WorksheetDetails worksheet={modalState.worksheet as WorksheetWithCase} onClose={() => setModalState(prev => ({...prev, worksheet: null}))}/></div></AppShell>;
   }
 
+  const handleExport = async () => {
+    if (filteredCases.length === 0) {
+        toast({ title: "No hay datos", description: "No hay casos en la tabla para exportar.", variant: "secondary" });
+        return;
+    }
+    setIsExporting(true);
+
+    try {
+        if (activeTab === 'corporate') {
+            await downloadCorporateReportAsExcel(filteredCases.map(c => c.worksheet).filter(ws => ws !== null) as Worksheet[]);
+        } else {
+            const auditLogs: (AforoUpdate & { caseNe: string })[] = [];
+
+            for (const caseItem of paginatedCases) {
+                if (!caseItem.worksheetId) continue;
+                const logsQuery = query(collection(db, 'worksheets', caseItem.worksheetId, 'actualizaciones'), orderBy('updatedAt', 'asc'));
+                const logSnapshot = await getDocs(logsQuery);
+                logSnapshot.forEach(logDoc => {
+                    auditLogs.push({
+                        ...(logDoc.data() as AforoUpdate),
+                        caseNe: caseItem.ne
+                    });
+                });
+            }
+            await downloadExecutiveReportAsExcel(paginatedCases, auditLogs);
+        }
+    } catch (e) {
+        console.error("Error exporting data: ", e);
+        toast({ title: "Error de Exportación", description: "No se pudieron obtener todos los detalles para el reporte.", variant: "destructive" });
+    } finally {
+        setIsExporting(false);
+    }
+  };
+
 
   return (
     <>
@@ -702,30 +736,7 @@ const fetchCases = useCallback(async () => {
             <DialogFooter><Button variant="outline" onClick={() => setDuplicateAndRetireModalOpen(false)}>Cancelar</Button><Button onClick={handleDuplicateAndRetire} disabled={savingState[caseToDuplicate?.id || '']}>Duplicar y Retirar</Button></DialogFooter>
         </DialogContent>
       </Dialog>
-      <Dialog open={isDeathkeyModalOpen} onOpenChange={setIsDeathkeyModalOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <AlertDialogTitle>Confirmar Acción "Deathkey"</AlertDialogTitle>
-            <DialogDescription>
-              Esta acción reclasificará {selectedRows.length} caso(s) a "Reporte Corporativo", excluyéndolos de la lógica de Aforo. Es irreversible. Ingrese el PIN para confirmar.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="py-4 space-y-2">
-            <div className="flex items-center gap-2">
-              <KeyRound className="inline-block h-4 w-4" />
-              <Label htmlFor="pin-input">PIN de Seguridad</Label>
-            </div>
-            <Input id="pin-input" type="password" value={pinInput} onChange={(e) => setPinInput(e.target.value)} placeholder="PIN de 6 dígitos" />
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setIsDeathkeyModalOpen(false)}>Cancelar</Button>
-            <Button variant="destructive" onClick={handleDeathkey} disabled={isLoading}>
-              {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              Confirmar y Ejecutar
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <Dialog open={isDeathkeyModalOpen} onOpenChange={setIsDeathkeyModalOpen}><DialogContent><DialogHeader><AlertDialogTitle>Confirmar Acción "Deathkey"</AlertDialogTitle><DialogDescription>Esta acción reclasificará {selectedRows.length} caso(s) a "Reporte Corporativo", excluyéndolos de la lógica de Aforo. Es irreversible. Ingrese el PIN para confirmar.</DialogDescription></AlertDialogHeader><div className="py-4 space-y-2"><div className="flex items-center gap-2"><KeyRound className="inline-block h-4 w-4" /><Label htmlFor="pin-input">PIN de Seguridad</Label></div><Input id="pin-input" type="password" value={pinInput} onChange={(e) => setPinInput(e.target.value)} placeholder="PIN de 6 dígitos"/></div><DialogFooter><Button variant="outline" onClick={() => setIsDeathkeyModalOpen(false)}>Cancelar</Button><Button variant="destructive" onClick={handleDeathkey} disabled={isLoading}>{isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin"/>}Confirmar y Ejecutar</Button></DialogFooter></DialogContent></Dialog>
     </>
   );
 }
@@ -737,6 +748,7 @@ export default function ExecutivePage() {
         </Suspense>
     );
 }
+
 
 
     
