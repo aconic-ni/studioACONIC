@@ -51,8 +51,7 @@ import { StatusProcessModal } from '@/components/executive/StatusProcessModal';
 import { Textarea } from '@/components/ui/textarea';
 import { ExecutiveCasesTable } from '@/components/executive/ExecutiveCasesTable';
 import { v4 as uuidv4 } from 'uuid';
-import { Dialog, DialogHeader, DialogTitle, DialogDescription, DialogContent, DialogFooter } from '@/components/ui/dialog';
-import { PaymentRequestFlow } from '@/components/examinerPay/InitialInfoForm';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 
 type DateFilterType = 'range' | 'month' | 'today';
 
@@ -217,6 +216,26 @@ function ExecutivePageContent() {
     return () => { if(unsubscribe) unsubscribe(); };
   }, [authLoading, user, router, fetchCases]);
   
+  const handleAssignAforador = async (caseId: string, aforadorName: string) => {
+    if (!user || !user.displayName) {
+        toast({ title: 'Error', description: 'Debe estar autenticado.', variant: 'destructive' });
+        return;
+    }
+    const aforoMetadataRef = doc(db, 'worksheets', caseId, 'aforo', 'metadata');
+    try {
+        await setDoc(aforoMetadataRef, { 
+            aforador: aforadorName,
+            assignmentDate: Timestamp.now(),
+            aforadorStatusLastUpdate: { by: user.displayName, at: Timestamp.now() }
+        }, { merge: true });
+        toast({ title: 'Aforador Asignado', description: `${aforadorName} ha sido asignado al caso.` });
+        setCaseToAssignAforador(null);
+    } catch (error) {
+        console.error('Error assigning aforador:', error);
+        toast({ title: 'Error', description: 'No se pudo asignar el aforador.', variant: 'destructive' });
+    }
+  };
+  
   const handleAutoSave = useCallback(async (caseId: string, field: keyof AforoData, value: any, isTriggerFromFieldUpdate: boolean = false) => {
     if (!user || !user.displayName) { toast({ title: "No autenticado", variant: 'destructive' }); return; }
     const originalCase = allCases.find(c => c.id === caseId);
@@ -294,7 +313,7 @@ function ExecutivePageContent() {
         batch.update(originalAforoMetaRef, { digitacionStatus: 'TRASLADADO', isArchived: true });
 
         const originalUpdatesRef = collection(originalWorksheetRef, 'actualizaciones');
-        const updateLog: AforoDataUpdate = { updatedAt: Timestamp.now(), updatedBy: user.displayName, field: 'digitacionStatus', oldValue: caseToDuplicate.digitacionStatus, newValue: 'TRASLADADO', comment: `Caso trasladado al nuevo NE: ${newNe}. Motivo: ${duplicateReason}` };
+        const updateLog: AforoDataUpdate = { updatedAt: Timestamp.now(), updatedBy: user.displayName, field: 'digitacionStatus', oldValue: caseToDuplicate.aforo?.digitacionStatus, newValue: 'TRASLADADO', comment: `Caso trasladado al nuevo NE: ${newNe}. Motivo: ${duplicateReason}` };
         batch.set(doc(originalUpdatesRef), updateLog);
         
         const newUpdatesRef = collection(newWorksheetRef, 'actualizaciones');
@@ -530,7 +549,7 @@ function ExecutivePageContent() {
   };
   
   const handleSelectAllForPreliquidation = () => {
-    const selectableIds = filteredCases.filter(c => c.revisorStatus === 'Aprobado' && c.preliquidationStatus !== 'Aprobada').map(c => c.id);
+    const selectableIds = filteredCases.filter(c => c.aforo?.revisorStatus === 'Aprobado' && c.aforo.preliquidationStatus !== 'Aprobada').map(c => c.id);
     if (selectedRows.length === selectableIds.length) {
       setSelectedRows([]);
     } else {
@@ -702,15 +721,26 @@ function ExecutivePageContent() {
             <DialogFooter><Button variant="outline" onClick={() => setDuplicateAndRetireModalOpen(false)}>Cancelar</Button><Button onClick={handleDuplicateAndRetire} disabled={savingState[caseToDuplicate?.id || '']}>Duplicar y Retirar</Button></DialogFooter>
         </DialogContent>
       </Dialog>
-      <Dialog open={isDeathkeyModalOpen} onOpenChange={setIsDeathkeyModalOpen}><DialogContent><DialogHeader><AlertDialogTitle>Confirmar Acción "Deathkey"</AlertDialogTitle><DialogDescription>Esta acción reclasificará {selectedRows.length} caso(s) a "Reporte Corporativo", excluyéndolos de la lógica de Aforo. Es irreversible. Ingrese el PIN para confirmar.</DialogDescription></AlertDialogHeader><div className="py-4 space-y-2"><div className="flex items-center gap-2"><KeyRound className="inline-block h-4 w-4" /><Label htmlFor="pin-input">PIN de Seguridad</Label></div><Input id="pin-input" type="password" value={pinInput} onChange={(e) => setPinInput(e.target.value)} placeholder="PIN de 6 dígitos"/></div><DialogFooter><Button variant="outline" onClick={() => setIsDeathkeyModalOpen(false)}>Cancelar</Button><Button variant="destructive" onClick={handleDeathkey} disabled={isLoading}>{isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin"/>}Confirmar y Ejecutar</Button></DialogFooter></DialogContent></Dialog>
+      <Dialog open={isDeathkeyModalOpen} onOpenChange={setIsDeathkeyModalOpen}>
+        <DialogContent>
+            <DialogHeader>
+                <AlertDialogTitle>Confirmar Acción "Deathkey"</AlertDialogTitle>
+                <DialogDescription>Esta acción reclasificará {selectedRows.length} caso(s) a "Reporte Corporativo", excluyéndolos de la lógica de Aforo. Es irreversible. Ingrese el PIN para confirmar.</DialogDescription>
+            </DialogHeader>
+            <div className="py-4 space-y-2">
+                <div className="flex items-center gap-2"><KeyRound className="inline-block h-4 w-4" /><Label htmlFor="pin-input">PIN de Seguridad</Label></div>
+                <Input id="pin-input" type="password" value={pinInput} onChange={(e) => setPinInput(e.target.value)} placeholder="PIN de 6 dígitos"/>
+            </div>
+            <DialogFooter>
+                <Button variant="outline" onClick={() => setIsDeathkeyModalOpen(false)}>Cancelar</Button>
+                <Button variant="destructive" onClick={handleDeathkey} disabled={isLoading}>
+                    {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin"/>}Confirmar y Ejecutar
+                </Button>
+            </DialogFooter>
+        </DialogContent>
+      </Dialog>
       {modalState.payment && (<PaymentRequestModal isOpen={!!modalState.payment} onClose={() => setModalState(p => ({...p, payment: null}))} caseData={modalState.payment} />)}
       {isRequestPaymentModalOpen && (<PaymentRequestModal isOpen={isRequestPaymentModalOpen} onClose={() => setIsRequestPaymentModalOpen(false)} caseData={null} />)}
-      {isPaymentRequestFlowOpen && (
-        <PaymentRequestFlow
-          isOpen={isPaymentRequestFlowOpen}
-          onClose={closePaymentRequestFlow}
-        />
-      )}
     </>
   );
 }
