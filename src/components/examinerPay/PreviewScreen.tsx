@@ -112,8 +112,8 @@ export function PreviewScreen() {
         <div>
           <h4 className="text-lg font-medium mb-3 text-foreground">Solicitudes ({solicitudes.length})</h4>
           {solicitudes.length > 0 ? (
-            <ScrollArea className="max-h-[50vh] w-full">
-              <div className="space-y-6 pr-4">
+            <ScrollArea className="max-h-[50vh] w-full p-4 border rounded-lg">
+              <div className="space-y-6 pr-2">
                 {solicitudes.map((solicitud, index) => (
                   <div key={solicitud.id} className="p-4 border border-border bg-card rounded-lg shadow">
                     <h5 className="text-md font-semibold mb-3 text-primary flex justify-between items-center">
@@ -125,7 +125,7 @@ export function PreviewScreen() {
 
                     {isMemorandumMode && solicitud.memorandumCollaborators && solicitud.memorandumCollaborators.length > 0 && (
                       <div className="mb-3 p-3 border border-destructive/50 rounded-md bg-destructive/5">
-                        <h6 className="text-sm font-medium text-destructive mb-1">Colaboradores</h6>
+                        <h6 className="text-sm font-medium text-destructive mb-1">Colaboradores del Memorándum</h6>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-x-4 gap-y-1">
                           {solicitud.memorandumCollaborators.map(collab => (
                             <div key={collab.id} className="text-xs">
@@ -247,7 +247,7 @@ export function PreviewScreen() {
         </div>
 
         <div className="flex flex-col sm:flex-row justify-between items-center gap-4 pt-6 border-t border-border mt-6">
-            <Button variant="outline" onClick={() => setCurrentStep(ExamStep.PRODUCT_LIST)} className="hover:bg-accent/50 w-full sm:w-auto">
+            <Button variant="outline" onClick={() => setCurrentStep(ExamStep.SOLICITUD_LIST)} className="hover:bg-accent/50 w-full sm:w-auto">
                 <ArrowLeft className="mr-2 h-4 w-4" /> Volver a Lista de Solicitudes
             </Button>
             <div className="flex flex-col sm:flex-row flex-wrap items-center justify-center sm:justify-end gap-3">
