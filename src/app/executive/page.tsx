@@ -34,12 +34,13 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { ViewIncidentsModal } from '@/components/executive/ViewIncidentsModal';
 import { StatusProcessModal } from '@/components/executive/StatusProcessModal';
 import { Textarea } from '@/components/ui/textarea';
-import { ExecutiveCasesTable } from '@/components/executive/ExecutiveCasesTable';
-import { ExecutiveFilters } from '@/components/executive/ExecutiveFilters';
 import { v4 as uuidv4 } from 'uuid';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Label } from '@/components/ui/label';
+import { ExecutiveCasesTable } from '@/components/executive/ExecutiveCasesTable';
+import { ExecutiveFilters } from '@/components/executive/ExecutiveFilters';
+
 
 type DateFilterType = 'range' | 'month' | 'today';
 
@@ -137,11 +138,10 @@ function ExecutivePageContent() {
 
         let aforoDataMap = new Map<string, any>();
         if(worksheetIds.length > 0) {
-            // Firestore 'in' query can handle up to 30 elements. Chunking is needed for more.
             const aforoPromises = [];
             for (let i = 0; i < worksheetIds.length; i += 30) {
                 const chunk = worksheetIds.slice(i, i + 30);
-                const q = query(collectionGroup(db, 'aforo'), where(document.name, 'in', chunk.map(id => `worksheets/${id}/aforo/metadata`)));
+                const q = query(collectionGroup(db, 'aforo'), where(documentId(), 'in', chunk.map(id => `worksheets/${id}/aforo/metadata`)));
                 aforoPromises.push(getDocs(q));
             }
             const aforoSnapshots = await Promise.all(aforoPromises);
@@ -221,12 +221,15 @@ function ExecutivePageContent() {
   };
 
   const handleDuplicateAndRetire = async () => {
-    if (!user || !user.displayName || !modalState.duplicate || !modalState.duplicate.worksheet) return;
+    if (!user || !user.displayName || !modalState.duplicate || !modalState.duplicate.worksheet) {
+        toast({title: 'Error', description: 'No se puede procesar la solicitud. Faltan datos.', variant: 'destructive'});
+        return;
+    }
     const newNe = newNeForDuplicate.trim().toUpperCase();
     if (!newNe || !duplicateReason) { toast({ title: 'Error', description: 'Nuevo NE y motivo son requeridos', variant: 'destructive' }); return; }
     
     setSavingState(prev => ({ ...prev, [modalState.duplicate!.id]: true }));
-
+    
     const newWorksheetRef = doc(db, 'worksheets', newNe);
     const originalWorksheetRef = doc(db, 'worksheets', modalState.duplicate.id);
 
@@ -243,20 +246,16 @@ function ExecutivePageContent() {
         const createdByInfo = { by: user.displayName, at: creationTimestamp };
         const { id: oldId, ne: oldNe, createdAt: oldCreatedAt, lastUpdatedAt: oldLastUpdatedAt, ...worksheetToCopy } = modalState.duplicate.worksheet;
         
-        // 1. Create new worksheet
         const newWorksheetData: Worksheet = { ...worksheetToCopy, id: newNe, ne: newNe, createdAt: creationTimestamp, createdBy: user.email!, lastUpdatedAt: creationTimestamp };
         batch.set(newWorksheetRef, newWorksheetData);
         
-        // 2. Create new aforo metadata
         const newAforoMetaRef = doc(newWorksheetRef, 'aforo', 'metadata');
         const newCaseData: Omit<AforoCase, 'id'> = { ne: newNe, executive: modalState.duplicate.executive, consignee: modalState.duplicate.consignee, facturaNumber: modalState.duplicate.facturaNumber, declarationPattern: modalState.duplicate.declarationPattern, merchandise: modalState.duplicate.merchandise, createdBy: user.uid, createdAt: creationTimestamp, aforador: '', assignmentDate: null, aforadorStatus: 'Pendiente ', aforadorStatusLastUpdate: createdByInfo, revisorStatus: 'Pendiente', revisorStatusLastUpdate: createdByInfo, preliquidationStatus: 'Pendiente', preliquidationStatusLastUpdate: createdByInfo, digitacionStatus: 'Pendiente', digitacionStatusLastUpdate: createdByInfo, incidentStatus: 'Pendiente', incidentStatusLastUpdate: createdByInfo, revisorAsignado: '', revisorAsignadoLastUpdate: createdByInfo, digitadorAsignado: '', digitadorAsignadoLastUpdate: createdByInfo, worksheetId: newNe, entregadoAforoAt: null, isArchived: false, executiveComments: [{ id: uuidv4(), author: user.displayName, text: `Duplicado del NE: ${modalState.duplicate.ne}. Motivo: ${duplicateReason}`, createdAt: creationTimestamp }] };
         batch.set(newAforoMetaRef, newCaseData);
 
-        // 3. Update old aforo metadata
         const originalAforoMetaRef = doc(originalWorksheetRef, 'aforo', 'metadata');
         batch.update(originalAforoMetaRef, { digitacionStatus: 'TRASLADADO', isArchived: true });
 
-        // 4. Log actions on both worksheets' audit trails
         const originalUpdatesRef = collection(originalWorksheetRef, 'actualizaciones');
         const updateLog: AforoCaseUpdate = { updatedAt: Timestamp.now(), updatedBy: user.displayName, field: 'digitacionStatus', oldValue: modalState.duplicate.digitacionStatus, newValue: 'TRASLADADO', comment: `Caso trasladado al nuevo NE: ${newNe}. Motivo: ${duplicateReason}` };
         batch.set(doc(originalUpdatesRef), updateLog);
@@ -276,6 +275,48 @@ function ExecutivePageContent() {
     }
   };
 
+  const handleDeathkey = async () => {
+    if (pinInput !== "192438") {
+        toast({ title: "PIN Incorrecto", variant: "destructive" });
+        return;
+    }
+    if (selectedRows.length === 0 || !user || !user.displayName) return;
+
+    setIsLoading(true);
+    const batch = writeBatch(db);
+
+    for (const caseId of selectedRows) {
+        const caseItem = allCases.find(c => c.id === caseId);
+        if (caseItem && caseItem.worksheetId) {
+            const worksheetRef = doc(db, 'worksheets', caseItem.worksheetId);
+            batch.update(worksheetRef, { worksheetType: 'corporate_report' });
+
+            const updatesSubcollectionRef = collection(worksheetRef, 'actualizaciones');
+            const updateLog: AforoCaseUpdate = {
+                updatedAt: Timestamp.now(),
+                updatedBy: user.displayName,
+                field: 'worksheetType',
+                oldValue: caseItem.worksheet?.worksheetType || 'hoja_de_trabajo',
+                newValue: 'corporate_report',
+                comment: 'Caso reclasificado a Reporte Corporativo via Deathkey.'
+            };
+            batch.set(doc(updatesSubcollectionRef), updateLog);
+        }
+    }
+
+    try {
+        await batch.commit();
+        toast({ title: "Éxito", description: `${selectedRows.length} casos han sido reclasificados.` });
+        setSelectedRows([]);
+        setIsDeathkeyModalOpen(false);
+        setPinInput('');
+    } catch (error) {
+        console.error("Error with Deathkey action:", error);
+        toast({ title: "Error", description: "No se pudieron reclasificar los casos.", variant: "destructive" });
+    } finally {
+        setIsLoading(false);
+    }
+  };
 
   const filteredCases = useMemo(() => {
     let filtered = allCases.filter(c => !c.isArchived);
@@ -341,6 +382,15 @@ function ExecutivePageContent() {
 
   const handleSearch = () => {
     let dateRange: DateRange | undefined = dateRangeInput;
+    if (dateFilterType === 'month') {
+        const start = new Date(selectedYear, selectedMonth, 1);
+        const end = new Date(selectedYear, selectedMonth + 1, 0);
+        dateRange = { from: start, to: end };
+    } else if (dateFilterType === 'today') {
+        const today = new Date();
+        dateRange = { from: today, to: today };
+    }
+
     setAppliedFilters({ searchTerm, ...facturadoFilter, ...acuseFilter, preliquidation: preliquidationFilter, dateFilterType, dateRange, isSearchActive: true });
     setCurrentPage(1);
   };
@@ -443,8 +493,8 @@ function ExecutivePageContent() {
                            setFacturadoFilter={setFacturadoFilter}
                            acuseFilter={acuseFilter}
                            setAcuseFilter={setAcuseFilter}
-                           preliquidationFilter={false}
-                           setPreliquidationFilter={() => {}}
+                           preliquidationFilter={preliquidationFilter}
+                           setPreliquidationFilter={setPreliquidationFilter}
                            dateFilterType={dateFilterType}
                            setDateFilterType={setDateFilterType}
                            dateRangeInput={dateRangeInput}
