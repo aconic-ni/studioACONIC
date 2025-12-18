@@ -248,7 +248,10 @@ export default function DatabasePage() {
   // Paginating the final filtered list
   const paginatedSolicitudes = useMemo(() => {
     if (!displayedSolicitudes) return null;
-    if (!isSearchActive) return displayedSolicitudes; // Don't paginate if not searching
+    if (!isSearchActive) {
+      // Before search, show all pending items without pagination
+      return displayedSolicitudes.filter(s => s.paymentStatus !== 'Pagado');
+    }
 
     const startIndex = (currentPage - 1) * itemsPerPage;
     const endIndex = itemsPerPage === 0 ? displayedSolicitudes.length : startIndex + itemsPerPage;
@@ -652,16 +655,26 @@ export default function DatabasePage() {
         const groupVisibilityRoles = ['ejecutivo', 'revisor', 'autorevisor_plus', 'coordinadora'];
 
         if (user.role && groupVisibilityRoles.includes(user.role)) {
-            const groupEmails = Array.from(new Set([user.email, ...(user.visibilityGroup?.map(m => m.email) || [])])).filter(Boolean) as string[];
-             if (groupEmails.length > 0) {
-                visibilityFilter = where("savedBy", "in", groupEmails);
-            } else {
-                visibilityFilter = where("savedBy", "==", user.email);
-            }
-        } else if (user.role === 'autorevisor') {
+          const emails = new Set<string>();
+          if (user.email) emails.add(user.email);
+          if (user.visibilityGroup) {
+              user.visibilityGroup.forEach(member => {
+                  if (typeof member === 'string') {
+                      // If it's a string (UID), we'd need a lookup.
+                      // For now, let's assume it's an object with email.
+                  } else if (member && member.email) {
+                      emails.add(member.email);
+                  }
+              });
+          }
+          const groupEmails = Array.from(emails);
+           if (groupEmails.length > 0) {
+              visibilityFilter = where("savedBy", "in", groupEmails);
+          }
+      } else if (user.role === 'autorevisor' && user.email) {
             visibilityFilter = where("savedBy", "==", user.email);
         }
-        // For global roles, visibilityFilter remains null, so no user-based filtering is applied.
+        // For global roles, visibilityFilter remains null.
 
         // --- Date Logic ---
         let dateFilter: QueryConstraint[] = [];
@@ -1217,5 +1230,9 @@ export default function DatabasePage() {
 
 
 
+
+    
+
+    
 
     
