@@ -1,5 +1,5 @@
 
-import type { ExamData, Product, ExamDocument, ExportableExamData, no existe, no existeUpdate, Worksheet } from '@/types';
+import type { ExamData, Product, ExamDocument, ExportableExamData, worksheet, no existeUpdate, Worksheet } from '@/types';
 import { Timestamp, doc, getDoc } from 'firebase/firestore';
 import * as XLSX from 'xlsx';
 import { format } from 'date-fns';

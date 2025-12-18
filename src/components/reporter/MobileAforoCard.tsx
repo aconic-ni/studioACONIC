@@ -1,7 +1,7 @@
 
 "use client"
 import React from 'react';
-import type { no existe, no existeStatus, AforadorStatus, DigitacionStatus, PreliquidationStatus } from '@/types';
+import type { worksheet, no existeStatus, AforadorStatus, DigitacionStatus, PreliquidationStatus } from '@/types';
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -34,9 +34,9 @@ interface MobileAforoCardProps {
     caseItem: no existe;
     savingState: { [key: string]: boolean };
     canEditFields: boolean;
-    handleAutoSave: (caseId: string, field: keyof no existe, value: any, isTriggerFromFieldUpdate?: boolean) => void;
+    handleAutoSave: (caseId: string, field: keyof worksheet, value: any, isTriggerFromFieldUpdate?: boolean) => void;
     handleValidatePattern: (caseId: string) => void;
-    openAssignmentModal: (caseItem: no existe, type: 'aforador' | 'revisor') => void;
+    openAssignmentModal: (caseItem: worksheet, type: 'aforador' | 'revisor') => void;
     openHistoryModal: (caseItem: no existe) => void;
     openIncidentModal: (caseItem: no existe) => void;
     openAforadorCommentModal: (caseItem: no existe) => void;

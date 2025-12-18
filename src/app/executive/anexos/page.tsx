@@ -16,7 +16,7 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Label } from '@/components/ui/label';
 import { X, Loader2, PlusCircle, Trash2, ArrowLeft, Edit, CalendarIcon } from 'lucide-react';
-import type { no existe, no existeUpdate, Worksheet, AppUser } from '@/types';
+import type { worksheet, no existeUpdate, Worksheet, AppUser } from '@/types';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';

@@ -13,7 +13,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/context/AuthContext';
 import { db } from '@/lib/firebase';
 import { doc, updateDoc, writeBatch, collection, Timestamp } from 'firebase/firestore';
-import type { no existe, no existeUpdate, ValueDoubtStatus } from '@/types';
+import type { worksheet, no existeUpdate, ValueDoubtStatus } from '@/types';
 import { Loader2 } from 'lucide-react';
 import { DatePicker } from '../reports/DatePicker';
 import { calculateDueDate } from '@/lib/date-utils';

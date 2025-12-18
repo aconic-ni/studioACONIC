@@ -14,7 +14,7 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { ArrowLeft, Loader2 } from 'lucide-react';
-import type { no existe, no existeUpdate, Worksheet, AppUser } from '@/types';
+import type { worksheet, no existeUpdate, Worksheet, AppUser } from '@/types';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
 import { aduanas } from '@/lib/formData';

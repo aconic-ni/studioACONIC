@@ -12,7 +12,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/context/AuthContext';
 import { db } from '@/lib/firebase';
 import { doc, updateDoc, addDoc, collection, Timestamp, writeBatch } from 'firebase/firestore';
-import type { no existe, no existeStatus, no existeUpdate, WorksheetWithCase } from '@/types';
+import type { worksheet, no existeStatus, no existeUpdate, WorksheetWithCase } from '@/types';
 import { Loader2 } from 'lucide-react';
 import { Badge } from '../ui/badge';
 

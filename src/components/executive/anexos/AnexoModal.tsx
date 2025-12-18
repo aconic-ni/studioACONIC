@@ -9,7 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Loader2, FilePlus, Search, Edit, Eye, History, PlusSquare, UserCheck, Inbox, AlertTriangle, Download, ChevronsUpDown, Info, CheckCircle, CalendarRange, Calendar, CalendarDays, ShieldAlert, BookOpen, FileCheck2, MessageSquare, View, Banknote, Bell as BellIcon, RefreshCw, Send, StickyNote } from 'lucide-react';
 import { db } from '@/lib/firebase';
 import { collection, query, where, onSnapshot, orderBy, Timestamp, doc, getDoc, updateDoc, writeBatch, addDoc, getDocs, collectionGroup } from 'firebase/firestore';
-import type { Worksheet, no existe, AforadorStatus, no existeStatus, DigitacionStatus, WorksheetWithCase, no existeUpdate, PreliquidationStatus, IncidentType, LastUpdateInfo, ExecutiveComment, InitialDataContext, AppUser, SolicitudRecord, ExamDocument, FacturacionStatus } from '@/types';
+import type { Worksheet, worksheet, AforadorStatus, no existeStatus, DigitacionStatus, WorksheetWithCase, no existeUpdate, PreliquidationStatus, IncidentType, LastUpdateInfo, ExecutiveComment, InitialDataContext, AppUser, SolicitudRecord, ExamDocument, FacturacionStatus } from '@/types';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { format, toDate, isSameDay, startOfDay, endOfDay, startOfMonth, endOfMonth } from 'date-fns';
 import { es } from 'date-fns/locale';
@@ -241,7 +241,7 @@ export default function ExecutivePage() {
   };
 
 
-  const handleAutoSave = useCallback(async (caseId: string, field: keyof no existe, value: any) => {
+  const handleAutoSave = useCallback(async (caseId: string, field: keyof worksheet, value: any) => {
     if (!user || !user.displayName) { toast({ title: "No autenticado", variant: 'destructive' }); return; }
     
     const originalCase = allCases.find(c => c.id === caseId);

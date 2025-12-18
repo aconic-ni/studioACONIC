@@ -6,7 +6,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tooltip, TooltipProvider, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import type { no existe, LastUpdateInfo } from '@/types';
+import type { worksheet, LastUpdateInfo } from '@/types';
 import { ArrowRight, CheckCircle, Clock, Hourglass, XCircle, Loader2 } from "lucide-react";
 import { format, toDate } from 'date-fns';
 import { es } from 'date-fns/locale';

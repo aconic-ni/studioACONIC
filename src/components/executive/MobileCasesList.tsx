@@ -1,13 +1,13 @@
 
 "use client";
 import React from 'react';
-import type { no existe, WorksheetWithCase } from '@/types';
+import type { worksheet, WorksheetWithCase } from '@/types';
 import { MobileCaseCard } from '@/components/executive/MobileCaseCard';
 
 interface MobileCasesListProps {
   cases: WorksheetWithCase[];
   savingState: { [key: string]: boolean };
-  onAutoSave: (caseId: string, field: keyof no existe, value: any) => void;
+  onAutoSave: (caseId: string, field: keyof worksheet, value: any) => void;
   approvePreliquidation: (caseId: string) => void;
   caseActions: any;
 }

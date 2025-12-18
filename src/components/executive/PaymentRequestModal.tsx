@@ -10,7 +10,7 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/context/AuthContext';
-import type { no existe, InitialDataContext } from '@/types';
+import type { worksheet, InitialDataContext } from '@/types';
 import { StickyNote } from 'lucide-react';
 import { useAppContext } from '@/context/AppContext';
 import { useRouter } from 'next/navigation';

@@ -12,7 +12,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/context/AuthContext';
 import { db } from '@/lib/firebase';
 import { doc, updateDoc, writeBatch, collection, Timestamp, getDoc, query, where, getDocs } from 'firebase/firestore';
-import type { no existe, no existeUpdate, Worksheet, WorksheetDocument, RequiredPermit, DocumentStatus, AppUser } from '@/types';
+import type { worksheet, no existeUpdate, Worksheet, WorksheetDocument, RequiredPermit, DocumentStatus, AppUser } from '@/types';
 import { Loader2, PlusCircle, Trash2, FileText, Calendar, Receipt, RotateCcw, MessageSquare, Info, Scale, Settings, ArrowLeft, Edit, Truck, Anchor, Plane } from 'lucide-react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Label } from '../ui/label';

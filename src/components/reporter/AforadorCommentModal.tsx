@@ -13,7 +13,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/context/AuthContext';
 import { db } from '@/lib/firebase';
 import { doc, updateDoc, addDoc, collection, Timestamp, writeBatch } from 'firebase/firestore';
-import type { no existe, no existeUpdate } from '@/types';
+import type { worksheet, no existeUpdate } from '@/types';
 import { Loader2 } from 'lucide-react';
 
 const commentSchema = z.object({

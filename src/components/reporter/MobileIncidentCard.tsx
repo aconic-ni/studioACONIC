@@ -2,7 +2,7 @@
 "use client";
 
 import React from 'react';
-import type { no existe, IncidentStatus } from '@/types';
+import type { worksheet, IncidentStatus } from '@/types';
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';

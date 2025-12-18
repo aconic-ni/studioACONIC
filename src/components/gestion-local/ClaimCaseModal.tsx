@@ -15,7 +15,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/context/AuthContext';
 import { db } from '@/lib/firebase';
 import { doc, getDoc, writeBatch, collection, Timestamp, query, where, getDocs, updateDoc } from 'firebase/firestore';
-import type { AppUser, no existe, Worksheet, no existeUpdate } from '@/types';
+import type { AppUser, worksheet, Worksheet, no existeUpdate } from '@/types';
 import { Loader2 } from 'lucide-react';
 import { ConsigneeSelector } from '../shared/ConsigneeSelector';
 

@@ -1,7 +1,7 @@
 
 "use client";
 import { useState, useMemo, useCallback, useEffect } from 'react';
-import type { no existe, Worksheet, SolicitudRecord, AppUser } from '@/types';
+import type { worksheet, Worksheet, SolicitudRecord, AppUser } from '@/types';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { DatePickerWithRange } from '@/components/reports/DatePickerWithRange';

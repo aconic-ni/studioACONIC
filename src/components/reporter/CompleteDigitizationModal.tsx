@@ -14,7 +14,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/context/AuthContext';
 import { db } from '@/lib/firebase';
 import { doc, updateDoc, addDoc, collection, Timestamp } from 'firebase/firestore';
-import type { no existe, no existeUpdate, DigitacionStatus } from '@/types';
+import type { worksheet, no existeUpdate, DigitacionStatus } from '@/types';
 import { Loader2, Save } from 'lucide-react';
 
 const completeSchema = z.object({

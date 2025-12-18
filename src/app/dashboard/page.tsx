@@ -8,7 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Loader2, KeyRound } from 'lucide-react';
 import { db } from '@/lib/firebase';
 import { collection, getDocs, query, orderBy, Timestamp, collectionGroup, getDoc } from 'firebase/firestore';
-import type { ExamDocument, no existe, Worksheet, SolicitudRecord, WorksheetWithCase } from '@/types';
+import type { ExamDocument, worksheet, Worksheet, SolicitudRecord, WorksheetWithCase } from '@/types';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { PrevioDashboard } from '@/components/dashboard/PrevioDashboard';
 import { AforoDashboard } from '@/components/dashboard/AforoDashboard';

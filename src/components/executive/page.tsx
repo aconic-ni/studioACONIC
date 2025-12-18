@@ -9,7 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Loader2, FilePlus, Search, Edit, Eye, History, PlusSquare, UserCheck, Inbox, AlertTriangle, Download, ChevronsUpDown, Info, CheckCircle, CalendarRange, Calendar, CalendarDays, ShieldAlert, BookOpen, FileCheck2, MessageSquare, View, Banknote, Bell as BellIcon, RefreshCw, Send, StickyNote, Scale, Briefcase, KeyRound, Copy, Archive } from 'lucide-react';
 import { db } from '@/lib/firebase';
 import { collection, query, where, onSnapshot, orderBy, Timestamp, doc, getDoc, updateDoc, writeBatch, addDoc, getDocs, collectionGroup, serverTimestamp, setDoc } from 'firebase/firestore';
-import type { Worksheet, no existe, AforadorStatus, no existeStatus, DigitacionStatus, WorksheetWithCase, no existeUpdate, PreliquidationStatus, IncidentType, LastUpdateInfo, ExecutiveComment, InitialDataContext, AppUser, SolicitudRecord, ExamDocument, FacturacionStatus } from '@/types';
+import type { Worksheet, worksheet, AforadorStatus, no existeStatus, DigitacionStatus, WorksheetWithCase, no existeUpdate, PreliquidationStatus, IncidentType, LastUpdateInfo, ExecutiveComment, InitialDataContext, AppUser, SolicitudRecord, ExamDocument, FacturacionStatus } from '@/types';
 import { format, toDate, isSameDay, startOfDay, endOfDay, differenceInDays, startOfMonth, endOfMonth } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { Input } from '@/components/ui/input';
@@ -320,7 +320,7 @@ function ExecutivePageContent() {
   };
 
 
-  const handleAutoSave = useCallback(async (caseId: string, field: keyof no existe, value: any, isTriggerFromFieldUpdate: boolean = false) => {
+  const handleAutoSave = useCallback(async (caseId: string, field: keyof worksheet, value: any, isTriggerFromFieldUpdate: boolean = false) => {
     if (!user || !user.displayName) { toast({ title: "No autenticado", variant: 'destructive' }); return; }
     
     const originalCase = allCases.find(c => c.id === caseId);
@@ -349,7 +349,7 @@ function ExecutivePageContent() {
         const updateLog: no existeUpdate = {
             updatedAt: Timestamp.now(),
             updatedBy: user.displayName,
-            field: field as keyof no existe,
+            field: field as keyof worksheet,
             oldValue: oldValue ?? null,
             newValue: value,
         };
@@ -729,7 +729,7 @@ function ExecutivePageContent() {
         batch.set(newWorksheetRef, newWorksheetData);
         
         // 2. Create new case - reset all statuses and dates
-        const newCaseData: Omit<no existe, 'id'> = {
+        const newCaseData: Omit<worksheet, 'id'> = {
             ne: newNe,
             executive: caseToDuplicate.executive,
             consignee: caseToDuplicate.consignee,

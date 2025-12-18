@@ -9,7 +9,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogD
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { ArrowLeft, Printer, Loader2 } from 'lucide-react';
-import type { no existe, Remision, RemisionCase } from '@/types';
+import type { worksheet, Remision, RemisionCase } from '@/types';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { useAuth } from '@/context/AuthContext';

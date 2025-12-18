@@ -7,7 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Loader2, ArrowLeft, RefreshCw, Database } from 'lucide-react';
 import { db } from '@/lib/firebase';
 import { collection, getDocs, query, where, writeBatch, doc, getDoc, setDoc, documentId, collectionGroup, getCountFromServer } from 'firebase/firestore';
-import type { no existe, Worksheet } from '@/types';
+import type { worksheet, Worksheet } from '@/types';
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';

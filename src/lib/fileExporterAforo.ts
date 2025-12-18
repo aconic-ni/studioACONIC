@@ -1,5 +1,5 @@
 
-import type { no existe, no existeUpdate } from '@/types';
+import type { worksheet, no existeUpdate } from '@/types';
 import { Timestamp } from 'firebase/firestore';
 import * as XLSX from 'xlsx';
 import { format } from 'date-fns';

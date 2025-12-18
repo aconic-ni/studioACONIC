@@ -4,7 +4,7 @@
 import { useState, useEffect } from 'react';
 import { db } from '@/lib/firebase';
 import { doc, updateDoc, writeBatch, collection, Timestamp } from 'firebase/firestore';
-import type { AppUser, no existe, no existeUpdate } from '@/types';
+import type { AppUser, worksheet, no existeUpdate } from '@/types';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';

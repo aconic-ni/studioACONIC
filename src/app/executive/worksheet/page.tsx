@@ -19,7 +19,7 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Label } from '@/components/ui/label';
 import { X, Loader2, PlusCircle, Trash2, CheckSquare, Square, Receipt, Check, ChevronsUpDown, RotateCcw, ArrowLeft, Settings, Edit } from 'lucide-react';
-import type { no existe, no existeUpdate, RequiredPermit, DocumentStatus, Worksheet, AppUser, WorksheetDocument } from '@/types';
+import type { worksheet, no existeUpdate, RequiredPermit, DocumentStatus, Worksheet, AppUser, WorksheetDocument } from '@/types';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError, type SecurityRuleContext } from '@/firebase/errors';
 import { Checkbox } from '@/components/ui/checkbox';

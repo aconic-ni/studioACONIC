@@ -1,7 +1,7 @@
 
 "use client";
 import React from 'react';
-import type { no existe, no existeStatus, AforadorStatus, DigitacionStatus, PreliquidationStatus, WorksheetWithCase } from '@/types';
+import type { worksheet, no existeStatus, AforadorStatus, DigitacionStatus, PreliquidationStatus, WorksheetWithCase } from '@/types';
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -32,7 +32,7 @@ interface MobileCaseCardProps {
     caseData: WorksheetWithCase;
     savingState: { [key: string]: boolean };
     caseActions: any;
-    onAutoSave: (caseId: string, field: keyof no existe, value: any) => void;
+    onAutoSave: (caseId: string, field: keyof worksheet, value: any) => void;
     approvePreliquidation: (caseId: string) => void;
 }
 

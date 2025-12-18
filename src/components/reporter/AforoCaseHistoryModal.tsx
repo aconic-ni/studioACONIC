@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { db } from '@/lib/firebase';
 import { collection, query, orderBy, onSnapshot, Timestamp } from 'firebase/firestore';
-import type { no existe, no existeUpdate, WorksheetWithCase } from '@/types';
+import type { worksheet, no existeUpdate, WorksheetWithCase } from '@/types';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog';
 import { ScrollArea } from '@/components/ui/scroll-area';

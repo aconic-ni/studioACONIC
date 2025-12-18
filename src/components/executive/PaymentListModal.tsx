@@ -1,10 +1,9 @@
-
 "use client";
 
 import { useState, useEffect } from 'react';
 import { db } from '@/lib/firebase';
 import { collection, query, onSnapshot, orderBy, Timestamp, where } from 'firebase/firestore';
-import type { no existe, SolicitudRecord, InitialDataContext } from '@/types';
+import type { AforoData, SolicitudRecord, InitialDataContext } from '@/types';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription, DialogClose } from '@/components/ui/dialog';
 import { Loader2, Package, Eye, ArrowLeft, X, CheckCircle2, AlertCircle } from 'lucide-react';
@@ -17,7 +16,7 @@ import { Badge } from '../ui/badge';
 interface PaymentListModalProps {
   isOpen: boolean;
   onClose: () => void;
-  caseData: no existe;
+  caseData: AforoData;
 }
 
 const getPaymentStatusBadge = (solicitud: SolicitudRecord) => {

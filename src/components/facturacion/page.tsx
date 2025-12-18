@@ -9,7 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
-import type { no existe, AppUser, Remision } from '@/types';
+import type { worksheet, AppUser, Remision } from '@/types';
 import { format, startOfMonth, endOfMonth } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { FacturacionFinalizeModal } from '@/components/facturacion/FacturacionFinalizeModal';

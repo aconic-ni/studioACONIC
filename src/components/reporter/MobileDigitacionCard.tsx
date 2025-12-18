@@ -1,6 +1,6 @@
 "use client";
 import React from 'react';
-import type { no existe, DigitacionStatus } from '@/types';
+import type { worksheet, DigitacionStatus } from '@/types';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -15,7 +15,7 @@ interface MobileDigitacionCardProps {
   isDigitador: boolean;
   savingState: { [key: string]: boolean };
   handleStatusChange: (caseId: string, value: DigitacionStatus) => void;
-  handleAutoSave: (caseId: string, field: keyof no existe, value: any) => void;
+  handleAutoSave: (caseId: string, field: keyof worksheet, value: any) => void;
   openCommentModal: (caseItem: no existe) => void;
   openHistoryModal: (caseItem: no existe) => void;
   setSelectedCaseForAssignment: (caseItem: no existe) => void;

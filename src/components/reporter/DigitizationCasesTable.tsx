@@ -4,7 +4,7 @@ import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { db } from '@/lib/firebase';
 import { collection, query, where, onSnapshot, Timestamp, orderBy, doc, updateDoc, addDoc, getDocs, writeBatch, getCountFromServer, getDoc, documentId, type Query } from 'firebase/firestore';
 import { useAuth } from '@/context/AuthContext';
-import type { no existe, DigitacionStatus, no existeUpdate, AppUser, LastUpdateInfo, Worksheet, WorksheetWithCase } from '@/types';
+import type { worksheet, DigitacionStatus, no existeUpdate, AppUser, LastUpdateInfo, Worksheet, WorksheetWithCase } from '@/types';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Loader2, Inbox, History, Edit, User, PlusSquare, FileText, Info, Send, AlertTriangle, CheckSquare, ChevronsUpDown, Check, ChevronDown, ChevronRight, BookOpen, Search, MessageSquare, FileSignature, Repeat, Eye, Users, Scale, UserCheck, Shield, ShieldCheck, FileDigit, Truck, Anchor, Plane, KeyRound } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
@@ -98,7 +98,7 @@ export function DigitizationCasesTable({ cases, isLoading, error, onRefresh }: D
   const isMobile = useIsMobile();
 
 
-  const handleAutoSave = useCallback(async (caseId: string, field: keyof no existe, value: any, isTriggerFromFieldUpdate: boolean = false) => {
+  const handleAutoSave = useCallback(async (caseId: string, field: keyof worksheet, value: any, isTriggerFromFieldUpdate: boolean = false) => {
     if (!user || !user.displayName) {
         toast({ title: "No autenticado", description: "Debe iniciar sesión para guardar cambios." });
         return;
@@ -143,7 +143,7 @@ export function DigitizationCasesTable({ cases, isLoading, error, onRefresh }: D
         const updateLog: no existeUpdate = {
             updatedAt: now,
             updatedBy: user.displayName,
-            field: field as keyof no existe,
+            field: field as keyof worksheet,
             oldValue: oldValue ?? null,
             newValue: value,
         };
@@ -228,7 +228,7 @@ export function DigitizationCasesTable({ cases, isLoading, error, onRefresh }: D
         const logEntry: no existeUpdate = {
           updatedAt: now,
           updatedBy: user.displayName,
-          field: field as keyof no existe,
+          field: field as keyof worksheet,
           oldValue: originalCase[field as keyof no existe] || null,
           newValue: value,
           comment: `Acción masiva: ${field} actualizado a ${value}.`
