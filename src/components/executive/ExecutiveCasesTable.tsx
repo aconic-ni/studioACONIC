@@ -1,3 +1,4 @@
+
 "use client";
 import React from 'react';
 import type { AforoCase, AforoCaseStatus, DigitacionStatus, PreliquidationStatus, WorksheetWithCase } from '@/types';
@@ -21,6 +22,8 @@ import { StatusBadges } from './StatusBadges';
 import Link from 'next/link';
 import { useAuth } from '@/context/AuthContext';
 import { Switch } from '@/components/ui/switch';
+import { LastUpdateTooltip } from './LastUpdateTooltip';
+import { cn } from '@/lib/utils';
 
 interface ExecutiveCasesTableProps {
   cases: WorksheetWithCase[];
@@ -63,7 +66,6 @@ const getOverallStatus = (caseData: AforoCase): { text: string; variant: "defaul
     return { text: 'Pendiente de Aforo', variant: 'outline' };
 };
 
-
 const getPreliquidationStatusBadge = (status?: PreliquidationStatus) => {
     switch(status) {
       case 'Aprobada': return <Badge variant="default" className="bg-green-600">Aprobada</Badge>;
@@ -103,7 +105,7 @@ export function ExecutiveCasesTable({
             <Table><TableHeader><TableRow>
                 <TableHead className="w-12">
                   <Checkbox
-                    checked={selectedRows.length > 0 && selectedRows.length === cases.filter(c => c.revisorStatus === 'Aprobado' && ((c as any).aforo || c).preliquidationStatus !== 'Aprobada').length}
+                    checked={selectedRows.length > 0 && selectedRows.length === cases.filter(c => ((c as any).aforo || c).revisorStatus === 'Aprobado' && ((c as any).aforo || c).preliquidationStatus !== 'Aprobada').length}
                     onCheckedChange={onSelectAllRows}
                     aria-label="Seleccionar todo para preliquidación"
                   />
@@ -231,8 +233,8 @@ export function ExecutiveCasesTable({
                                 )}
                             </div>
                         </TableCell>
-                         <TableCell>
-                          <div className="flex items-center gap-1">
+                        <TableCell>
+                           <div className="flex items-center gap-1">
                             <Badge variant={overallStatus.variant}>{overallStatus.text}</Badge>
                             <Tooltip>
                                 <TooltipTrigger asChild>
@@ -242,16 +244,19 @@ export function ExecutiveCasesTable({
                                 </TooltipTrigger>
                                 <TooltipContent><p>Ver Línea de Proceso</p></TooltipContent>
                             </Tooltip>
-                          </div>
+                           </div>
                         </TableCell>
                         <TableCell>
-                            {aforoData.revisorStatus === 'Aprobado' && aforoData.preliquidationStatus !== 'Aprobada' ? (
-                                <Button size="sm" onClick={() => approvePreliquidation(c.id)} disabled={savingState[c.id]}>
-                                    <CheckCircle className="mr-2 h-4 w-4" /> Aprobar
-                                </Button>
-                            ) : (
-                                getPreliquidationStatusBadge(aforoData.preliquidationStatus)
-                            )}
+                            <div className="flex items-center">
+                                {(aforoData.revisorStatus === 'Aprobado' && aforoData.preliquidationStatus !== 'Aprobada') ? (
+                                    <Button size="sm" onClick={() => approvePreliquidation(c.id)} disabled={savingState[c.id]}>
+                                        <CheckCircle className="mr-2 h-4 w-4" /> Aprobar
+                                    </Button>
+                                ) : (
+                                    getPreliquidationStatusBadge(aforoData.preliquidationStatus)
+                                )}
+                                <LastUpdateTooltip lastUpdate={aforoData.preliquidationStatusLastUpdate} caseCreation={c.createdAt}/>
+                            </div>
                         </TableCell>
                          <TableCell>
                             <div className="flex items-center gap-2">
