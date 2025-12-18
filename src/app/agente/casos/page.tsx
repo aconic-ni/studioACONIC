@@ -1,3 +1,4 @@
+
 "use client";
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { db } from '@/lib/firebase';
@@ -116,9 +117,9 @@ export default function AgenteCasosPage() {
             const aforoData = aforoDataMap.get(wsId);
             if (wsData && aforoData) {
                  const combinedData: WorksheetWithCase = {
-                    ...wsData, 
+                    ...wsData,
                     ...aforoData,
-                    id: wsId, 
+                    id: wsId,
                     worksheet: wsData,
                     declarationPattern: aforoData.declarationPattern || wsData.patternRegime || '',
                     merchandise: aforoData.merchandise || wsData.description || '',
@@ -203,7 +204,7 @@ export default function AgenteCasosPage() {
   }
 
   const handleBulkApprove = async () => {
-    if (selectedRows.length === 0 || !user?.displayName) return;
+    if (selectedRows.length === 0 || !user || !user.displayName) return;
     setIsBulkApproving(true);
     const batch = writeBatch(db);
     const newStatus: AforoCaseStatus = 'Aprobado';
@@ -477,3 +478,4 @@ export default function AgenteCasosPage() {
     </AppShell>
   );
 }
+

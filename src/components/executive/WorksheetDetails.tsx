@@ -1,3 +1,4 @@
+
 "use client";
 import React, { useEffect, useState, useMemo } from 'react';
 import Image from 'next/image';
@@ -11,8 +12,6 @@ import { Badge } from '@/components/ui/badge';
 import { format as formatDateFns } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { aduanas, aduanaToShortCode } from '@/lib/formData';
-import { Anexo5Details } from './anexos/Anexo5Details';
-import { Anexo7Details } from './anexos/Anexo7Details';
 import { cn } from "@/lib/utils";
 import { db } from '@/lib/firebase';
 import Link from 'next/link';
@@ -63,14 +62,6 @@ const transportIcons: { [key: string]: React.ElementType } = {
 
 export function WorksheetDetails({ worksheet, onClose }: { worksheet: WorksheetWithCase; onClose: () => void; }) {
   
-  if (worksheet.worksheetType === 'anexo_7') {
-    return <Anexo7Details worksheet={worksheet} onClose={onClose} />;
-  }
-
-  if (worksheet.worksheetType === 'anexo_5') {
-    return <Anexo5Details worksheet={worksheet} onClose={onClose} />;
-  }
-
   const handlePrint = () => {
     window.print();
   };
