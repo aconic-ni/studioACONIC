@@ -11,23 +11,14 @@ import { Loader2, FilePlus, Edit, Inbox, Banknote, StickyNote, Briefcase, Archiv
 import { db } from '@/lib/firebase';
 import { collection, query, where, onSnapshot, orderBy, Timestamp, doc, getDoc, updateDoc, writeBatch, addDoc, getDocs, collectionGroup, serverTimestamp, setDoc } from 'firebase/firestore';
 import type { Worksheet, AforoCase, AforadorStatus, AforoCaseStatus, DigitacionStatus, WorksheetWithCase, AforoCaseUpdate, PreliquidationStatus, IncidentType, LastUpdateInfo, ExecutiveComment, InitialDataContext, AppUser, SolicitudRecord, ExamDocument, FacturacionStatus } from '@/types';
-import { format, toDate, isSameDay, startOfDay, endOfDay, differenceInDays } from 'date-fns';
+import { format, toDate, isSameDay, startOfDay, endOfDay, differenceInDays, startOfMonth, endOfMonth } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { Input } from '@/components/ui/input';
 import { AforoCaseHistoryModal } from '@/components/reporter/AforoCaseHistoryModal';
 import { IncidentReportModal } from '@/components/reporter/IncidentReportModal';
-import { Badge } from '@/components/ui/badge';
 import { IncidentReportDetails } from '@/components/reporter/IncidentReportDetails';
 import { ValueDoubtModal } from '@/components/executive/ValueDoubtModal';
-import { DatePickerWithTime } from '@/components/reports/DatePickerWithTime';
-import { Checkbox } from '@/components/ui/checkbox';
-import { downloadExecutiveReportAsExcel } from '@/lib/fileExporter';
-import { downloadCorporateReportAsExcel } from '@/lib/fileExporterCorporateReport';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { useToast } from '@/hooks/use-toast';
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuLabel } from '@/components/ui/dropdown-menu';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Tooltip, TooltipProvider, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip';
 import type { DateRange } from 'react-day-picker';
 import { WorksheetDetails } from '@/components/executive/WorksheetDetails';
 import { ExecutiveCommentModal } from '@/components/executive/ExecutiveCommentModal';
@@ -38,22 +29,19 @@ import { AnnouncementsCarousel } from '@/components/executive/AnnouncementsCarou
 import { AssignUserModal } from '@/components/reporter/AssignUserModal';
 import { ResaNotificationModal } from '@/components/executive/ResaNotificationModal';
 import { useIsMobile } from '@/hooks/use-mobile';
-import { StatusBadges } from '@/components/executive/StatusBadges';
 import { useAppContext } from '@/context/AppContext';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { ViewIncidentsModal } from '@/components/executive/ViewIncidentsModal';
-import { Switch } from '@/components/ui/switch';
-import { Label } from '@/components/ui/label';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { StatusProcessModal } from '@/components/executive/StatusProcessModal';
 import { Textarea } from '@/components/ui/textarea';
 import { ExecutiveFilters } from '@/components/executive/ExecutiveFilters';
 import { ExecutiveCasesTable } from '@/components/executive/ExecutiveCasesTable';
 import { v4 as uuidv4 } from 'uuid';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+
 
 type DateFilterType = 'range' | 'month' | 'today';
-
 
 const months = [
     { value: 0, label: 'Enero' }, { value: 1, label: 'Febrero' }, { value: 2, label: 'Marzo' },
@@ -278,7 +266,7 @@ function ExecutivePageContent() {
     else if (appliedFilters.facturado && !appliedFilters.noFacturado) finalFiltered = finalFiltered.filter(c => c.facturado === true);
     if (appliedFilters.conAcuse && !appliedFilters.sinAcuse) finalFiltered = finalFiltered.filter(c => c.entregadoAforoAt);
     else if (appliedFilters.sinAcuse && !appliedFilters.conAcuse) finalFiltered = finalFiltered.filter(c => !c.entregadoAforoAt);
-    if (appliedFilters.preliquidation) { finalFiltered = finalFiltered.filter(c => c.revisorStatus === 'Aprobado' && c.preliquidationStatus !== 'Aprobada'); }
+    
     if (appliedFilters.dateRange?.from) { finalFiltered = finalFiltered.filter(item => item.createdAt?.toDate() >= appliedFilters.dateRange!.from! && item.createdAt?.toDate() <= (appliedFilters.dateRange!.to ? appliedFilters.dateRange!.to : appliedFilters.dateRange!.from!)); }
     
     const { ne, ejecutivo, consignatario, factura, selectividad, incidentType } = columnFilters;
@@ -302,7 +290,7 @@ function ExecutivePageContent() {
       }
     } else { setSearchHint(null); }
     return finalFiltered;
-  }, [allCases, appliedFilters, activeTab, columnFilters, acuseFilter, preliquidationFilter]);
+  }, [allCases, appliedFilters, activeTab, columnFilters, acuseFilter]);
 
   const totalPages = Math.ceil(filteredCases.length / itemsPerPage);
   const paginatedCases = appliedFilters.isSearchActive ? filteredCases.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage) : filteredCases;
@@ -353,30 +341,27 @@ function ExecutivePageContent() {
     return types.length > 0 ? types.join(' / ') : 'N/A';
   };
   
-  const handleDeathkey = async () => {
-    if (pinInput !== "192438") { toast({ title: "PIN Incorrecto", variant: "destructive" }); return; }
-    if (selectedRows.length === 0 || !user || !user.displayName) return;
-    setIsLoading(true);
-    const batch = writeBatch(db);
-    for (const caseId of selectedRows) {
-        const caseItem = filteredCases.find(c => c.id === caseId);
-        if (caseItem && caseItem.worksheetId) {
-            const worksheetRef = doc(db, 'worksheets', caseItem.worksheetId);
-            batch.update(worksheetRef, { worksheetType: 'corporate_report' });
-            const updatesSubcollectionRef = collection(worksheetRef, 'actualizaciones');
-            const updateLog: AforoCaseUpdate = {updatedAt: Timestamp.now(), updatedBy: user.displayName, field: 'worksheetType', oldValue: 'hoja_de_trabajo', newValue: 'corporate_report', comment: 'Caso reclasificado a Reporte Corporativo via Deathkey.'};
-            batch.set(doc(updatesSubcollectionRef), updateLog);
-        }
-    }
+  const handleSendToFacturacion = async (caseId: string) => {
+    if (!user || !user.displayName) return;
+
+    setSavingState(prev => ({ ...prev, [caseId]: true }));
+    const aforoMetadataRef = doc(db, 'worksheets', caseId, 'aforo', 'metadata');
+    
     try {
-        await batch.commit();
-        toast({ title: "Éxito", description: `${selectedRows.length} casos han sido reclasificados.` });
-        setSelectedRows([]);
-        setIsDeathkeyModalOpen(false);
-        setNewNeForDuplicateState('');
-    } catch (error) { toast({ title: "Error", description: "No se pudieron reclasificar los casos.", variant: "destructive" });
-    } finally { setIsLoading(false); }
+        await updateDoc(aforoMetadataRef, {
+            facturacionStatus: 'Enviado a Facturacion',
+            enviadoAFacturacionAt: Timestamp.now(),
+            facturadorAsignado: 'Alvaro Gonzalez',
+            facturadorAsignadoAt: Timestamp.now(),
+        });
+        toast({ title: 'Enviado a Facturación', description: 'El caso ha sido remitido al módulo de facturación y asignado a Alvaro Gonzalez.' });
+    } catch (e) {
+        toast({ title: 'Error', description: 'No se pudo enviar el caso a facturación.', variant: 'destructive'});
+    } finally {
+        setSavingState(prev => ({...prev, [caseId]: false}));
+    }
   };
+
 
   if (authLoading || !user) return <div className="min-h-screen flex items-center justify-center bg-background"><Loader2 className="h-12 w-12 animate-spin text-primary" /></div>;
   const caseToDuplicate = modalState.duplicate;
@@ -419,12 +404,7 @@ function ExecutivePageContent() {
                 </CardHeader>
                 <CardContent>
                     <Tabs defaultValue={activeTab} className="w-full" onValueChange={handleTabChange}>
-                         <TabsList className="mb-4">
-                           <TabsTrigger value="worksheets">Hojas de Trabajo</TabsTrigger>
-                           <TabsTrigger value="anexos">Anexos</TabsTrigger>
-                           <TabsTrigger value="corporate">Reportes Corporativos</TabsTrigger>
-                       </TabsList>
-                       <ExecutiveFilters
+                        <ExecutiveFilters
                            activeTab={activeTab as TabValue}
                            searchTerm={searchTerm}
                            setSearchTerm={setSearchTerm}
@@ -432,8 +412,8 @@ function ExecutivePageContent() {
                            setFacturadoFilter={setFacturadoFilter}
                            acuseFilter={acuseFilter}
                            setAcuseFilter={setAcuseFilter}
-                           preliquidationFilter={preliquidationFilter}
-                           setPreliquidationFilter={setPreliquidationFilter}
+                           preliquidationFilter={false}
+                           setPreliquidationFilter={() => {}}
                            dateFilterType={dateFilterType}
                            setDateFilterType={setDateFilterType}
                            dateRangeInput={dateRangeInput}
@@ -501,3 +481,5 @@ export default function ExecutivePage() {
         </Suspense>
     );
 }
+
+    
