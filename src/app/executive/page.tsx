@@ -10,7 +10,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Loader2, FilePlus, Search, Edit, Eye, History, PlusSquare, UserCheck, Inbox, AlertTriangle, Download, ChevronsUpDown, Info, CheckCircle, CalendarRange, Calendar, CalendarDays, ShieldAlert, BookOpen, FileCheck2, MessageSquare, View, Banknote, Bell as BellIcon, RefreshCw, Send, StickyNote, Scale, Briefcase, KeyRound, Copy, Archive } from 'lucide-react';
 import { db } from '@/lib/firebase';
 import { collection, query, where, onSnapshot, orderBy, Timestamp, doc, getDoc, updateDoc, writeBatch, addDoc, getDocs, collectionGroup, serverTimestamp, setDoc } from 'firebase/firestore';
-import type { Worksheet, worksheet, AforadorStatus, no existeStatus, DigitacionStatus, WorksheetWithCase, AforoUpdate, PreliquidationStatus, IncidentType, LastUpdateInfo, ExecutiveComment, InitialDataContext, AppUser, SolicitudRecord, ExamDocument, FacturacionStatus } from '@/types';
+import type { Worksheet, AforoData, AforadorStatus, noexisteStatus, DigitacionStatus, WorksheetWithCase, AforoUpdate, PreliquidationStatus, IncidentType, LastUpdateInfo, ExecutiveComment, InitialDataContext, AppUser, SolicitudRecord, ExamDocument, FacturacionStatus } from '@/types';
 import { format, toDate, isSameDay, startOfDay, endOfDay, differenceInDays, startOfMonth, endOfMonth } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { Input } from '@/components/ui/input';
@@ -72,7 +72,7 @@ function ExecutivePageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { toast } = useToast();
-  const { isPaymentRequestFlowOpen, closePaymentRequestFlow, setInitialContextData, setIsMemorandumMode, caseToAssignAforador, setCaseToAssignAforador, openAddProductModal } = useAppContext();
+  const { openAddProductModal, setInitialContextData, setIsMemorandumMode, caseToAssignAforador, setCaseToAssignAforador } = useAppContext();
   const [allCases, setAllCases] = useState<WorksheetWithCase[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isExporting, setIsExporting] = useState(false);
@@ -170,7 +170,7 @@ const fetchCases = useCallback(async () => {
         if (worksheetIds.length > 0) {
             for (let i = 0; i < worksheetIds.length; i += 30) {
                 const chunk = worksheetIds.slice(i, i + 30);
-                const aforoQuery = query(collectionGroup(db, 'aforo'), where('__name__', 'in', chunk.map(id => `worksheets/${id}/aforo/metadata`)));
+                const aforoQuery = query(collectionGroup(db, 'aforo'), where(documentId(), 'in', chunk.map(id => `worksheets/${id}/aforo/metadata`)));
                 const aforoSnapshot = await getDocs(aforoQuery);
                 aforoSnapshot.forEach(doc => {
                     aforoMetadataMap.set(doc.ref.parent.parent!.id, doc.data() as AforoData);
@@ -185,10 +185,9 @@ const fetchCases = useCallback(async () => {
             const acuseSnapshot = await getDocs(acuseQuery);
             const acuseLog = acuseSnapshot.empty ? null : acuseSnapshot.docs[0].data() as AforoUpdate;
 
-            // This structure is now the final WorksheetWithCase
             return {
-                ...aforoData, // Spread aforo data first
-                ...ws,        // Then worksheet data, 'id' and 'ne' from ws will overwrite aforo's
+                ...aforoData,
+                ...ws,
                 id: ws.id,
                 worksheet: ws,
                 aforo: aforoData,
@@ -257,7 +256,7 @@ const fetchCases = useCallback(async () => {
         if (field === 'facturado' && value === true) updateData.facturadoAt = Timestamp.now();
         if (field.toLowerCase().includes('status')) updateData[`${''}${field}LastUpdate`] = { by: user.displayName, at: Timestamp.now() }
         batch.set(aforoMetadataRef, updateData, { merge: true });
-        const updateLog: AforoDataUpdate = { updatedAt: Timestamp.now(), updatedBy: user.displayName, field: field as keyof AforoData, oldValue: oldValue ?? null, newValue: value,};
+        const updateLog: AforoUpdate = { updatedAt: Timestamp.now(), updatedBy: user.displayName, field: field as keyof AforoData, oldValue: oldValue ?? null, newValue: value,};
         batch.set(doc(updatesSubcollectionRef), updateLog);
         await batch.commit();
         if(!isTriggerFromFieldUpdate) toast({ title: "Guardado Automático", description: `El campo se ha actualizado.` });
@@ -320,11 +319,11 @@ const fetchCases = useCallback(async () => {
         batch.update(originalAforoMetaRef, { digitacionStatus: 'TRASLADADO', isArchived: true });
 
         const originalUpdatesRef = collection(originalWorksheetRef, 'actualizaciones');
-        const updateLog: AforoDataUpdate = { updatedAt: Timestamp.now(), updatedBy: user.displayName, field: 'digitacionStatus', oldValue: caseToDuplicate.aforo?.digitacionStatus, newValue: 'TRASLADADO', comment: `Caso trasladado al nuevo NE: ${newNe}. Motivo: ${duplicateReason}` };
+        const updateLog: AforoUpdate = { updatedAt: Timestamp.now(), updatedBy: user.displayName, field: 'digitacionStatus', oldValue: caseToDuplicate.aforo?.digitacionStatus, newValue: 'TRASLADADO', comment: `Caso trasladado al nuevo NE: ${newNe}. Motivo: ${duplicateReason}` };
         batch.set(doc(originalUpdatesRef), updateLog);
         
         const newUpdatesRef = collection(newWorksheetRef, 'actualizaciones');
-        const newCaseLog: AforoDataUpdate = { updatedAt: creationTimestamp, updatedBy: user.displayName, field: 'creation', oldValue: null, newValue: `duplicated_from_${caseToDuplicate.ne}`, comment: `Caso duplicado desde ${caseToDuplicate.ne}. Motivo: ${duplicateReason}` };
+        const newCaseLog: AforoUpdate = { updatedAt: creationTimestamp, updatedBy: user.displayName, field: 'creation', oldValue: null, newValue: `duplicated_from_${caseToDuplicate.ne}`, comment: `Caso duplicado desde ${caseToDuplicate.ne}. Motivo: ${duplicateReason}` };
         batch.set(doc(newUpdatesRef), newCaseLog);
 
         await batch.commit();
@@ -355,7 +354,7 @@ const fetchCases = useCallback(async () => {
             batch.update(worksheetRef, { worksheetType: 'corporate_report' });
 
             const updatesSubcollectionRef = collection(worksheetRef, 'actualizaciones');
-            const updateLog: AforoDataUpdate = {
+            const updateLog: AforoUpdate = {
                 updatedAt: Timestamp.now(),
                 updatedBy: user.displayName,
                 field: 'worksheetType',
@@ -384,9 +383,9 @@ const fetchCases = useCallback(async () => {
   const handleSendToFacturacion = async (caseId: string) => {
     if (!user || !user.displayName) return;
     setSavingState(prev => ({ ...prev, [caseId]: true }));
-    const aforoMetadataRef = doc(db, 'worksheets', caseId, 'aforo', 'metadata');
+    const caseDocRef = doc(db, 'worksheets', caseId, 'aforo', 'metadata');
     try {
-      await setDoc(aforoMetadataRef, {
+      await setDoc(caseDocRef, {
         facturacionStatus: 'Enviado a Facturacion',
         enviadoAFacturacionAt: Timestamp.now(),
         facturadorAsignado: 'Alvaro Gonzalez',
@@ -451,7 +450,18 @@ const fetchCases = useCallback(async () => {
   const paginatedCases = appliedFilters.isSearchActive ? filteredCases.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage) : filteredCases;
   
   const caseActions = {
-    handleViewWorksheet: (c: AforoData) => setSelectedWorksheet(c.worksheet as Worksheet),
+    handleViewWorksheet: (c: AforoData) => {
+        if (!c.worksheetId) {
+            toast({ title: "Error", description: "Este caso no tiene una hoja de trabajo asociada.", variant: "destructive" });
+            return;
+        }
+        const ws = allCases.find(cs => cs.id === c.id)?.worksheet;
+        if (ws) {
+            setModalState(prev => ({...prev, worksheet: ws}));
+        } else {
+            toast({ title: "Error", description: "No se pudo encontrar la hoja de trabajo.", variant: "destructive" });
+        }
+    },
     setSelectedCaseForQuickRequest: (c: WorksheetWithCase) => setModalState(prev => ({...prev, quickRequest: c})),
     setSelectedCaseForPayment: (c: AforoData) => {
         const initialData: InitialDataContext = {
@@ -473,7 +483,19 @@ const fetchCases = useCallback(async () => {
     setSelectedCaseForIncident: (c: AforoData) => setModalState(prev => ({...prev, incident: c})),
     setSelectedCaseForValueDoubt: (c: AforoData) => setModalState(prev => ({...prev, valueDoubt: c})),
     setSelectedCaseForHistory: (c: AforoData) => setModalState(prev => ({...prev, history: c})),
-    handleViewIncidents: (c: AforoData) => handleViewIncidents(c),
+    handleViewIncidents: (c: AforoData) => {
+        const hasRectificacion = c.incidentType === 'Rectificacion';
+        const hasDuda = c.hasValueDoubt;
+        if (hasRectificacion && hasDuda) {
+            setModalState(prev => ({...prev, viewIncidents: c}));
+        } else if (hasRectificacion) {
+            setModalState(prev => ({...prev, incidentDetails: c}));
+        } else if (hasDuda) {
+            setModalState(prev => ({...prev, valueDoubt: c}));
+        } else {
+            toast({ title: "Sin Incidencias", description: "Este caso no tiene incidencias reportadas.", variant: "default" });
+        }
+    },
     setSelectedCaseForComment: (c: AforoData) => setModalState(prev => ({...prev, comment: c})),
     handleSearchPrevio: (ne: string) => router.push(`/database?ne=${ne}`),
     setCaseToArchive: (c: WorksheetWithCase) => setModalState(prev => ({...prev, archive: c})),
@@ -524,53 +546,6 @@ const fetchCases = useCallback(async () => {
     if (c.incidentType === 'Rectificacion') types.push('Rectificación');
     if (c.hasValueDoubt) types.push('Duda de Valor');
     return types.length > 0 ? types.join(' / ') : 'N/A';
-  };
-  const handleViewIncidents = (caseItem: AforoData) => {
-    const hasRectificacion = caseItem.incidentType === 'Rectificacion';
-    const hasDuda = caseItem.hasValueDoubt;
-    if (hasRectificacion && hasDuda) {
-        setModalState(prev => ({...prev, viewIncidents: caseItem}));
-    } else if (hasRectificacion) {
-        setModalState(prev => ({...prev, incidentDetails: caseItem}));
-    } else if (hasDuda) {
-        setModalState(prev => ({...prev, valueDoubt: caseItem}));
-    } else {
-        toast({ title: "Sin Incidencias", description: "Este caso no tiene incidencias reportadas.", variant: "default" });
-    }
-  };
-
-  const handleExport = async () => {
-    if (filteredCases.length === 0) {
-      toast({ title: "No hay datos", description: "No hay casos en la tabla para exportar.", variant: "secondary"});
-      return;
-    };
-    setIsExporting(true);
-
-    try {
-        if (activeTab === 'corporate') {
-            await downloadCorporateReportAsExcel(filteredCases.map(c => c.worksheet).filter(ws => ws !== null) as Worksheet[]);
-        } else {
-            const auditLogs: (AforoUpdate & { caseNe: string })[] = [];
-
-            for (const caseItem of filteredCases) {
-                if (!caseItem.worksheetId) continue;
-                const logsQuery = query(collection(db, 'worksheets', caseItem.worksheetId, 'actualizaciones'), orderBy('updatedAt', 'asc'));
-                const logSnapshot = await getDocs(logsQuery);
-                logSnapshot.forEach(logDoc => {
-                    auditLogs.push({
-                        ...(logDoc.data() as AforoUpdate),
-                        caseNe: caseItem.ne
-                    });
-                });
-            }
-            await downloadExecutiveReportAsExcel(filteredCases, auditLogs);
-        }
-    } catch (e) {
-        console.error("Error exporting data: ", e);
-        toast({ title: "Error de Exportación", description: "No se pudieron obtener todos los detalles para el reporte.", variant: "destructive" });
-    } finally {
-        setIsExporting(false);
-    }
   };
   
   const handleSelectAllForPreliquidation = () => {
@@ -729,20 +704,26 @@ const fetchCases = useCallback(async () => {
       </Dialog>
       <Dialog open={isDeathkeyModalOpen} onOpenChange={setIsDeathkeyModalOpen}>
         <DialogContent>
-            <DialogHeader>
-                <DialogTitle>Confirmar Acción "Deathkey"</DialogTitle>
-                <DialogDescription>
-                    Esta acción reclasificará {selectedRows.length} caso(s) a "Reporte Corporativo", excluyéndolos de la lógica de Aforo. Es irreversible. Ingrese el PIN para confirmar.
-                </DialogDescription>
-            </DialogHeader>
-            <div className="py-4 space-y-2">
-                <div className="flex items-center gap-2">
-                    <KeyRound className="inline-block h-4 w-4" />
-                    <Label htmlFor="pin-input">PIN de Seguridad</Label>
-                </div>
-                <Input id="pin-input" type="password" value={pinInput} onChange={(e) => setPinInput(e.target.value)} placeholder="PIN de 6 dígitos"/>
+          <DialogHeader>
+            <AlertDialogTitle>Confirmar Acción "Deathkey"</AlertDialogTitle>
+            <DialogDescription>
+              Esta acción reclasificará {selectedRows.length} caso(s) a "Reporte Corporativo", excluyéndolos de la lógica de Aforo. Es irreversible. Ingrese el PIN para confirmar.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-4 space-y-2">
+            <div className="flex items-center gap-2">
+              <KeyRound className="inline-block h-4 w-4" />
+              <Label htmlFor="pin-input">PIN de Seguridad</Label>
             </div>
-            <DialogFooter><Button variant="outline" onClick={() => setIsDeathkeyModalOpen(false)}>Cancelar</Button><Button variant="destructive" onClick={handleDeathkey} disabled={isLoading}>{isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin"/>}Confirmar y Ejecutar</Button></DialogFooter>
+            <Input id="pin-input" type="password" value={pinInput} onChange={(e) => setPinInput(e.target.value)} placeholder="PIN de 6 dígitos" />
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsDeathkeyModalOpen(false)}>Cancelar</Button>
+            <Button variant="destructive" onClick={handleDeathkey} disabled={isLoading}>
+              {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Confirmar y Ejecutar
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </>
@@ -756,3 +737,6 @@ export default function ExecutivePage() {
         </Suspense>
     );
 }
+
+
+    
