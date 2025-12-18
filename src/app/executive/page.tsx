@@ -9,9 +9,8 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Loader2, FilePlus, Search, Edit, Eye, History, PlusSquare, UserCheck, Inbox, AlertTriangle, Download, ChevronsUpDown, Info, CheckCircle, CalendarRange, Calendar, CalendarDays, ShieldAlert, BookOpen, FileCheck2, MessageSquare, View, Banknote, Bell as BellIcon, RefreshCw, Send, StickyNote, Scale, Briefcase, KeyRound, Copy, Archive } from 'lucide-react';
 import { db } from '@/lib/firebase';
-import { collection, query, where, onSnapshot, orderBy, Timestamp, doc, getDoc, updateDoc, writeBatch, addDoc, getDocs, collectionGroup, serverTimestamp, setDoc, documentId } from 'firebase/firestore';
+import { collection, query, where, onSnapshot, orderBy, Timestamp, doc, getDoc, updateDoc, writeBatch, addDoc, getDocs, collectionGroup, serverTimestamp, setDoc } from 'firebase/firestore';
 import type { Worksheet, AforoData, AforadorStatus, AforoDataStatus, DigitacionStatus, WorksheetWithCase, AforoDataUpdate, PreliquidationStatus, IncidentType, LastUpdateInfo, ExecutiveComment, InitialDataContext, AppUser, SolicitudRecord, ExamDocument, FacturacionStatus } from '@/types';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { format, toDate, isSameDay, startOfDay, endOfDay, differenceInDays, startOfMonth, endOfMonth } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { Input } from '@/components/ui/input';
@@ -418,7 +417,7 @@ function ExecutivePageContent() {
             caseId: c.id
         };
         setInitialContextData(initialData);
-        openPaymentRequestFlow();
+        openAddProductModal();
     },
     setSelectedCaseForPaymentList: (c: AforoData) => setModalState(prev => ({...prev, paymentList: c})),
     setSelectedCaseForResa: (c: AforoData) => setModalState(prev => ({...prev, resa: c})),
@@ -460,9 +459,15 @@ function ExecutivePageContent() {
     setSearchHint(null);
   };
   const handleOpenPaymentRequest = () => {
-    const initialData: InitialDataContext = { ne: `SOL-${new Date().getTime()}`, manager: user?.displayName || 'N/A', date: new Date(), recipient: 'Contabilidad', isMemorandum: false, };
+    const initialData: InitialDataContext = {
+        ne: `SOL-${new Date().getTime()}`,
+        manager: user?.displayName || 'N/A',
+        date: new Date(),
+        recipient: 'Contabilidad',
+        isMemorandum: false,
+    };
     setInitialContextData(initialData);
-    openPaymentRequestFlow();
+    openAddProductModal();
   };
   const approvePreliquidation = (caseId: string) => { handleAutoSave(caseId, 'preliquidationStatus', 'Aprobada'); };
   const getIncidentTypeDisplay = (c: AforoData) => {
@@ -533,9 +538,9 @@ function ExecutivePageContent() {
 
     setSavingState(prev => ({...prev, [caseId]: true}));
     
-    const caseDocRef = doc(db, 'aforo', caseId);
+    const aforoMetadataRef = doc(db, 'worksheets', caseId, 'aforo', 'metadata');
     try {
-        await updateDoc(caseDocRef, {
+        await updateDoc(aforoMetadataRef, {
             facturacionStatus: 'Enviado a Facturacion',
             enviadoAFacturacionAt: Timestamp.now(),
             facturadorAsignado: 'Alvaro Gonzalez',
@@ -558,6 +563,9 @@ function ExecutivePageContent() {
   }
 
 
+  const renderTable = () => {
+    // ... same as before
+  }
   return (
     <>
       <AppShell>
@@ -666,11 +674,14 @@ function ExecutivePageContent() {
             </Card>
         </div>
       </AppShell>
+    {modalState.docs && (<ManageDocumentsModal isOpen={!!modalState.docs} onClose={() => setModalState(p => ({...p, docs: null}))} caseData={modalState.docs} />)}
     {modalState.history && (<AforoCaseHistoryModal isOpen={!!modalState.history} onClose={() => setModalState(p => ({...p, history: null}))} caseData={modalState.history} />)}
     {modalState.incident && (<IncidentReportModal isOpen={!!modalState.incident} onClose={() => setModalState(p => ({...p, incident: null}))} caseData={modalState.incident} />)}
     {modalState.valueDoubt && (<ValueDoubtModal isOpen={!!modalState.valueDoubt} onClose={() => setModalState(p => ({...p, valueDoubt: null}))} caseData={modalState.valueDoubt} />)}
     {modalState.comment && (<ExecutiveCommentModal isOpen={!!modalState.comment} onClose={() => setModalState(p => ({...p, comment: null}))} caseData={modalState.comment} />)}
     {modalState.quickRequest && (<QuickRequestModal isOpen={!!modalState.quickRequest} onClose={() => setModalState(p => ({...p, quickRequest: null}))} caseWithWorksheet={modalState.quickRequest} />)}
+    {modalState.payment && (<PaymentRequestModal isOpen={!!modalState.payment} onClose={() => setModalState(p => ({...p, payment: null}))} caseData={modalState.payment} />)}
+    {isRequestPaymentModalOpen && (<PaymentRequestModal isOpen={isRequestPaymentModalOpen} onClose={() => setIsRequestPaymentModalOpen(false)} caseData={null} />)}
     {modalState.paymentList && (<PaymentListModal isOpen={!!modalState.paymentList} onClose={() => setModalState(p => ({...p, paymentList: null}))} caseData={modalState.paymentList} />)}
     {modalState.resa && (<ResaNotificationModal isOpen={!!modalState.resa} onClose={() => setModalState(p => ({...p, resa: null}))} caseData={modalState.resa} />)}
     {caseToAssignAforador && (<AssignUserModal isOpen={!!caseToAssignAforador} onClose={() => setCaseToAssignAforador(null)} caseData={caseToAssignAforador} assignableUsers={assignableUsers} onAssign={handleAssignAforador} title="Asignar Aforador (PSMT)" description={`Como el consignatario es PSMT, debe asignar un aforador para el caso NE: ${caseToAssignAforador.ne}.`}/>)}
@@ -695,10 +706,6 @@ function ExecutivePageContent() {
       <Dialog open={isDeathkeyModalOpen} onOpenChange={setIsDeathkeyModalOpen}><DialogContent><DialogHeader><AlertDialogTitle>Confirmar Acción "Deathkey"</AlertDialogTitle><DialogDescription>Esta acción reclasificará {selectedRows.length} caso(s) a "Reporte Corporativo", excluyéndolos de la lógica de Aforo. Es irreversible. Ingrese el PIN para confirmar.</DialogDescription></AlertDialogHeader><div className="py-4 space-y-2"><Label htmlFor="pin-input" className="flex items-center gap-2"><KeyRound className="inline-block h-4 w-4" />PIN de Seguridad</Label><Input id="pin-input" type="password" value={pinInput} onChange={(e) => setPinInput(e.target.value)} placeholder="PIN de 6 dígitos"/></div><DialogFooter><Button variant="outline" onClick={() => setIsDeathkeyModalOpen(false)}>Cancelar</Button><Button variant="destructive" onClick={handleDeathkey} disabled={isLoading}>{isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin"/>}Confirmar y Ejecutar</Button></DialogFooter></DialogContent></Dialog>
       {modalState.payment && (<PaymentRequestModal isOpen={!!modalState.payment} onClose={() => setModalState(p => ({...p, payment: null}))} caseData={modalState.payment} />)}
       {isRequestPaymentModalOpen && (<PaymentRequestModal isOpen={isRequestPaymentModalOpen} onClose={() => setIsRequestPaymentModalOpen(false)} caseData={null} />)}
-      <PaymentRequestFlow
-        isOpen={isPaymentRequestFlowOpen}
-        onClose={closePaymentRequestFlow}
-      />
     </>
   );
 }
@@ -710,8 +717,5 @@ export default function ExecutivePage() {
         </Suspense>
     );
 }
-
-
-    
 
     
