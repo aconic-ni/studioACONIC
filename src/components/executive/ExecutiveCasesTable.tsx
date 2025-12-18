@@ -1,4 +1,3 @@
-
 "use client";
 import React from 'react';
 import type { AforoCase, AforadorStatus, DigitacionStatus, PreliquidationStatus, WorksheetWithCase, FacturacionStatus } from '@/types';
@@ -12,7 +11,7 @@ import { es } from 'date-fns/locale';
 import { Input } from '@/components/ui/input';
 import { DatePickerWithTime } from '@/components/reports/DatePickerWithTime';
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select';
-import { Tooltip, TooltipProvider, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip';
+import { Tooltip, TooltipProvider, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { Checkbox } from '@/components/ui/checkbox';
 import {
   FilePlus, BookOpen, Banknote, Bell as BellIcon, AlertTriangle, ShieldAlert,
@@ -48,6 +47,32 @@ const getIncidentTypeDisplay = (c: AforoCase) => {
     if (c.hasValueDoubt) types.push('Duda de Valor');
     return types.length > 0 ? types.join(' / ') : 'N/A';
 };
+
+const getRevisorStatusBadgeVariant = (status?: AforoCase['revisorStatus']) => {
+    switch (status) { case 'Aprobado': return 'default'; case 'Rechazado': return 'destructive'; case 'Revalidación Solicitada': return 'secondary'; default: return 'outline'; }
+};
+const getAforadorStatusBadgeVariant = (status?: AforadorStatus) => {
+    switch(status) { case 'En revisión': return 'default'; case 'Incompleto': return 'destructive'; case 'En proceso': return 'secondary'; case 'Pendiente': return 'destructive'; default: return 'outline'; }
+};
+const getDigitacionBadge = (status?: DigitacionStatus, declaracion?: string | null) => {
+    if (status === 'Trámite Completo') { return <Badge variant="default" className="bg-green-600">{declaracion || 'Finalizado'}</Badge> }
+    if (status) { return <Badge variant={status === 'En Proceso' ? 'secondary' : 'outline'}>{status}</Badge>; }
+    return <Badge variant="outline">Pendiente</Badge>;
+}
+const getPreliquidationStatusBadge = (status?: PreliquidationStatus) => {
+    switch(status) {
+      case 'Aprobada': return <Badge variant="default" className="bg-green-600">Aprobada</Badge>;
+      default: return <Badge variant="outline">Pendiente</Badge>;
+    }
+};
+
+const getFacturacionStatusBadge = (status?: FacturacionStatus) => {
+    switch(status) {
+        case 'Enviado a Facturacion': return <Badge className="bg-blue-500 hover:bg-blue-600">Enviado</Badge>;
+        case 'Facturado': return <Badge className="bg-green-600 hover:bg-green-700">Facturado</Badge>;
+        default: return <Badge variant="outline">Pendiente</Badge>;
+    }
+}
 
 export function ExecutiveCasesTable({
   cases,
@@ -92,7 +117,10 @@ export function ExecutiveCasesTable({
                 <TableHead><Input placeholder="Ejecutivo..." className="h-8 text-xs" value={ejecutivoFilter} onChange={e => setEjecutivoFilter(e.target.value)} onKeyDown={handleKeyDown} /></TableHead>
                 <TableHead><Input placeholder="Consignatario..." className="h-8 text-xs" value={consignatarioFilter} onChange={e => setConsignatarioFilter(e.target.value)} onKeyDown={handleKeyDown} /></TableHead>
                 <TableHead><Input placeholder="Factura..." className="h-8 text-xs" value={facturaFilter} onChange={e => setFacturaFilter(e.target.value)} onKeyDown={handleKeyDown} /></TableHead>
-                <TableHead>Estado General</TableHead>
+                <TableHead>Estado Aforador</TableHead>
+                <TableHead>Estado Revisor</TableHead>
+                <TableHead>Preliquidación</TableHead>
+                <TableHead>Estado Digitación</TableHead>
                 <TableHead><Input placeholder="Selectividad..." className="h-8 text-xs" value={selectividadFilter} onChange={e => setSelectividadFilter(e.target.value)} onKeyDown={handleKeyDown} /></TableHead>
                 <TableHead>Fecha Despacho</TableHead>
                 <TableHead><Input placeholder="Incidencia..." className="h-8 text-xs" value={incidentTypeFilter} onChange={e => setIncidentTypeFilter(e.target.value)} onKeyDown={handleKeyDown} /></TableHead>
@@ -207,10 +235,24 @@ export function ExecutiveCasesTable({
                             </div>
                         </TableCell>
                         <TableCell>
-                          <div className="flex items-center">
-                                <Button variant="outline" size="sm" onClick={() => caseActions.setSelectedCaseForProcess(c)}>Revisar Proceso</Button>
+                          <div className="flex items-center gap-2">
+                              <Badge variant={getAforadorStatusBadgeVariant(c.aforadorStatus)}>{c.aforadorStatus || 'Pendiente'}</Badge>
+                               <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => caseActions.setSelectedCaseForProcess(c)}>
+                                  <Eye className="h-4 w-4" />
+                              </Button>
                           </div>
                         </TableCell>
+                        <TableCell><Badge variant={getRevisorStatusBadgeVariant(c.revisorStatus)}>{c.revisorStatus || 'Pendiente'}</Badge></TableCell>
+                        <TableCell>
+                            {c.revisorStatus === 'Aprobado' && c.preliquidationStatus !== 'Aprobada' ? (
+                                <Button size="sm" onClick={() => approvePreliquidation(c.id)} disabled={savingState[c.id]}>
+                                    <CheckCircle className="mr-2 h-4 w-4" /> Aprobar
+                                </Button>
+                            ) : (
+                                getPreliquidationStatusBadge(c.preliquidationStatus)
+                            )}
+                        </TableCell>
+                        <TableCell>{getDigitacionBadge(c.digitacionStatus, c.declaracionAduanera)}</TableCell>
                          <TableCell>
                             <div className="flex items-center gap-2">
                                 <Select
@@ -261,5 +303,3 @@ export function ExecutiveCasesTable({
     </div>
   );
 }
-
-    
