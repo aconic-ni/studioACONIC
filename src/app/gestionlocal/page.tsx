@@ -1,10 +1,11 @@
+
 "use client";
 
 import React, { useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { db } from '@/lib/firebase';
 import { collection, query, onSnapshot, orderBy, getDoc, doc, getDocs, where, collectionGroup } from 'firebase/firestore';
-import type { Worksheet, AforoCaseUpdate } from '@/types';
+import type { Worksheet, AforoCaseUpdate, AforoCase, WorksheetWithCase } from '@/types';
 import { AppShell } from '@/components/layout/AppShell';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -22,7 +23,7 @@ import { Timestamp } from 'firebase/firestore';
 export default function GestionLocalPage() {
   const { user, loading: authLoading } = useAuth();
   const { toast } = useToast();
-  const [worksheets, setWorksheets] = useState<Worksheet[]>([]);
+  const [worksheets, setWorksheets] = useState<WorksheetWithCase[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [neFilter, setNeFilter] = useState('');
   const [consigneeFilter, setConsigneeFilter] = useState('');
@@ -43,68 +44,43 @@ export default function GestionLocalPage() {
 
     const worksheetsQuery = query(
         collection(db, 'worksheets'),
-        where('worksheetType', 'in', ['hoja_de_trabajo', null]),
         orderBy('createdAt', 'desc')
     );
 
-    const aforoQuery = query(
-        collectionGroup(db, 'aforo'),
-        where('__name__', '==', 'metadata')
-    );
-
-    let unsubWorksheets: () => void;
-    let unsubAforo: () => void;
-    
-    let worksheetsData: Map<string, Worksheet> = new Map();
-    let aforoData: Map<string, any> = new Map();
-
-    const combineData = () => {
-        if (worksheetsData.size > 0 && aforoData.size > 0) {
-            const combined = Array.from(worksheetsData.values()).map(ws => {
-                const aforo = aforoData.get(ws.id);
-                return aforo ? { ...ws, aforo } : ws;
-            });
-            setWorksheets(combined);
-            setIsLoading(false);
-        } else if(worksheetsData.size > 0 && aforoData.size === 0) {
-            setWorksheets(Array.from(worksheetsData.values()));
-            setIsLoading(false);
-        }
-    };
-
-    getDocs(worksheetsQuery).then(wsSnapshot => {
-        const fetchedWorksheets: Map<string, Worksheet> = new Map();
-        wsSnapshot.forEach(doc => {
-            fetchedWorksheets.set(doc.id, { id: doc.id, ...doc.data() } as Worksheet);
+    const unsubscribe = onSnapshot(worksheetsQuery, async (snapshot) => {
+        const fetchedWorksheets: WorksheetWithCase[] = [];
+        const promises = snapshot.docs.map(async (docSnapshot) => {
+            const worksheetData = { id: docSnapshot.id, ...docSnapshot.data() } as Worksheet;
+            
+            const aforoRef = doc(db, `worksheets/${docSnapshot.id}/aforo/metadata`);
+            const aforoSnap = await getDoc(aforoRef);
+            
+            const combinedData: WorksheetWithCase = {
+                ...(aforoSnap.exists() ? aforoSnap.data() as AforoCase : {} as AforoCase),
+                ...worksheetData,
+                worksheet: worksheetData,
+                id: worksheetData.id,
+            };
+            
+            if (combinedData.worksheetType === 'hoja_de_trabajo' || !combinedData.worksheetType) {
+                fetchedWorksheets.push(combinedData);
+            }
         });
-        worksheetsData = fetchedWorksheets;
-        if(worksheetsData.size === 0) setIsLoading(false);
-        
-        // After fetching worksheets, set up the real-time listener for aforo data
-        unsubAforo = onSnapshot(aforoQuery, (aforoSnapshot) => {
-            const fetchedAforoData: Map<string, any> = new Map();
-            aforoSnapshot.forEach(doc => {
-                const parentId = doc.ref.parent.parent?.id;
-                if (parentId) {
-                    fetchedAforoData.set(parentId, doc.data());
-                }
-            });
-            aforoData = fetchedAforoData;
-            combineData();
-        }, (error) => {
-            console.error("Error fetching aforo data:", error);
-            toast({ title: "Error", description: "No se pudieron cargar los datos de aforo en tiempo real.", variant: "destructive" });
-        });
-    }).catch(error => {
+
+        await Promise.all(promises);
+
+        // Sort after all data is combined
+        fetchedWorksheets.sort((a, b) => (b.createdAt?.toMillis() || 0) - (a.createdAt?.toMillis() || 0));
+
+        setWorksheets(fetchedWorksheets);
+        setIsLoading(false);
+    }, (error) => {
         console.error("Error fetching worksheets:", error);
         toast({ title: "Error", description: "No se pudieron cargar las hojas de trabajo.", variant: "destructive" });
         setIsLoading(false);
     });
 
-    return () => {
-        if (unsubWorksheets) unsubWorksheets();
-        if (unsubAforo) unsubAforo();
-    };
+    return unsubscribe;
 }, [user, toast]);
 
   useEffect(() => {

@@ -1,10 +1,9 @@
-
 "use client";
 
 import { useState, useEffect } from 'react';
 import { db } from '@/lib/firebase';
 import { collection, query, orderBy, onSnapshot, Timestamp } from 'firebase/firestore';
-import type { AforoCase, AforoCaseUpdate } from '@/types';
+import type { AforoCase, AforoCaseUpdate, WorksheetWithCase } from '@/types';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -24,13 +23,13 @@ export function AforoCaseHistoryModal({ isOpen, onClose, caseData }: AforoCaseHi
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    if (!isOpen || !caseData?.worksheetId) {
+    if (!isOpen || !caseData?.id) {
         setHistory([]);
         return;
     };
 
     setIsLoading(true);
-    const updatesRef = collection(db, 'worksheets', caseData.worksheetId, 'actualizaciones');
+    const updatesRef = collection(db, 'worksheets', caseData.id, 'actualizaciones');
     const q = query(updatesRef, orderBy('updatedAt', 'desc'));
 
     const unsubscribe = onSnapshot(q, (querySnapshot) => {

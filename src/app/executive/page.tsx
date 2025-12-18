@@ -1,4 +1,3 @@
-
 "use client";
 import React, { useEffect, useState, useMemo, useCallback, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
@@ -67,7 +66,7 @@ function ExecutivePageContent() {
   const [isLoading, setIsLoading] = useState(true);
   const [isExporting, setIsExporting] = useState(false);
   const [assignableUsers, setAssignableUsers] = useState<AppUser[]>([]);
-  const [modalState, setModalState = useState({
+  const [modalState, setModalState] = useState({
     history: null as AforoCase | null,
     incident: null as AforoCase | null,
     valueDoubt: null as AforoCase | null,
@@ -563,6 +562,3 @@ export default function ExecutivePage() {
         </Suspense>
     );
 }
-
-
-    
