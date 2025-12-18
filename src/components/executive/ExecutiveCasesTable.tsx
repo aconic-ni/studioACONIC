@@ -48,31 +48,24 @@ const getIncidentTypeDisplay = (c: AforoCase) => {
     return types.length > 0 ? types.join(' / ') : 'N/A';
 };
 
-const getRevisorStatusBadgeVariant = (status?: AforoCase['revisorStatus']) => {
-    switch (status) { case 'Aprobado': return 'default'; case 'Rechazado': return 'destructive'; case 'Revalidación Solicitada': return 'secondary'; default: return 'outline'; }
+const getOverallStatus = (caseData: AforoCase): { text: string; variant: "default" | "destructive" | "secondary" | "outline" } => {
+    if (caseData.digitacionStatus === 'Trámite Completo') return { text: 'Trámite Completo', variant: 'default' };
+    if (caseData.digitacionStatus === 'En Proceso' || caseData.digitacionStatus === 'Almacenado') return { text: 'En Digitación', variant: 'secondary' };
+    if (caseData.preliquidationStatus === 'Aprobada') return { text: 'Preliquidación Aprobada', variant: 'default' };
+    if (caseData.revisorStatus === 'Aprobado') return { text: 'Aprobado por Agente', variant: 'default' };
+    if (caseData.revisorStatus === 'Rechazado') return { text: 'Rechazado por Agente', variant: 'destructive' };
+    if (caseData.aforadorStatus === 'En revisión') return { text: 'En Revisión (Aforo)', variant: 'secondary' };
+    if (caseData.aforadorStatus === 'En proceso') return { text: 'En Proceso (Aforo)', variant: 'secondary' };
+    if (caseData.aforadorStatus === 'Incompleto') return { text: 'Incompleto (Aforo)', variant: 'destructive' };
+    return { text: 'Pendiente de Aforo', variant: 'outline' };
 };
-const getAforadorStatusBadgeVariant = (status?: AforadorStatus) => {
-    switch(status) { case 'En revisión': return 'default'; case 'Incompleto': return 'destructive'; case 'En proceso': return 'secondary'; case 'Pendiente': return 'destructive'; default: return 'outline'; }
-};
-const getDigitacionBadge = (status?: DigitacionStatus, declaracion?: string | null) => {
-    if (status === 'Trámite Completo') { return <Badge variant="default" className="bg-green-600">{declaracion || 'Finalizado'}</Badge> }
-    if (status) { return <Badge variant={status === 'En Proceso' ? 'secondary' : 'outline'}>{status}</Badge>; }
-    return <Badge variant="outline">Pendiente</Badge>;
-}
+
 const getPreliquidationStatusBadge = (status?: PreliquidationStatus) => {
     switch(status) {
       case 'Aprobada': return <Badge variant="default" className="bg-green-600">Aprobada</Badge>;
       default: return <Badge variant="outline">Pendiente</Badge>;
     }
 };
-
-const getFacturacionStatusBadge = (status?: FacturacionStatus) => {
-    switch(status) {
-        case 'Enviado a Facturacion': return <Badge className="bg-blue-500 hover:bg-blue-600">Enviado</Badge>;
-        case 'Facturado': return <Badge className="bg-green-600 hover:bg-green-700">Facturado</Badge>;
-        default: return <Badge variant="outline">Pendiente</Badge>;
-    }
-}
 
 export function ExecutiveCasesTable({
   cases,
@@ -117,10 +110,8 @@ export function ExecutiveCasesTable({
                 <TableHead><Input placeholder="Ejecutivo..." className="h-8 text-xs" value={ejecutivoFilter} onChange={e => setEjecutivoFilter(e.target.value)} onKeyDown={handleKeyDown} /></TableHead>
                 <TableHead><Input placeholder="Consignatario..." className="h-8 text-xs" value={consignatarioFilter} onChange={e => setConsignatarioFilter(e.target.value)} onKeyDown={handleKeyDown} /></TableHead>
                 <TableHead><Input placeholder="Factura..." className="h-8 text-xs" value={facturaFilter} onChange={e => setFacturaFilter(e.target.value)} onKeyDown={handleKeyDown} /></TableHead>
-                <TableHead>Estado Aforador</TableHead>
-                <TableHead>Estado Revisor</TableHead>
+                <TableHead>Estado General</TableHead>
                 <TableHead>Preliquidación</TableHead>
-                <TableHead>Estado Digitación</TableHead>
                 <TableHead><Input placeholder="Selectividad..." className="h-8 text-xs" value={selectividadFilter} onChange={e => setSelectividadFilter(e.target.value)} onKeyDown={handleKeyDown} /></TableHead>
                 <TableHead>Fecha Despacho</TableHead>
                 <TableHead><Input placeholder="Incidencia..." className="h-8 text-xs" value={incidentTypeFilter} onChange={e => setIncidentTypeFilter(e.target.value)} onKeyDown={handleKeyDown} /></TableHead>
@@ -137,6 +128,7 @@ export function ExecutiveCasesTable({
                     const isPsmt = c.consignee.toUpperCase().trim() === "PSMT NICARAGUA, SOCIEDAD ANONIMA";
                     const daysUntilDue = c.resaDueDate ? differenceInDays(c.resaDueDate.toDate(), new Date()) : null;
                     const isResaCritical = daysUntilDue !== null && daysUntilDue < -15;
+                    const overallStatus = getOverallStatus(c);
 
                     return (
                     <TableRow key={c.id} className={savingState[c.id] ? "bg-amber-100" : (isResaCritical ? "bg-red-200 hover:bg-red-200/80" : "")} data-state={selectedRows.includes(c.id) ? 'selected' : undefined}>
@@ -234,15 +226,19 @@ export function ExecutiveCasesTable({
                                 )}
                             </div>
                         </TableCell>
-                        <TableCell>
-                          <div className="flex items-center gap-2">
-                              <Badge variant={getAforadorStatusBadgeVariant(c.aforadorStatus)}>{c.aforadorStatus || 'Pendiente'}</Badge>
-                               <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => caseActions.setSelectedCaseForProcess(c)}>
-                                  <Eye className="h-4 w-4" />
-                              </Button>
+                         <TableCell>
+                          <div className="flex items-center gap-1">
+                            <Badge variant={overallStatus.variant}>{overallStatus.text}</Badge>
+                            <Tooltip>
+                                <TooltipTrigger asChild>
+                                    <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => caseActions.setSelectedCaseForProcess(c)}>
+                                        <Eye className="h-4 w-4" />
+                                    </Button>
+                                </TooltipTrigger>
+                                <TooltipContent><p>Ver Línea de Proceso</p></TooltipContent>
+                            </Tooltip>
                           </div>
                         </TableCell>
-                        <TableCell><Badge variant={getRevisorStatusBadgeVariant(c.revisorStatus)}>{c.revisorStatus || 'Pendiente'}</Badge></TableCell>
                         <TableCell>
                             {c.revisorStatus === 'Aprobado' && c.preliquidationStatus !== 'Aprobada' ? (
                                 <Button size="sm" onClick={() => approvePreliquidation(c.id)} disabled={savingState[c.id]}>
@@ -252,7 +248,6 @@ export function ExecutiveCasesTable({
                                 getPreliquidationStatusBadge(c.preliquidationStatus)
                             )}
                         </TableCell>
-                        <TableCell>{getDigitacionBadge(c.digitacionStatus, c.declaracionAduanera)}</TableCell>
                          <TableCell>
                             <div className="flex items-center gap-2">
                                 <Select
