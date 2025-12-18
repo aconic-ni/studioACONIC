@@ -10,7 +10,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Loader2, FilePlus, Search, Edit, Eye, History, PlusSquare, UserCheck, Inbox, AlertTriangle, Download, ChevronsUpDown, Info, CheckCircle, CalendarRange, Calendar, CalendarDays, ShieldAlert, BookOpen, FileCheck2, MessageSquare, View, Banknote, Bell as BellIcon, RefreshCw, Send, StickyNote, Scale, Briefcase, KeyRound, Copy, Archive } from 'lucide-react';
 import { db } from '@/lib/firebase';
 import { collection, query, where, onSnapshot, orderBy, Timestamp, doc, getDoc, updateDoc, writeBatch, addDoc, getDocs, collectionGroup, serverTimestamp, setDoc, documentId } from 'firebase/firestore';
-import type { Worksheet, AforoData, AforadorStatus, AforoDataStatus, DigitacionStatus, WorksheetWithCase, AforoDataUpdate, PreliquidationStatus, IncidentType, LastUpdateInfo, ExecutiveComment, InitialDataContext, AppUser, SolicitudRecord, ExamDocument, FacturacionStatus } from '@/types';
+import type { Worksheet, AforoData, AforadorStatus, DigitacionStatus, WorksheetWithCase, AforoDataUpdate, PreliquidationStatus, IncidentType, LastUpdateInfo, ExecutiveComment, InitialDataContext, AppUser, SolicitudRecord, ExamDocument, FacturacionStatus } from '@/types';
 import { format, toDate, isSameDay, startOfDay, endOfDay, differenceInDays, startOfMonth, endOfMonth } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { Input } from '@/components/ui/input';
@@ -18,14 +18,18 @@ import { AforoCaseHistoryModal } from '@/components/reporter/AforoCaseHistoryMod
 import { IncidentReportModal } from '@/components/reporter/IncidentReportModal';
 import { Badge } from '@/components/ui/badge';
 import { IncidentReportDetails } from '@/components/reporter/IncidentReportDetails';
+import { ManageDocumentsModal } from '@/components/executive/ManageDocumentsModal';
 import { ValueDoubtModal } from '@/components/executive/ValueDoubtModal';
+import { DatePickerWithTime } from '@/components/reports/DatePickerWithTime';
 import { Checkbox } from '@/components/ui/checkbox';
 import { downloadExecutiveReportAsExcel } from '@/lib/fileExporter';
 import { downloadCorporateReportAsExcel } from '@/lib/fileExporterCorporateReport';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { useToast } from '@/hooks/use-toast';
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuLabel } from '@/components/ui/dropdown-menu';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tooltip, TooltipProvider, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip';
+import type { DateRange } from 'react-day-picker';
 import { DatePickerWithRange } from '@/components/reports/DatePickerWithRange';
 import { WorksheetDetails } from '@/components/executive/WorksheetDetails';
 import { ExecutiveCommentModal } from '@/components/executive/ExecutiveCommentModal';
@@ -36,17 +40,19 @@ import { AnnouncementsCarousel } from '@/components/executive/AnnouncementsCarou
 import { AssignUserModal } from '@/components/reporter/AssignUserModal';
 import { ResaNotificationModal } from '@/components/executive/ResaNotificationModal';
 import { useIsMobile } from '@/hooks/use-mobile';
+import { MobileCasesList } from '@/components/executive/MobileCasesList';
+import { StatusBadges } from '@/components/executive/StatusBadges';
 import { useAppContext } from '@/context/AppContext';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { ViewIncidentsModal } from '@/components/executive/ViewIncidentsModal';
+import { Switch } from '@/components/ui/switch';
+import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { StatusProcessModal } from '@/components/executive/StatusProcessModal';
-import { ExecutiveCasesTable } from '@/components/executive/ExecutiveCasesTable';
-import { ExecutiveFilters } from '@/components/executive/ExecutiveFilters';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
-import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
+import { ExecutiveCasesTable } from '@/components/executive/ExecutiveCasesTable';
 import { v4 as uuidv4 } from 'uuid';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { InitialDataForm as PaymentRequestFlow } from '@/components/examinerPay/InitialDataForm';
 
 
@@ -532,27 +538,59 @@ function ExecutivePageContent() {
                            <TabsTrigger value="anexos">Anexos</TabsTrigger>
                            <TabsTrigger value="corporate">Reportes Corporativos</TabsTrigger>
                          </TabsList>
-                        <ExecutiveFilters
-                           activeTab={activeTab}
-                           searchTerm={searchTerm}
-                           setSearchTerm={setSearchTerm}
-                           facturadoFilter={facturadoFilter}
-                           setFacturadoFilter={setFacturadoFilter}
-                           acuseFilter={acuseFilter}
-                           setAcuseFilter={setAcuseFilter}
-                           preliquidationFilter={preliquidationFilter}
-                           setPreliquidationFilter={setPreliquidationFilter}
-                           dateFilterType={dateFilterType}
-                           setDateFilterType={setDateFilterType}
-                           dateRangeInput={dateRangeInput}
-                           setDateRangeInput={setDateRangeInput}
-                           setAppliedFilters={setAppliedFilters}
-                           setCurrentPage={setCurrentPage}
-                           isExporting={isExporting}
-                           allCasesCount={allCases.length}
-                           searchHint={searchHint}
-                           clearFilters={clearFilters}
-                       />
+                       
+                        <div className="flex flex-col gap-4">
+                            <div className="flex flex-wrap items-center justify-between gap-4">
+                                <div className="relative w-full sm:max-w-xs">
+                                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+                                    <Input placeholder="Buscar por NE o Consignatario..." className="pl-10" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
+                                </div>
+                                <div className="flex items-center flex-wrap gap-4">
+                                    <Popover>
+                                        <PopoverTrigger asChild>
+                                            <Button variant="outline" className="w-[200px] justify-start"><ChevronsUpDown className="mr-2 h-4 w-4"/> Filtrar Visibilidad</Button>
+                                        </PopoverTrigger>
+                                        <PopoverContent className="w-56 p-2" align="end">
+                                            <div className="grid gap-2">
+                                              <label className="flex items-center gap-2 text-sm font-normal"><Checkbox checked={facturadoFilter.noFacturado} onCheckedChange={(checked) => setFacturadoFilter(f => ({ ...f, noFacturado: !!checked }))} />No Facturados</label>
+                                              <label className="flex items-center gap-2 text-sm font-normal"><Checkbox checked={facturadoFilter.facturado} onCheckedChange={(checked) => setFacturadoFilter(f => ({ ...f, facturado: !!checked }))} />Facturados</label>
+                                            </div>
+                                            <div className="grid gap-2 mt-2 pt-2 border-t">
+                                                <label className="flex items-center gap-2 text-sm font-normal"><Checkbox checked={acuseFilter.sinAcuse} onCheckedChange={(checked) => setAcuseFilter(f => ({ ...f, sinAcuse: !!checked }))} />Sin Acuse</label>
+                                                <label className="flex items-center gap-2 text-sm font-normal"><Checkbox checked={acuseFilter.conAcuse} onCheckedChange={(checked) => setAcuseFilter(f => ({ ...f, conAcuse: !!checked }))} />Con Acuse</label>
+                                            </div>
+                                             <div className="grid gap-2 mt-2 pt-2 border-t">
+                                                <label className="flex items-center gap-2 text-sm font-normal"><Checkbox checked={preliquidationFilter} onCheckedChange={setPreliquidationFilter} />Pendiente Preliquidación</label>
+                                            </div>
+                                        </PopoverContent>
+                                    </Popover>
+                                    <Button onClick={handleSearch}><Search className="mr-2 h-4 w-4" /> Buscar</Button>
+                                    <Button variant="outline" onClick={clearFilters}>Limpiar Filtros</Button>
+                                     <Button variant="outline" onClick={fetchCases}>
+                                        <RefreshCw className="mr-2 h-4 w-4" /> Actualizar
+                                    </Button>
+                                    <Button onClick={handleExport} disabled={allCases.length === 0 || isExporting}>
+                                       {isExporting ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : <Download className="mr-2 h-4 w-4" />}
+                                       {isExporting ? 'Exportando...' : 'Exportar'}
+                                    </Button>
+                                </div>
+                            </div>
+                            <div className="flex flex-wrap items-center gap-4">
+                                <div className="flex flex-wrap items-center gap-2">
+                                    <Button variant={dateFilterType === 'range' ? 'default' : 'ghost'} size="sm" onClick={() => setDateFilterType('range')}><CalendarRange className="mr-2 h-4 w-4"/> Rango</Button>
+                                    <Button variant={dateFilterType === 'month' ? 'default' : 'ghost'} size="sm" onClick={() => setDateFilterType('month')}><Calendar className="mr-2 h-4 w-4"/> Mes</Button>
+                                    <Button variant={dateFilterType === 'today' ? 'default' : 'ghost'} size="sm" onClick={() => setDateFilterType('today')}><CalendarDays className="mr-2 h-4 w-4"/> Hoy</Button>
+                                </div>
+                                {dateFilterType === 'range' && <DatePickerWithRange date={dateRangeInput} onDateChange={setDateRangeInput} />}
+                                {dateFilterType === 'month' && (
+                                    <div className="flex gap-2">
+                                        <Select value={String(selectedMonth)} onValueChange={(val) => setSelectedMonth(Number(val))}><SelectTrigger className="w-[180px]"><SelectValue /></SelectTrigger><SelectContent>{months.map(m => <SelectItem key={m.value} value={String(m.value)}>{m.label}</SelectItem>)}</SelectContent></Select>
+                                        <Select value={String(selectedYear)} onValueChange={(val) => setSelectedYear(Number(val))}><SelectTrigger className="w-[120px]"><SelectValue /></SelectTrigger><SelectContent>{years.map(y => <SelectItem key={y} value={String(y)}>{y}</SelectItem>)}</SelectContent></Select>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+
                         <TabsContent value="worksheets" className="mt-6">
                             <ExecutiveCasesTable cases={paginatedCases} savingState={savingState} onAutoSave={handleAutoSave} approvePreliquidation={approvePreliquidation} caseActions={caseActions} selectedRows={selectedRows} onSelectRow={setSelectedRows} onSelectAllRows={()=>{}} columnFilters={columnFilters} setColumnFilters={setColumnFilters} handleSendToFacturacion={handleSendToFacturacion} onSearch={handleSearch} getIncidentTypeDisplay={getIncidentTypeDisplay} />
                         </TabsContent>
@@ -572,7 +610,6 @@ function ExecutivePageContent() {
     {modalState.valueDoubt && (<ValueDoubtModal isOpen={!!modalState.valueDoubt} onClose={() => setModalState(p => ({...p, valueDoubt: null}))} caseData={modalState.valueDoubt} />)}
     {modalState.comment && (<ExecutiveCommentModal isOpen={!!modalState.comment} onClose={() => setModalState(p => ({...p, comment: null}))} caseData={modalState.comment} />)}
     {modalState.quickRequest && (<QuickRequestModal isOpen={!!modalState.quickRequest} onClose={() => setModalState(p => ({...p, quickRequest: null}))} caseWithWorksheet={modalState.quickRequest} />)}
-    {modalState.payment && (<PaymentRequestModal isOpen={!!modalState.payment} onClose={() => setModalState(p => ({...p, payment: null}))} caseData={modalState.payment} />)}
     {modalState.paymentList && (<PaymentListModal isOpen={!!modalState.paymentList} onClose={() => setModalState(p => ({...p, paymentList: null}))} caseData={modalState.paymentList} />)}
     {modalState.resa && (<ResaNotificationModal isOpen={!!modalState.resa} onClose={() => setModalState(p => ({...p, resa: null}))} caseData={modalState.resa} />)}
     {caseToAssignAforador && (<AssignUserModal isOpen={!!caseToAssignAforador} onClose={() => setCaseToAssignAforador(null)} caseData={caseToAssignAforador} assignableUsers={assignableUsers} onAssign={() => {}} title="Asignar Aforador (PSMT)" description={`Como el consignatario es PSMT, debe asignar un aforador para el caso NE: ${caseToAssignAforador.ne}.`}/>)}
@@ -594,7 +631,7 @@ function ExecutivePageContent() {
             <DialogFooter><Button variant="outline" onClick={() => setDuplicateAndRetireModalOpen(false)}>Cancelar</Button><Button onClick={handleDuplicateAndRetire} disabled={savingState[caseToDuplicate?.id || '']}>Duplicar y Retirar</Button></DialogFooter>
         </DialogContent>
       </Dialog>
-      <Dialog open={isDeathkeyModalOpen} onOpenChange={setIsDeathkeyModalOpen}><DialogContent><DialogHeader><AlertDialogTitle>Confirmar Acción "Deathkey"</AlertDialogTitle><DialogDescription>Esta acción reclasificará {selectedRows.length} caso(s) a "Reporte Corporativo", excluyéndolos de la lógica de Aforo. Es irreversible. Ingrese el PIN para confirmar.</DialogDescription></AlertDialogHeader><div className="py-4 space-y-2"><Label htmlFor="pin-input" className="flex items-center gap-2"><KeyRound/>PIN de Seguridad</Label><Input id="pin-input" type="password" value={pinInput} onChange={(e) => setPinInput(e.target.value)} placeholder="PIN de 6 dígitos"/></div><DialogFooter><Button variant="outline" onClick={() => setIsDeathkeyModalOpen(false)}>Cancelar</Button><Button variant="destructive" onClick={handleDeathkey} disabled={isLoading}>{isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin"/>}Confirmar y Ejecutar</Button></DialogFooter></DialogContent></Dialog>
+      <Dialog open={isDeathkeyModalOpen} onOpenChange={setIsDeathkeyModalOpen}><DialogContent><DialogHeader><AlertDialogTitle>Confirmar Acción "Deathkey"</AlertDialogTitle><DialogDescription>Esta acción reclasificará {selectedRows.length} caso(s) a "Reporte Corporativo", excluyéndolos de la lógica de Aforo. Es irreversible. Ingrese el PIN para confirmar.</DialogDescription></AlertDialogHeader><div className="py-4 space-y-2"><Label htmlFor="pin-input" className="flex items-center gap-2"><span><KeyRound/>PIN de Seguridad</span></Label><Input id="pin-input" type="password" value={pinInput} onChange={(e) => setPinInput(e.target.value)} placeholder="PIN de 6 dígitos"/></div><DialogFooter><Button variant="outline" onClick={() => setIsDeathkeyModalOpen(false)}>Cancelar</Button><Button variant="destructive" onClick={handleDeathkey} disabled={isLoading}>{isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin"/>}Confirmar y Ejecutar</Button></DialogFooter></DialogContent></Dialog>
       <PaymentRequestFlow
         isOpen={isPaymentRequestFlowOpen}
         onClose={closePaymentRequestFlow}
@@ -615,3 +652,4 @@ export default function ExecutivePage() {
         </Suspense>
     );
 }
+
