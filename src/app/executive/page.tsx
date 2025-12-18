@@ -7,13 +7,12 @@ import { useAuth } from '@/context/AuthContext';
 import { AppShell } from '@/components/layout/AppShell';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Loader2, FilePlus, Edit, Inbox, Banknote, StickyNote, Briefcase } from 'lucide-react';
+import { Loader2, FilePlus, Edit, Inbox, Banknote, StickyNote, Briefcase, Archive, Copy, KeyRound } from 'lucide-react';
 import { db } from '@/lib/firebase';
 import { collection, query, where, onSnapshot, orderBy, Timestamp, doc, getDoc, updateDoc, writeBatch, addDoc, getDocs, collectionGroup, serverTimestamp, setDoc } from 'firebase/firestore';
-import type { Worksheet, AforoCase, WorksheetWithCase, AforoCaseUpdate, InitialDataContext, AppUser, SolicitudRecord } from '@/types';
-import { isSameDay, startOfDay, endOfDay } from 'date-fns';
+import type { Worksheet, AforoCase, WorksheetWithCase, AforoCaseUpdate, InitialDataContext, AppUser, SolicitudRecord, ExamDocument } from '@/types';
+import { format } from 'date-fns';
 import { useToast } from '@/hooks/use-toast';
-import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuLabel } from '@/components/ui/dropdown-menu';
 import type { DateRange } from 'react-day-picker';
 import { WorksheetDetails } from '@/components/executive/WorksheetDetails';
 import { ExecutiveCommentModal } from '@/components/executive/ExecutiveCommentModal';
@@ -24,18 +23,22 @@ import { AnnouncementsCarousel } from '@/components/executive/AnnouncementsCarou
 import { AssignUserModal } from '@/components/reporter/AssignUserModal';
 import { ResaNotificationModal } from '@/components/executive/ResaNotificationModal';
 import { useAppContext } from '@/context/AppContext';
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { ViewIncidentsModal } from '@/components/executive/ViewIncidentsModal';
 import { StatusProcessModal } from '@/components/executive/StatusProcessModal';
 import { Textarea } from '@/components/ui/textarea';
 import { v4 as uuidv4 } from 'uuid';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
-import { ExecutiveFilters } from '@/components/executive/ExecutiveFilters';
-import { ExecutiveCasesTable } from '@/components/executive/ExecutiveCasesTable';
-import { AforoCaseHistoryModal } from '@/components/reporter/AforoCaseHistoryModal';
-import { IncidentReportModal } from '@/components/reporter/IncidentReportModal';
+import { Label } from '@/components/ui/label';
+import { Input } from '@/components/ui/input';
 import { IncidentReportDetails } from '@/components/reporter/IncidentReportDetails';
 import { ValueDoubtModal } from '@/components/executive/ValueDoubtModal';
+import { AforoCaseHistoryModal } from '@/components/reporter/AforoCaseHistoryModal';
+
+import { ExecutiveFilters } from '@/components/executive/ExecutiveFilters';
+import { ExecutiveCasesTable } from '@/components/executive/ExecutiveCasesTable';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+
 
 type DateFilterType = 'range' | 'month' | 'today';
 type TabValue = 'worksheets' | 'anexos' | 'corporate';
@@ -84,6 +87,7 @@ function ExecutivePageContent() {
   const [searchHint, setSearchHint] = useState<{ foundIn: TabValue; label: string } | null>(null);
   const [selectedRows, setSelectedRows] = useState<string[]>([]);
   const [isDeathkeyModalOpen, setIsDeathkeyModalOpen] = useState(false);
+  const [pinInput, setPinInput] = useState('');
 
   const urlTab = searchParams.get('tab') as TabValue | null;
   const activeTab = urlTab || 'worksheets';
@@ -506,4 +510,3 @@ export default function ExecutivePage() {
         </Suspense>
     );
 }
-`

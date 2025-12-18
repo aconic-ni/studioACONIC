@@ -271,4 +271,3 @@ export function ExecutiveCasesTable({
     </div>
   );
 }
-`
