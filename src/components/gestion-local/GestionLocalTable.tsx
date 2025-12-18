@@ -1,4 +1,3 @@
-
 "use client";
 import React, { useState, useMemo, useRef } from 'react';
 import type { Worksheet, AforoUpdate, LastUpdateInfo, WorksheetWithCase } from '@/types';
@@ -110,7 +109,7 @@ export function GestionLocalTable({ worksheets, setWorksheets, selectedRows, set
   const filteredWorksheets = useMemo(() => {
     if (showOnlyPending) {
       return worksheets.filter(ws => {
-        const aforoData = (ws as any).aforo;
+        const aforoData = (ws as any);
         return !aforoData || aforoData.digitadorStatus !== 'Trámite Completo';
       });
     }
@@ -147,7 +146,7 @@ export function GestionLocalTable({ worksheets, setWorksheets, selectedRows, set
     
     for (const wsId of selectedRows) {
         const ws = worksheets.find(w => w.id === wsId);
-        const aforoData = (ws as any)?.aforo;
+        const aforoData = (ws as any);
         if (ws && aforoData && aforoData.declaracionAduanera) {
             const worksheetRef = doc(db, 'worksheets', wsId, 'aforo', 'metadata');
             batch.set(worksheetRef, {
@@ -195,7 +194,7 @@ export function GestionLocalTable({ worksheets, setWorksheets, selectedRows, set
     try {
         await batch.commit();
         toast({ title: 'Actualización Masiva Exitosa', description: `${selectedRows.length} registros actualizados.`});
-        setWorksheets(prev => prev.map(ws => selectedRows.includes(ws.id) ? { ...ws, aforo: { ...(ws as any).aforo, [type]: value } } as Worksheet : ws));
+        setWorksheets(prev => prev.map(ws => selectedRows.includes(ws.id) ? { ...ws, [type]: value } as Worksheet : ws));
         setSelectedRows([]);
     } catch(e) {
         console.error("Bulk update error:", e);
@@ -232,7 +231,7 @@ export function GestionLocalTable({ worksheets, setWorksheets, selectedRows, set
         };
         await writeBatch(db).set(worksheetRef, updateData, { merge: true }).commit();
         
-        setWorksheets(prev => prev.map(ws => ws.id === worksheetId ? { ...ws, aforo: { ...(ws as any).aforo, [fieldName]: newStatus } } as Worksheet : ws));
+        setWorksheets(prev => prev.map(ws => ws.id === worksheetId ? { ...ws, [fieldName]: newStatus } as Worksheet : ws));
 
         toast({ title: 'Estado Actualizado', description: `El estado del ${type} ha sido actualizado a "${newStatus}".` });
         setStatusModal({isOpen: false, type: 'aforador'});
@@ -259,7 +258,7 @@ export function GestionLocalTable({ worksheets, setWorksheets, selectedRows, set
       }, { merge: true });
 
       await batch.commit();
-      setWorksheets(prev => prev.map(ws => ws.id === worksheetId ? { ...ws, aforo: { ...(ws as any).aforo, declaracionAduanera: declaracion, digitadorStatus: 'Trámite Completo' } } as Worksheet : ws));
+      setWorksheets(prev => prev.map(ws => ws.id === worksheetId ? { ...ws, declaracionAduanera: declaracion, digitadorStatus: 'Trámite Completo' } as Worksheet : ws));
       toast({ title: "Declaración y Estado Guardados", description: `Declaración guardada y estado actualizado a 'Trámite Completo'.` });
     } catch (e) {
       console.error(e);
@@ -321,7 +320,7 @@ export function GestionLocalTable({ worksheets, setWorksheets, selectedRows, set
             setWorksheets(prev => prev.map(ws => {
                 const updatedRow = json.find(row => String(row['NE']).trim().toUpperCase() === ws.ne.toUpperCase());
                 if (updatedRow && neToUpdate.has(ws.ne.toUpperCase())) {
-                    return {...ws, aforo: {...(ws as any).aforo, declaracionAduanera: String(updatedRow['Declaracion Aduanera'] || '').trim(), ...(isForBulkComplete && { digitadorStatus: 'Trámite Completo' })}} as Worksheet;
+                    return {...ws, declaracionAduanera: String(updatedRow['Declaracion Aduanera'] || '').trim(), ...(isForBulkComplete && { digitadorStatus: 'Trámite Completo' })} as Worksheet;
                 }
                 return ws;
             }));
@@ -367,7 +366,7 @@ export function GestionLocalTable({ worksheets, setWorksheets, selectedRows, set
     
     try {
       await batch.commit();
-      setWorksheets(prev => prev.map(ws => selectedRows.includes(ws.id) ? { ...ws, aforo: { ...(ws as any).aforo, entregadoAforoAt: Timestamp.now() } } as Worksheet : ws));
+      setWorksheets(prev => prev.map(ws => selectedRows.includes(ws.id) ? { ...ws, entregadoAforoAt: Timestamp.now() } as Worksheet : ws));
       toast({
         title: "Acuse Masivo Exitoso",
         description: `${selectedRows.length} caso(s) han sido actualizados.`
@@ -399,7 +398,7 @@ export function GestionLocalTable({ worksheets, setWorksheets, selectedRows, set
 
     try {
         await batch.commit();
-        setWorksheets(prev => prev.map(ws => ws.id === positionsModal.worksheet?.id ? { ...ws, aforo: { ...(ws as any).aforo, ...updatePayload } } as Worksheet : ws));
+        setWorksheets(prev => prev.map(ws => ws.id === positionsModal.worksheet?.id ? { ...ws, ...updatePayload } as Worksheet : ws));
         toast({title: 'Éxito', description: 'Las posiciones y el estado han sido guardados.'});
         setPositionsModal({isOpen: false});
         setPositionsInput('');
@@ -464,15 +463,10 @@ export function GestionLocalTable({ worksheets, setWorksheets, selectedRows, set
         </TableHeader>
         <TableBody>
           {paginatedWorksheets.map(ws => {
-            const aforoData = (ws as any).aforo;
+            const aforoData = (ws as any);
             return (
             <TableRow key={ws.id} data-state={selectedRows.includes(ws.id) ? 'selected' : undefined}>
-              <TableCell>
-                <Checkbox
-                  checked={selectedRows.includes(ws.id)}
-                  onCheckedChange={() => handleSelectRow(ws.id)}
-                />
-              </TableCell>
+              <TableCell><Checkbox checked={selectedRows.includes(ws.id)} onCheckedChange={() => handleSelectRow(ws.id)}/></TableCell>
               <TableCell>
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
@@ -493,51 +487,51 @@ export function GestionLocalTable({ worksheets, setWorksheets, selectedRows, set
               <TableCell>{ws.consignee}</TableCell>
               <TableCell>
                 <div className="flex items-center gap-1">
-                  <Badge variant="secondary">{aforoData?.aforador || 'N/A'}</Badge>
+                  <Badge variant="secondary">{aforoData.aforador || 'N/A'}</Badge>
                   <LastUpdateTooltip lastUpdate={aforoData?.aforadorAssignedAt ? { by: aforoData.aforadorAssignedBy, at: aforoData.aforadorAssignedAt } : undefined} defaultUser={ws.executive} defaultDate={ws.createdAt} />
                 </div>
               </TableCell>
               <TableCell>
                  <div className="flex items-center gap-1">
-                    <Badge variant={aforoData?.aforadorStatus === 'En revisión' ? 'default' : 'outline'}>
-                        {aforoData?.aforadorStatus || 'Pendiente'}
+                    <Badge variant={aforoData.aforadorStatus === 'En revisión' ? 'default' : 'outline'}>
+                        {aforoData.aforadorStatus || 'Pendiente'}
                     </Badge>
                     <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => setStatusModal({isOpen: true, worksheet: ws, type: 'aforador'})}><Edit className="h-3 w-3"/></Button>
                  </div>
               </TableCell>
                <TableCell>
                   <div className="flex items-center gap-1">
-                    <Badge variant="outline">{aforoData?.totalPosiciones || 0}</Badge>
-                    <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => { setPositionsInput(aforoData?.totalPosiciones || ''); setPositionsModal({isOpen: true, worksheet: ws})}}><Edit className="h-3 w-3"/></Button>
+                    <Badge variant="outline">{aforoData.totalPosiciones || 0}</Badge>
+                    <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => { setPositionsInput(aforoData.totalPosiciones || ''); setPositionsModal({isOpen: true, worksheet: ws})}}><Edit className="h-3 w-3"/></Button>
                   </div>
               </TableCell>
               <TableCell>
                 <div className="flex items-center gap-1">
-                  <Badge variant="secondary">{aforoData?.revisorAsignado || 'N/A'}</Badge>
-                  <LastUpdateTooltip lastUpdate={aforoData?.revisorAsignadoLastUpdate} caseCreation={ws.createdAt} />
+                  <Badge variant="secondary">{aforoData.revisorAsignado || 'N/A'}</Badge>
+                  <LastUpdateTooltip lastUpdate={aforoData.revisorAsignadoLastUpdate} caseCreation={ws.createdAt} />
                 </div>
               </TableCell>
               <TableCell>
-                 <Badge variant={aforoData?.revisorStatus === 'Aprobado' ? 'default' : aforoData?.revisorStatus === 'Rechazado' ? 'destructive' : 'outline'}>
-                    {aforoData?.revisorStatus || 'Pendiente'}
+                 <Badge variant={aforoData.revisorStatus === 'Aprobado' ? 'default' : aforoData.revisorStatus === 'Rechazado' ? 'destructive' : 'outline'}>
+                    {aforoData.revisorStatus || 'Pendiente'}
                 </Badge>
               </TableCell>
               <TableCell>
                   <div className="flex items-center gap-1">
-                    <Badge variant="secondary">{aforoData?.digitadorAsignado || 'N/A'}</Badge>
-                    <LastUpdateTooltip lastUpdate={aforoData?.digitadorAsignadoLastUpdate} caseCreation={ws.createdAt} />
+                    <Badge variant="secondary">{aforoData.digitadorAsignado || 'N/A'}</Badge>
+                    <LastUpdateTooltip lastUpdate={aforoData.digitadorAsignadoLastUpdate} caseCreation={ws.createdAt} />
                   </div>
               </TableCell>
               <TableCell>
                  <div className="flex items-center gap-1">
-                    <Badge variant={aforoData?.digitadorStatus === 'Trámite Completo' ? 'default' : 'outline'}>
-                        {aforoData?.digitadorStatus || 'Pendiente'}
+                    <Badge variant={aforoData.digitadorStatus === 'Trámite Completo' ? 'default' : 'outline'}>
+                        {aforoData.digitadorStatus || 'Pendiente'}
                     </Badge>
                     <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => setStatusModal({isOpen: true, worksheet: ws, type: 'digitador'})}><Edit className="h-3 w-3"/></Button>
                  </div>
               </TableCell>
               <TableCell>
-                  {aforoData?.declaracionAduanera ? <Badge variant="default">{aforoData.declaracionAduanera}</Badge> : 'N/A'}
+                  {aforoData.declaracionAduanera ? <Badge variant="default">{aforoData.declaracionAduanera}</Badge> : 'N/A'}
               </TableCell>
             </TableRow>
           )})}
@@ -658,7 +652,7 @@ export function GestionLocalTable({ worksheets, setWorksheets, selectedRows, set
         <CompleteDigitizationModal
             isOpen={!!selectedCaseForCompletion}
             onClose={() => setSelectedCaseForCompletion(null)}
-            caseData={{id: selectedCaseForCompletion.id, ne: selectedCaseForCompletion.ne}}
+            caseData={selectedCaseForCompletion}
         />
     )}
      <Dialog open={isBulkCompleteModalOpen} onOpenChange={setIsBulkCompleteModalOpen}>

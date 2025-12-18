@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useEffect, useState, useCallback, useMemo, useRef } from 'react';
@@ -37,41 +36,54 @@ export default function GestionLocalPage() {
   const [pinInput, setPinInput] = useState('');
 
 
- const fetchWorksheets = useCallback(() => {
+  const fetchWorksheets = useCallback(() => {
     if (!user) return;
     setIsLoading(true);
 
-    const worksheetsQuery = query(
-        collection(db, 'worksheets'),
-        orderBy('createdAt', 'desc')
-    );
+    const aforoMetadataQuery = query(collectionGroup(db, 'aforo'), orderBy('createdAt', 'desc'));
 
-    const unsubscribe = onSnapshot(worksheetsQuery, async (snapshot) => {
-        const fetchedWorksheets: WorksheetWithCase[] = [];
-        const promises = snapshot.docs.map(async (docSnapshot) => {
-            const worksheetData = { id: docSnapshot.id, ...docSnapshot.data() } as Worksheet;
-            
-            const aforoRef = doc(db, `worksheets/${docSnapshot.id}/aforo/metadata`);
-            const aforoSnap = await getDoc(aforoRef);
-            
-            const combinedData: WorksheetWithCase = {
-                ...(aforoSnap.exists() ? aforoSnap.data() as AforoData : {} as AforoData),
-                ...worksheetData,
-                worksheet: worksheetData,
-                id: worksheetData.id,
-            };
-            
-            if (combinedData.worksheetType === 'hoja_de_trabajo' || !combinedData.worksheetType) {
-                fetchedWorksheets.push(combinedData);
+    const unsubscribe = onSnapshot(aforoMetadataQuery, async (snapshot) => {
+        const aforoMetadatas = snapshot.docs.map(doc => ({
+            worksheetId: doc.ref.parent.parent!.id,
+            ...doc.data()
+        } as AforoData & { worksheetId: string }));
+        
+        const worksheetIds = aforoMetadatas.map(meta => meta.worksheetId).filter(Boolean);
+        
+        if (worksheetIds.length === 0) {
+            setWorksheets([]);
+            setIsLoading(false);
+            return;
+        }
+
+        const worksheetsMap = new Map<string, Worksheet>();
+        // Firestore 'in' queries are limited to 30 items.
+        for (let i = 0; i < worksheetIds.length; i += 30) {
+            const chunk = worksheetIds.slice(i, i + 30);
+            const worksheetsQuery = query(collection(db, 'worksheets'), where('__name__', 'in', chunk));
+            const wsSnapshot = await getDocs(worksheetsQuery);
+            wsSnapshot.forEach(doc => {
+                worksheetsMap.set(doc.id, { id: doc.id, ...doc.data() } as Worksheet);
+            });
+        }
+        
+        const combinedData: WorksheetWithCase[] = aforoMetadatas.map(meta => {
+            const ws = worksheetsMap.get(meta.worksheetId);
+            // Only include if it is a worksheet and its type is 'hoja_de_trabajo' or undefined
+            if (ws && (ws.worksheetType === 'hoja_de_trabajo' || ws.worksheetType === undefined)) {
+                return {
+                    ...meta,
+                    ...ws,
+                    id: ws.id,
+                    worksheet: ws,
+                };
             }
-        });
+            return null;
+        }).filter(Boolean) as WorksheetWithCase[];
 
-        await Promise.all(promises);
+        combinedData.sort((a, b) => (b.createdAt?.toMillis() || 0) - (a.createdAt?.toMillis() || 0));
 
-        // Sort after all data is combined
-        fetchedWorksheets.sort((a, b) => (b.createdAt?.toMillis() || 0) - (a.createdAt?.toMillis() || 0));
-
-        setWorksheets(fetchedWorksheets);
+        setWorksheets(combinedData);
         setIsLoading(false);
     }, (error) => {
         console.error("Error fetching worksheets:", error);
@@ -97,14 +109,13 @@ export default function GestionLocalPage() {
     setIsExporting(true);
     
     const casesToExport = filteredWorksheets.map(ws => {
-        const aforoData = (ws as any).aforo || {};
         return {
             id: ws.id,
             ne: ws.ne,
             consignee: ws.consignee,
             merchandise: ws.description,
             declarationPattern: ws.patternRegime,
-            ...aforoData
+            ...ws
         };
     });
 
