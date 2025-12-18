@@ -12,7 +12,6 @@ import { aduanas } from '@/lib/formData';
 import { cn } from "@/lib/utils";
 import { db } from '@/lib/firebase';
 import Link from 'next/link';
-import { Anexo7Details } from './Anexo7Details';
 import { Anexo5PrintButton } from './Anexo5PrintButton';
 import { SignatureSection } from '@/components/shared/SignatureSection';
 

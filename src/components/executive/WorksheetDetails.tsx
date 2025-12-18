@@ -1,18 +1,16 @@
 "use client";
-import React, { useEffect, useState, useMemo } from 'react';
+import React from 'react';
 import Image from 'next/image';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
-import { X, Printer, FileText, User, Building, Weight, Truck, MapPin, Anchor, Plane, Globe, Package, ListChecks, FileSymlink, Link as LinkIcon, Eye, Shield, FileBadge, FileKey, Edit, Calendar } from 'lucide-react';
-import type { Worksheet, AppUser, AforoCase, WorksheetDocument, WorksheetWithCase } from '@/types';
-import { Timestamp, collection, query, where, getDocs } from 'firebase/firestore';
+import { X, Printer, FileText, User, Building, Weight, Truck, MapPin, Anchor, Plane, FileSymlink, Link as LinkIcon, Eye, Shield, FileBadge, FileKey, Edit, Calendar } from 'lucide-react';
+import type { Worksheet, WorksheetWithCase } from '@/types';
+import { Timestamp } from 'firebase/firestore';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { format as formatDateFns } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { aduanas, aduanaToShortCode } from '@/lib/formData';
-import { cn } from "@/lib/utils";
-import { db } from '@/lib/firebase';
+import { aduanas } from '@/lib/formData';
 import Link from 'next/link';
 
 const formatTimestamp = (timestamp: Timestamp | null | undefined): string => {
@@ -73,23 +71,6 @@ export function WorksheetDetails({ worksheet, onClose }: { worksheet: WorksheetW
   const resaNumber = worksheet.resaNumber || worksheet.worksheet?.resa;
   const resaNotificationDate = worksheet.resaNotificationDate || worksheet.worksheet?.resaNotificationDate;
   const resaDueDate = worksheet.resaDueDate || worksheet.worksheet?.resaDueDate;
-
-  const sortedDocuments = useMemo(() => {
-    const docs = worksheet.worksheet?.documents || [];
-    const facturas = docs.filter(d => d.type === 'FACTURA');
-    const otros = docs.filter(d => d.type !== 'FACTURA');
-
-    facturas.sort((a, b) => {
-        const numA = parseInt(a.number.replace(/\D/g, ''), 10);
-        const numB = parseInt(b.number.replace(/\D/g, ''), 10);
-        if (!isNaN(numA) && !isNaN(numB)) {
-            return numA - numB;
-        }
-        return a.number.localeCompare(b.number);
-    });
-
-    return [...facturas, ...otros];
-  }, [worksheet.worksheet?.documents]);
 
   return (
     <>
@@ -196,8 +177,8 @@ export function WorksheetDetails({ worksheet, onClose }: { worksheet: WorksheetW
                     <Table className="print:text-[8pt]">
                         <TableHeader><TableRow><TableHead className="print:p-1">Tipo</TableHead><TableHead className="print:p-1">Número</TableHead><TableHead className="print:p-1">Formato</TableHead></TableRow></TableHeader>
                         <TableBody>
-                            {sortedDocuments.length > 0 ? (
-                            sortedDocuments.map(doc => (
+                            {worksheet.worksheet?.documents && worksheet.worksheet?.documents.length > 0 ? (
+                                worksheet.worksheet.documents.map(doc => (
                                 <TableRow key={doc.id}><TableCell className="print:p-1">{doc.type}</TableCell><TableCell className="print:p-1">{doc.number}</TableCell>
                                 <TableCell className="print:p-1"><Badge variant={doc.isCopy ? 'secondary' : 'default'} className="print:text-xs print:px-1 print:py-0">{doc.isCopy ? 'Copia' : 'Original'}</Badge></TableCell>
                                 </TableRow>

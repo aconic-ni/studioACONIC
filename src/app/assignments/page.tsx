@@ -121,7 +121,7 @@ export default function AssignmentsPage() {
         status: 'incomplete',
         lock: 'off', // Initial lock state is off, allowing recovery
         createdAt: null, // This will be set when the gestor starts the exam
-        lastUpdated: serverTimestamp(),
+        lastUpdated: null,
         completedAt: null,
         requestedBy: originalRequest.requestedBy,
         requestedAt: originalRequest.requestedAt,

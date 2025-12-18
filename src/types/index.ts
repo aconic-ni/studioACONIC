@@ -1,5 +1,5 @@
 
-import { Timestamp } from 'firebase/firestore';
+import { Timestamp, FieldValue } from 'firebase/firestore';
 
 export type UserRole = 'gestor' | 'aforador' | 'ejecutivo' | 'coordinadora' | 'admin' | 'agente' | 'digitador' | 'supervisor' | 'revisor' | 'calificador' | 'autorevisor' | 'autorevisor_plus' | 'invitado' | 'facturador' | 'legal';
 
@@ -58,13 +58,13 @@ export interface ExamDocument extends ExamData {
   lock?: 'on' | 'off'; // To prevent concurrent edits
   createdAt?: Timestamp | null; // When the exam was first created
   savedAt?: Timestamp | null; // When the exam was last saved (preview)
-  lastUpdated?: Timestamp | null; // To track last soft save
+  lastUpdated?: Timestamp | FieldValue | null; // To track last soft save
   completedAt?: Timestamp | null; // When the exam was finalized
   commentCount?: number; // For report comment counts
   requestedBy?: string | null; // email of executive
   requestedAt?: Timestamp | null;
   assignedTo?: string | null; // name of gestor
-  assignedAt?: Timestamp | null;
+  assignedAt?: Timestamp | FieldValue | null;
   isArchived?: boolean; // For soft delete
   pagos?: InitialDataContext[];
 }
@@ -587,5 +587,3 @@ export interface Remision {
   totalCases: number;
   cases: RemisionCase[];
 }
-
-    

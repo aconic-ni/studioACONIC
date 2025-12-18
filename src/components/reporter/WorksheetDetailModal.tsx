@@ -17,17 +17,18 @@ export function WorksheetDetailModal({ isOpen, onClose, worksheet }: WorksheetDe
   if (!isOpen || !worksheet) return null;
 
   const renderContent = () => {
-    // We need to determine the type from the worksheet object itself.
-    const wsType = (worksheet as Worksheet).worksheetType;
+    // The full worksheet data is nested inside the 'worksheet' property for WorksheetWithCase
+    const ws = 'worksheet' in worksheet && worksheet.worksheet ? worksheet.worksheet : worksheet;
+    const wsType = ws.worksheetType;
 
     switch (wsType) {
       case 'anexo_5':
-        return <Anexo5Details worksheet={worksheet as Worksheet} onClose={onClose} />;
+        return <Anexo5Details worksheet={ws as Worksheet} onClose={onClose} />;
       case 'anexo_7':
-        return <Anexo7Details worksheet={worksheet as Worksheet} onClose={onClose} />;
+        return <Anexo7Details worksheet={ws as Worksheet} onClose={onClose} />;
       case 'hoja_de_trabajo':
       default:
-        // Aforo cases might have worksheetType undefined, so they fall here.
+        // Pass the full case data to WorksheetDetails if it's available
         return <WorksheetDetails worksheet={worksheet as WorksheetWithCase} onClose={onClose} />;
     }
   };
