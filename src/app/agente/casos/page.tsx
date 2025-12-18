@@ -1,4 +1,3 @@
-
 "use client";
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { db } from '@/lib/firebase';
@@ -11,7 +10,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import type { AforoCase, AforoCaseStatus, PreliquidationStatus, DigitacionStatus, Worksheet, AforoCaseUpdate, WorksheetWithCase } from '@/types';
+import type { AforoCaseStatus, PreliquidationStatus, DigitacionStatus, Worksheet, AforoCaseUpdate, WorksheetWithCase } from '@/types';
 import { format, startOfDay, endOfDay, startOfMonth, endOfMonth } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { ObservationModal } from '@/components/reporter/ObservationModal';
@@ -118,13 +117,10 @@ export default function AgenteCasosPage() {
             
             if (aforoData) {
                 const combinedData: WorksheetWithCase = {
+                    ...wsData, 
                     ...aforoData,
-                    ...wsData,
+                    id: wsDoc.id, 
                     worksheet: wsData,
-                    id: wsDoc.id,
-                    ne: wsData.ne,
-                    consignee: wsData.consignee,
-                    executive: wsData.executive,
                     declarationPattern: aforoData.declarationPattern || wsData.patternRegime || '',
                     merchandise: aforoData.merchandise || wsData.description || '',
                     assignmentDate: aforoData.assignmentDate || null,

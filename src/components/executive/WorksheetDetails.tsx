@@ -4,7 +4,7 @@ import Image from 'next/image';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
 import { X, Printer, FileText, User, Building, Weight, Truck, MapPin, Anchor, Plane, Globe, Package, ListChecks, FileSymlink, Link as LinkIcon, Eye, Shield, FileBadge, FileKey, Edit, Calendar } from 'lucide-react';
-import type { Worksheet, AppUser, AforoCase, WorksheetDocument } from '@/types';
+import type { Worksheet, AppUser, AforoCase, WorksheetDocument, WorksheetWithCase } from '@/types';
 import { Timestamp, collection, query, where, getDocs } from 'firebase/firestore';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
@@ -61,7 +61,7 @@ const transportIcons: { [key: string]: React.ElementType } = {
   terrestre: Truck,
 };
 
-export function WorksheetDetails({ worksheet, aforoCase, onClose }: { worksheet: Worksheet; aforoCase?: AforoCase | null; onClose: () => void; }) {
+export function WorksheetDetails({ worksheet, onClose }: { worksheet: WorksheetWithCase; onClose: () => void; }) {
   
   if (worksheet.worksheetType === 'anexo_7') {
     return <Anexo7Details worksheet={worksheet} onClose={onClose} />;
@@ -75,17 +75,17 @@ export function WorksheetDetails({ worksheet, aforoCase, onClose }: { worksheet:
     window.print();
   };
   
-  const TransportIcon = transportIcons[worksheet.transportMode] || Truck;
+  const TransportIcon = transportIcons[worksheet.worksheet?.transportMode || 'terrestre'] || Truck;
   
-  const wasModified = worksheet.lastUpdatedAt && worksheet.createdAt && worksheet.lastUpdatedAt.toMillis() !== worksheet.createdAt.toMillis();
+  const wasModified = worksheet.worksheet?.lastUpdatedAt && worksheet.createdAt && worksheet.worksheet.lastUpdatedAt.toMillis() !== worksheet.createdAt.toMillis();
   const isPsmtCase = worksheet.consignee?.toUpperCase().trim() === "PSMT NICARAGUA, SOCIEDAD ANONIMA";
   
-  const resaNumber = aforoCase?.resaNumber || worksheet.resa;
-  const resaNotificationDate = aforoCase?.resaNotificationDate || worksheet.resaNotificationDate;
-  const resaDueDate = aforoCase?.resaDueDate || worksheet.resaDueDate;
+  const resaNumber = worksheet.resaNumber || worksheet.worksheet?.resa;
+  const resaNotificationDate = worksheet.resaNotificationDate || worksheet.worksheet?.resaNotificationDate;
+  const resaDueDate = worksheet.resaDueDate || worksheet.worksheet?.resaDueDate;
 
   const sortedDocuments = useMemo(() => {
-    const docs = worksheet.documents || [];
+    const docs = worksheet.worksheet?.documents || [];
     const facturas = docs.filter(d => d.type === 'FACTURA');
     const otros = docs.filter(d => d.type !== 'FACTURA');
 
@@ -99,7 +99,7 @@ export function WorksheetDetails({ worksheet, aforoCase, onClose }: { worksheet:
     });
 
     return [...facturas, ...otros];
-  }, [worksheet.documents]);
+  }, [worksheet.worksheet?.documents]);
 
   return (
     <>
@@ -140,7 +140,7 @@ export function WorksheetDetails({ worksheet, aforoCase, onClose }: { worksheet:
                     <div className="text-xs text-muted-foreground ml-8 mt-1">
                         <span>Creado: {formatTimestamp(worksheet.createdAt)}</span>
                         {wasModified && (
-                        <span className="ml-2">| Modificado: {formatTimestamp(worksheet.lastUpdatedAt)}</span>
+                        <span className="ml-2">| Modificado: {formatTimestamp(worksheet.worksheet?.lastUpdatedAt)}</span>
                         )}
                     </div>
                   </div>
@@ -150,22 +150,22 @@ export function WorksheetDetails({ worksheet, aforoCase, onClose }: { worksheet:
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 print:grid-cols-3 gap-x-6 gap-y-3 print:gap-x-4 print:gap-y-1 ">
                   <DetailItem label="NE" value={worksheet.ne} icon={FileText} />
-                  <DetailItem label="Referencia" value={worksheet.reference} icon={FileText} />
+                  <DetailItem label="Referencia" value={worksheet.worksheet?.reference} icon={FileText} />
                   <DetailItem label="Ejecutivo" value={worksheet.executive} icon={User} />
-                  <DetailItem label="ETA" value={formatShortDate(worksheet.eta)} icon={Calendar} />
-                  <DetailItem label="Peso Bruto" value={worksheet.grossWeight} icon={Weight} />
-                  <DetailItem label="Peso Neto" value={worksheet.netWeight} icon={Weight} />
-                  <DetailItem label="Número de Bultos" value={worksheet.packageNumber} icon={Package} />
-                  <DetailItem label="Aduana de Entrada" value={getAduanaLabel(worksheet.entryCustoms)} icon={MapPin} />
-                  <DetailItem label="Aduana de Despacho" value={getAduanaLabel(worksheet.dispatchCustoms)} icon={MapPin} />
+                  <DetailItem label="ETA" value={formatShortDate(worksheet.worksheet?.eta)} icon={Calendar} />
+                  <DetailItem label="Peso Bruto" value={worksheet.worksheet?.grossWeight} icon={Weight} />
+                  <DetailItem label="Peso Neto" value={worksheet.worksheet?.netWeight} icon={Weight} />
+                  <DetailItem label="Número de Bultos" value={worksheet.worksheet?.packageNumber} icon={Package} />
+                  <DetailItem label="Aduana de Entrada" value={getAduanaLabel(worksheet.worksheet?.entryCustoms)} icon={MapPin} />
+                  <DetailItem label="Aduana de Despacho" value={getAduanaLabel(worksheet.worksheet?.dispatchCustoms)} icon={MapPin} />
                   <DetailItem label="RESA" value={resaNumber} icon={FileBadge} />
                   <DetailItem label="Fecha Notif. RESA" value={formatShortDate(resaNotificationDate)} icon={Calendar} />
                   <DetailItem label="Fecha Venc. RESA" value={formatShortDate(resaDueDate)} icon={Calendar} />
-                  <DetailItem label="Modo de Transporte" value={worksheet.transportMode} icon={TransportIcon} />
-                  {worksheet.inLocalWarehouse && <DetailItem label="Localización" value={worksheet.location} icon={MapPin} />}
-                  <DetailItem label="Aplica TLC" value={worksheet.appliesTLC} icon={Shield} />
-                  <DetailItem label="Aplica Modexo" value={worksheet.appliesModexo} icon={FileKey} />
-                  {worksheet.appliesModexo && <DetailItem label="Código Modexo" value={worksheet.modexoCode} />}
+                  <DetailItem label="Modo de Transporte" value={worksheet.worksheet?.transportMode} icon={TransportIcon} />
+                  {worksheet.worksheet?.inLocalWarehouse && <DetailItem label="Localización" value={worksheet.worksheet.location} icon={MapPin} />}
+                  <DetailItem label="Aplica TLC" value={worksheet.worksheet?.appliesTLC} icon={Shield} />
+                  <DetailItem label="Aplica Modexo" value={worksheet.worksheet?.appliesModexo} icon={FileKey} />
+                  {worksheet.worksheet?.appliesModexo && <DetailItem label="Código Modexo" value={worksheet.worksheet?.modexoCode} />}
                    {isPsmtCase && worksheet.aforador && <DetailItem label="Aforador Asignado" value={worksheet.aforador} icon={User} />}
               </div>
           </div>
@@ -174,27 +174,27 @@ export function WorksheetDetails({ worksheet, aforoCase, onClose }: { worksheet:
           {/* Description */}
            <div className="print:mt-1">
             <h4 className="text-lg font-medium mb-2 text-foreground print:text-sm print:mb-1">Descripción</h4>
-            <p className="text-sm p-4 border rounded-md bg-card whitespace-pre-wrap print:border print:p-2 print:text-xs">{worksheet.description}</p>
+            <p className="text-sm p-4 border rounded-md bg-card whitespace-pre-wrap print:border print:p-2 print:text-xs">{worksheet.worksheet?.description}</p>
           </div>
 
           {/* Observations */}
-          {worksheet.observations && (
+          {worksheet.worksheet?.observations && (
             <div className="print:mt-1">
               <h4 className="text-lg font-medium mb-2 text-foreground print:text-sm print:mb-1">Observaciones</h4>
-              <p className="text-sm p-4 border rounded-md bg-card whitespace-pre-wrap print:border print:p-2 print:text-xs">{worksheet.observations}</p>
+              <p className="text-sm p-4 border rounded-md bg-card whitespace-pre-wrap print:border print:p-2 print:text-xs">{worksheet.worksheet.observations}</p>
             </div>
           )}
 
           <div className="grid grid-cols-1 print:grid-cols-2 print:gap-x-4">
             
             {/* Transport Document */}
-            {(worksheet.transportDocumentType || worksheet.transportCompany || worksheet.transportDocumentNumber) && (
+            {(worksheet.worksheet?.transportDocumentType || worksheet.worksheet?.transportCompany || worksheet.worksheet?.transportDocumentNumber) && (
               <div className="print:mt-1 mt-4">
                   <h4 className="text-lg font-medium mb-2 text-foreground print:text-sm print:mb-1">Documento de Transporte</h4>
                   <div className="p-4 border rounded-md bg-card space-y-2 print:p-2 print:space-y-1">
-                      <DetailItem label="Tipo" value={worksheet.transportDocumentType === 'guia_aerea' ? 'Guía Aérea' : worksheet.transportDocumentType === 'bl' ? 'BL' : 'Carta de Porte'} />
-                      <DetailItem label="Compañía" value={worksheet.transportCompany} />
-                      <DetailItem label="Número" value={worksheet.transportDocumentNumber} />
+                      <DetailItem label="Tipo" value={worksheet.worksheet?.transportDocumentType === 'guia_aerea' ? 'Guía Aérea' : worksheet.worksheet?.transportDocumentType === 'bl' ? 'BL' : 'Carta de Porte'} />
+                      <DetailItem label="Compañía" value={worksheet.worksheet?.transportCompany} />
+                      <DetailItem label="Número" value={worksheet.worksheet?.transportDocumentNumber} />
                   </div>
               </div>
             )}
@@ -235,8 +235,8 @@ export function WorksheetDetails({ worksheet, aforoCase, onClose }: { worksheet:
                             </TableRow>
                         </TableHeader>
                         <TableBody>
-                            {worksheet.requiredPermits?.length > 0 ? (
-                                worksheet.requiredPermits.map(permit => (
+                            {worksheet.worksheet?.requiredPermits?.length > 0 ? (
+                                worksheet.worksheet.requiredPermits.map(permit => (
                                     <TableRow key={permit.id}>
                                         <TableCell className="font-medium print:p-1">{permit.name}</TableCell>
                                         <TableCell className="print:p-1">{permit.facturaNumber || 'N/A'}</TableCell>
@@ -259,30 +259,30 @@ export function WorksheetDetails({ worksheet, aforoCase, onClose }: { worksheet:
               <div>
                 <h4 className="text-lg font-medium mb-2 text-foreground print:text-sm print:mb-1">Detalles de Operación</h4>
                 <div className="space-y-3 p-4 border rounded-md print:border print:p-2 print:space-y-1">
-                    <DetailItem label="Tipo de Operación" value={worksheet.operationType ? worksheet.operationType.charAt(0).toUpperCase() + worksheet.operationType.slice(1) : undefined} icon={ListChecks} />
-                    {worksheet.operationType && (
+                    <DetailItem label="Tipo de Operación" value={worksheet.worksheet?.operationType ? worksheet.worksheet.operationType.charAt(0).toUpperCase() + worksheet.worksheet.operationType.slice(1) : undefined} icon={ListChecks} />
+                    {worksheet.worksheet?.operationType && (
                         <>
-                         <DetailItem label="Modelo (Patrón)" value={worksheet.patternRegime} />
-                         <DetailItem label="Sub-Régimen" value={worksheet.subRegime} />
+                         <DetailItem label="Modelo (Patrón)" value={worksheet.worksheet.patternRegime} />
+                         <DetailItem label="Sub-Régimen" value={worksheet.worksheet.subRegime} />
                         </>
                     )}
                 </div>
               </div>
                <div>
                 <div className="space-y-3 p-4 border rounded-md print:border print:p-2 print:space-y-1">
-                    <DetailItem label="Es Mancomunada" value={worksheet.isJointOperation} />
-                    {worksheet.isJointOperation && (
+                    <DetailItem label="Es Mancomunada" value={worksheet.worksheet?.isJointOperation} />
+                    {worksheet.worksheet?.isJointOperation && (
                         <>
-                          <DetailItem label="NE Mancomunado" value={worksheet.jointNe} icon={FileSymlink} />
-                          <DetailItem label="Referencia Mancomunada" value={worksheet.jointReference} icon={LinkIcon} />
+                          <DetailItem label="NE Mancomunado" value={worksheet.worksheet.jointNe} icon={FileSymlink} />
+                          <DetailItem label="Referencia Mancomunada" value={worksheet.worksheet.jointReference} icon={LinkIcon} />
                         </>
                     )}
-                     {worksheet.dcCorrespondiente && (
+                     {worksheet.worksheet?.dcCorrespondiente && (
                         <div className="flex items-center gap-2 pt-2 border-t">
                             <p className="text-xs font-medium text-muted-foreground whitespace-nowrap print:text-[8pt]">DC Correspondiente:</p>
-                            <p className="text-sm text-foreground print:text-[8pt]">{worksheet.dcCorrespondiente}</p>
-                            <Badge variant={worksheet.isSplit ? 'destructive' : 'default'} className="print:text-xs print:px-1 print:py-0">
-                                {worksheet.isSplit ? 'Split' : 'Full'}
+                            <p className="text-sm text-foreground print:text-[8pt]">{worksheet.worksheet.dcCorrespondiente}</p>
+                            <Badge variant={worksheet.worksheet.isSplit ? 'destructive' : 'default'} className="print:text-xs print:px-1 print:py-0">
+                                {worksheet.worksheet.isSplit ? 'Split' : 'Full'}
                             </Badge>
                         </div>
                     )}
