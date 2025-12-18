@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useForm } from 'react-hook-form';
@@ -34,7 +33,7 @@ interface PaymentRequestModalProps {
 export function PaymentRequestModal({ isOpen, onClose, caseData }: PaymentRequestModalProps) {
   const { user } = useAuth();
   const { toast } = useToast();
-  const { setInitialContextData, openAddProductModal, setIsMemorandumMode, initialContextData: appInitialData } = useAppContext();
+  const { setInitialContextData, openPaymentRequestFlow, setIsMemorandumMode, initialContextData: appInitialData } = useAppContext();
   const router = useRouter();
 
   const form = useForm<PaymentRequestFormData>({
@@ -70,14 +69,8 @@ export function PaymentRequestModal({ isOpen, onClose, caseData }: PaymentReques
     };
     
     setInitialContextData(initialData);
-    
-    router.push('/examinerPay');
-    onClose();
-    
-    // Open the AddProductModal after a short delay to allow navigation and context update
-    setTimeout(() => {
-        openAddProductModal();
-    }, 100);
+    openPaymentRequestFlow(); // This will open the main modal flow
+    onClose(); // Close this initial modal
   };
 
   if (!isOpen) return null;

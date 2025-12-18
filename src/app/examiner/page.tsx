@@ -21,7 +21,7 @@ export default function ExaminerPage() {
 
   useEffect(() => {
     if (!authLoading && user) {
-      const allowedRoles = ['gestor', 'admin'];
+      const allowedRoles = ['gestor', 'admin', 'supervisor', 'coordinadora'];
       if (user.role === 'calificador') {
         router.push('/databasePay');
       } else if (user.role && !allowedRoles.includes(user.role)) {
@@ -53,7 +53,7 @@ export default function ExaminerPage() {
     };
   }, [currentStep]);
 
-  if (authLoading || (user && !isProfileComplete && user.role !== 'admin') || !user || (user.role && !['gestor', 'admin', 'calificador'].includes(user.role))) {
+  if (authLoading || (user && !isProfileComplete && user.role !== 'admin') || !user || (user.role && !['gestor', 'admin', 'supervisor', 'coordinadora', 'calificador'].includes(user.role))) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
         <Loader2 className="h-12 w-12 animate-spin text-primary" />
