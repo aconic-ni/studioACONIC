@@ -9,7 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Loader2, CheckCircle, XCircle, ShieldCheck, Clock, Users, UserPlus } from 'lucide-react';
 import { db } from '@/lib/firebase';
-import { collection, query, where, getDocs, doc, updateDoc, serverTimestamp, Timestamp, documentId } from 'firebase/firestore';
+import { collection, query, where, getDocs, doc, updateDoc, serverTimestamp, Timestamp, documentId, limit, orderBy } from 'firebase/firestore';
 import type { ReportAccessRequest, AppUser } from '@/types';
 import { useToast } from '@/hooks/use-toast';
 import { Badge } from '@/components/ui/badge';
@@ -33,6 +33,8 @@ export default function AuthorizePage() {
   const [viewMode, setViewMode] = useState<ViewMode>('pending');
   const [isGroupModalOpen, setIsGroupModalOpen] = useState(false);
   const [isAddUserModalOpen, setIsAddUserModalOpen] = useState(false);
+  const [queryLimit, setQueryLimit] = useState(20);
+
 
   const fetchVisibilityGroups = async (usersToEnrich: AppUser[]): Promise<AppUser[]> => {
     const enrichedUsers = [...usersToEnrich];
@@ -82,7 +84,7 @@ export default function AuthorizePage() {
     setIsLoading(true);
     try {
       if (viewMode === 'allUsers' || forceUserFetch) {
-        const usersQuery = query(collection(db, 'users'));
+        const usersQuery = query(collection(db, 'users'), limit(queryLimit));
         const usersSnapshot = await getDocs(usersQuery);
         const fetchedUsers = usersSnapshot.docs.map(doc => ({ uid: doc.id, ...doc.data() } as AppUser));
         const enrichedUsers = await fetchVisibilityGroups(fetchedUsers);
@@ -94,10 +96,9 @@ export default function AuthorizePage() {
           ? where("status", "==", "pending")
           : where("status", "in", ["approved", "denied"]);
 
-        const q = query(collection(db, 'reportAccessRequests'), statusQuery);
+        const q = query(collection(db, 'reportAccessRequests'), statusQuery, orderBy("requestedAt", "desc"), limit(queryLimit));
         const querySnapshot = await getDocs(q);
         const fetchedRequests = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as ReportAccessRequest));
-        fetchedRequests.sort((a,b) => (b.requestedAt?.toMillis() ?? 0) - (a.requestedAt?.toMillis() ?? 0));
         setRequests(fetchedRequests);
       }
     } catch (error) {
@@ -106,7 +107,7 @@ export default function AuthorizePage() {
     } finally {
       setIsLoading(false);
     }
-  }, [toast, viewMode]);
+  }, [toast, viewMode, queryLimit]);
 
   useEffect(() => {
     if (!authLoading) {

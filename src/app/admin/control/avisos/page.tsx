@@ -12,7 +12,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/context/AuthContext';
 import { db } from '@/lib/firebase';
-import { collection, addDoc, serverTimestamp, query, onSnapshot, orderBy, doc, updateDoc, deleteDoc } from 'firebase/firestore';
+import { collection, addDoc, serverTimestamp, query, onSnapshot, orderBy, doc, updateDoc, deleteDoc, limit } from 'firebase/firestore';
 import type { Announcement } from '@/types';
 import { Loader2, Trash2, ArrowLeft } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -40,13 +40,8 @@ export default function AnnouncementPage() {
   const [announcements, setAnnouncements] = useState<Announcement[]>([]);
   const [editingAnnouncement, setEditingAnnouncement] = useState<Announcement | null>(null);
 
-  const form = useForm<AnnouncementFormData>({
-    resolver: zodResolver(announcementSchema),
-    defaultValues: { title: '', content: '', linkUrl: '', linkText: '' },
-  });
-
   useEffect(() => {
-    const q = query(collection(db, 'avisos'), orderBy('createdAt', 'desc'));
+    const q = query(collection(db, 'avisos'), orderBy('createdAt', 'desc'), limit(50));
     const unsubscribe = onSnapshot(q, (snapshot) => {
       const fetchedAnnouncements = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Announcement));
       setAnnouncements(fetchedAnnouncements);

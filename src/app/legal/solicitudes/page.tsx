@@ -12,7 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { db } from '@/lib/firebase';
-import { collection, query, onSnapshot, orderBy, Timestamp, doc, updateDoc } from 'firebase/firestore';
+import { collection, query, onSnapshot, orderBy, Timestamp, doc, updateDoc, limit } from 'firebase/firestore';
 import type { LegalRequest } from '@/types';
 import { Badge } from '@/components/ui/badge';
 import { format } from 'date-fns';
@@ -38,6 +38,7 @@ export default function LegalSolicitudesPage() {
   const [error, setError] = useState<string | null>(null);
   const [filter, setFilter] = useState('');
   const [selectedRequest, setSelectedRequest] = useState<LegalRequest | null>(null);
+  const [queryLimit, setQueryLimit] = useState(20);
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -49,7 +50,7 @@ export default function LegalSolicitudesPage() {
     if (!user) return;
 
     setIsLoading(true);
-    const requestsQuery = query(collection(db, "solicitudesLegales"), orderBy("requestedAt", "desc"));
+    const requestsQuery = query(collection(db, "solicitudesLegales"), orderBy("requestedAt", "desc"), limit(queryLimit));
 
     const unsubscribe = onSnapshot(requestsQuery, (snapshot) => {
         const fetchedRequests = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as LegalRequest));
@@ -62,7 +63,7 @@ export default function LegalSolicitudesPage() {
     });
 
     return () => unsubscribe();
-  }, [user]);
+  }, [user, queryLimit]);
 
   const handleStatusChange = async (requestId: string, newStatus: LegalRequest['status']) => {
     if (!user) return;
@@ -127,13 +128,26 @@ export default function LegalSolicitudesPage() {
                     </Link>
                 </Button>
             </div>
-            <div className="pt-4 mt-4 border-t">
+            <div className="pt-4 mt-4 border-t flex justify-between items-center">
                 <Input 
                     placeholder="Buscar por NE, Consignatario o ID..."
                     value={filter}
                     onChange={(e) => setFilter(e.target.value)}
                     className="max-w-sm"
                 />
+                 <div className="flex items-center gap-2">
+                    <span className="text-sm text-muted-foreground">Mostrar:</span>
+                     <Select value={String(queryLimit)} onValueChange={(value) => setQueryLimit(Number(value))}>
+                        <SelectTrigger className="w-[80px]">
+                            <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="20">20</SelectItem>
+                            <SelectItem value="30">30</SelectItem>
+                            <SelectItem value="50">50</SelectItem>
+                        </SelectContent>
+                    </Select>
+                 </div>
             </div>
           </CardHeader>
           <CardContent>
@@ -241,3 +255,4 @@ export default function LegalSolicitudesPage() {
     </AppShell>
   );
 }
+
