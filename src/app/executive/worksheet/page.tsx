@@ -141,18 +141,18 @@ function WorksheetForm() {
   const { toast } = useToast();
   const router = useRouter();
   const searchParams = useSearchParams();
-  const [isSubmitting, setIsSubmitting = useState(false);
-  const [groupMembers, setGroupMembers = useState<AppUser[]>([]);
-  const [aforadores, setAforadores = useState<AppUser[]>([]);
-  const [entryCustomsOpen, setEntryCustomsOpen = useState(false);
-  const [dispatchCustomsOpen, setDispatchCustomsOpen = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [groupMembers, setGroupMembers] = useState<AppUser[]>([]);
+  const [aforadores, setAforadores] = useState<AppUser[]>([]);
+  const [entryCustomsOpen, setEntryCustomsOpen] = useState(false);
+  const [dispatchCustomsOpen, setDispatchCustomsOpen] = useState(false);
   const { setCaseToAssignAforador } = useAppContext();
-  const [editingPermit, setEditingPermit = useState<{ permit: Partial<RequiredPermit>, index: number } | null>(null);
-  const [pendingPermitData, setPendingPermitData = useState<Partial<RequiredPermit> | null>(null);
-  const [editingWorksheetId, setEditingWorksheetId = useState<string | null>(null);
-  const [originalWorksheet, setOriginalWorksheet = useState<Worksheet | null>(null);
-  const [tlcNumberInput, setTlcNumberInput = useState('');
-  const [isTransportDocOriginal, setIsTransportDocOriginal = useState(false);
+  const [editingPermit, setEditingPermit] = useState<{ permit: Partial<RequiredPermit>, index: number } | null>(null);
+  const [pendingPermitData, setPendingPermitData] = useState<Partial<RequiredPermit> | null>(null);
+  const [editingWorksheetId, setEditingWorksheetId] = useState<string | null>(null);
+  const [originalWorksheet, setOriginalWorksheet] = useState<Worksheet | null>(null);
+  const [tlcNumberInput, setTlcNumberInput] = useState('');
+  const [isTransportDocOriginal, setIsTransportDocOriginal] = useState(false);
 
 
   const form = useForm<WorksheetFormData>({
@@ -219,18 +219,18 @@ function WorksheetForm() {
   const watchEntryCustoms = aduanaToShortCode[form.watch('entryCustoms')];
   const watchDispatchCustoms = aduanaToShortCode[form.watch('dispatchCustoms')];
   
-  const [facturaPopoverOpen, setFacturaPopoverOpen = useState(false);
-  const [facturaNumberInput, setFacturaNumberInput = useState('');
-  const [facturaIsOriginal, setFacturaIsOriginal = useState(false);
+  const [facturaPopoverOpen, setFacturaPopoverOpen] = useState(false);
+  const [facturaNumberInput, setFacturaNumberInput] = useState('');
+  const [facturaIsOriginal, setFacturaIsOriginal] = useState(false);
 
-  const [docType, setDocType = useState('');
-  const [docNumber, setDocNumber = useState('');
-  const [isOriginal, setIsOriginal = useState(false);
+  const [docType, setDocType] = useState('');
+  const [docNumber, setDocNumber] = useState('');
+  const [isOriginal, setIsOriginal] = useState(false);
 
-  const [permitName, setPermitName = useState('');
-  const [otherPermitName, setOtherPermitName = useState('');
-  const [permitStatus, setPermitStatus = useState<DocumentStatus>('Pendiente');
-  const [selectedFacturaForPermit, setSelectedFacturaForPermit = useState('');
+  const [permitName, setPermitName] = useState('');
+  const [otherPermitName, setOtherPermitName] = useState('');
+  const [permitStatus, setPermitStatus] = useState<DocumentStatus>('Pendiente');
+  const [selectedFacturaForPermit, setSelectedFacturaForPermit] = useState('');
 
 
   const watchedFacturaNumber = form.watch('facturaNumber');
@@ -1018,7 +1018,7 @@ function WorksheetForm() {
                              </Select>
                          </div>
                         <div><Label>Estado</Label>
-                            <RadioGroup value={permitStatus} onValueChange={v => setPermitStatus(v)} className="flex gap-4 pt-2">
+                            <RadioGroup value={permitStatus} onValueChange={(v: any) => setPermitStatus(v)} className="flex gap-4 pt-2">
                                 <FormItem className="flex items-center space-x-2"><FormControl><RadioGroupItem value="Pendiente"/></FormControl><FormLabel className="font-normal">Pendiente</FormLabel></FormItem>
                                 <FormItem className="flex items-center space-x-2"><FormControl><RadioGroupItem value="En Trámite"/></FormControl><FormLabel className="font-normal">En Trámite</FormLabel></FormItem>
                                 <FormItem className="flex items-center space-x-2"><FormControl><RadioGroupItem value="Entregado"/></FormControl><FormLabel className="font-normal">Entregado</FormLabel></FormItem>
@@ -1197,7 +1197,7 @@ function WorksheetForm() {
                 </Button>
                 <Button type="submit" disabled={isSubmitting}>
                   {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                  {editingWorksheetId ? 'Guardar Cambios' : 'Guardar Hoja de Trabajo'}
+                  Guardar Hoja de Trabajo
                 </Button>
             </div>
           </form>
@@ -1209,7 +1209,7 @@ function WorksheetForm() {
             isOpen={!!editingPermit}
             onClose={() => setEditingPermit(null)}
             permit={editingPermit.permit}
-            onSave={updatedDetails => handleSavePermitDetails(editingPermit.index, updatedDetails)}
+            onSave={(updatedDetails) => handleSavePermitDetails(editingPermit.index, updatedDetails)}
         />
     )}
     </>
@@ -1227,5 +1227,6 @@ export default function WorksheetPage() {
         </AppShell>
     )
 }
+
 
     
