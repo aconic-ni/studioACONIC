@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect } from 'react';
@@ -12,7 +13,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/context/AuthContext';
 import { db } from '@/lib/firebase';
 import { doc, updateDoc, arrayUnion, writeBatch, collection, Timestamp } from 'firebase/firestore';
-import type { no existe, no existeUpdate, ExecutiveComment } from '@/types';
+import type { AforoData, AforoDataUpdate, ExecutiveComment } from '@/types';
 import { Loader2 } from 'lucide-react';
 import { v4 as uuidv4 } from 'uuid';
 import { ScrollArea } from '../ui/scroll-area';
@@ -28,7 +29,7 @@ type CommentFormData = z.infer<typeof commentSchema>;
 interface ExecutiveCommentModalProps {
   isOpen: boolean;
   onClose: () => void;
-  caseData: no existe;
+  caseData: AforoData;
 }
 
 const formatDate = (timestamp: Timestamp) => {
@@ -83,7 +84,7 @@ export function ExecutiveCommentModal({ isOpen, onClose, caseData }: ExecutiveCo
         });
 
         // Add a log entry to the audit trail
-        const updateLog: no existeUpdate = {
+        const updateLog: AforoDataUpdate = {
             updatedAt: Timestamp.now(),
             updatedBy: user.displayName,
             field: 'executiveComments',
