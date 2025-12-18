@@ -1,9 +1,10 @@
+
 "use client";
 
 import { useState, useEffect } from 'react';
 import { db } from '@/lib/firebase';
 import { collection, query, onSnapshot, orderBy, Timestamp, where } from 'firebase/firestore';
-import type { AforoData, SolicitudRecord, InitialDataContext } from '@/types';
+import type { Worksheet, SolicitudRecord, InitialDataContext } from '@/types';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription, DialogClose } from '@/components/ui/dialog';
 import { Loader2, Package, Eye, ArrowLeft, X, CheckCircle2, AlertCircle } from 'lucide-react';
@@ -16,7 +17,7 @@ import { Badge } from '../ui/badge';
 interface PaymentListModalProps {
   isOpen: boolean;
   onClose: () => void;
-  caseData: AforoData;
+  caseData: Worksheet;
 }
 
 const getPaymentStatusBadge = (solicitud: SolicitudRecord) => {
@@ -161,4 +162,3 @@ export function PaymentListModal({ isOpen, onClose, caseData }: PaymentListModal
       </DialogContent>
     </Dialog>
   );
-}
