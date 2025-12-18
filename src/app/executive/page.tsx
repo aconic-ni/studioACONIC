@@ -13,6 +13,7 @@ import { collection, query, where, onSnapshot, orderBy, Timestamp, doc, getDoc, 
 import type { Worksheet, AforoCase, AforadorStatus, AforoCaseStatus, DigitacionStatus, WorksheetWithCase, AforoCaseUpdate, PreliquidationStatus, IncidentType, LastUpdateInfo, ExecutiveComment, InitialDataContext, AppUser, SolicitudRecord, ExamDocument, FacturacionStatus } from '@/types';
 import { format, toDate, isSameDay, startOfDay, endOfDay, differenceInDays, startOfMonth, endOfMonth } from 'date-fns';
 import { es } from 'date-fns/locale';
+import { Input } from '@/components/ui/input';
 import { AforoCaseHistoryModal } from '@/components/reporter/AforoCaseHistoryModal';
 import { IncidentReportModal } from '@/components/reporter/IncidentReportModal';
 import { IncidentReportDetails } from '@/components/reporter/IncidentReportDetails';
@@ -28,18 +29,17 @@ import { PaymentListModal } from '@/components/executive/PaymentListModal';
 import { AnnouncementsCarousel } from '@/components/executive/AnnouncementsCarousel';
 import { AssignUserModal } from '@/components/reporter/AssignUserModal';
 import { ResaNotificationModal } from '@/components/executive/ResaNotificationModal';
-import { useIsMobile } from '@/hooks/use-mobile';
 import { useAppContext } from '@/context/AppContext';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { ViewIncidentsModal } from '@/components/executive/ViewIncidentsModal';
 import { StatusProcessModal } from '@/components/executive/StatusProcessModal';
 import { Textarea } from '@/components/ui/textarea';
-import { ExecutiveFilters } from '@/components/executive/ExecutiveFilters';
 import { ExecutiveCasesTable } from '@/components/executive/ExecutiveCasesTable';
+import { ExecutiveFilters } from '@/components/executive/ExecutiveFilters';
 import { v4 as uuidv4 } from 'uuid';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-
+import { Label } from '@/components/ui/label';
 
 type DateFilterType = 'range' | 'month' | 'today';
 
@@ -113,39 +113,58 @@ function ExecutivePageContent() {
   const fetchCases = useCallback(async () => {
     if (!user) return () => {};
     setIsLoading(true);
-    let worksheetsQuery;
+    
+    let worksheetsQuery: Query;
     const globalVisibilityRoles = ['admin', 'supervisor', 'coordinadora'];
     const groupVisibilityRoles = ['ejecutivo'];
-    if (user.role && globalVisibilityRoles.includes(user.role)) { worksheetsQuery = query(collection(db, 'worksheets')); } 
-    else if (user.role && groupVisibilityRoles.includes(user.role) && user.visibilityGroup && user.visibilityGroup.length > 0) {
+
+    if (user.role && globalVisibilityRoles.includes(user.role)) {
+        worksheetsQuery = query(collection(db, 'worksheets'), orderBy('createdAt', 'desc'));
+    } else if (user.role && groupVisibilityRoles.includes(user.role) && user.visibilityGroup && user.visibilityGroup.length > 0) {
         const groupDisplayNames = Array.from(new Set([user.displayName, ...(user.visibilityGroup?.map(m => m.displayName) || [])])).filter(Boolean) as string[];
-        worksheetsQuery = groupDisplayNames.length > 0 ? query(collection(db, 'worksheets'), where("executive", "in", groupDisplayNames)) : query(collection(db, 'worksheets'), where("executive", "==", user.displayName));
-    } else if (user.displayName) { worksheetsQuery = query(collection(db, 'worksheets'), where('executive', '==', user.displayName));} 
-    else { setAllCases([]); setIsLoading(false); return () => {}; }
+        worksheetsQuery = groupDisplayNames.length > 0 ? query(collection(db, 'worksheets'), where("executive", "in", groupDisplayNames), orderBy('createdAt', 'desc')) : query(collection(db, 'worksheets'), where("executive", "==", user.displayName), orderBy('createdAt', 'desc'));
+    } else if (user.displayName) {
+        worksheetsQuery = query(collection(db, 'worksheets'), where('executive', '==', user.displayName), orderBy('createdAt', 'desc'));
+    } else {
+        setAllCases([]);
+        setIsLoading(false);
+        return () => {};
+    }
 
     const unsubscribe = onSnapshot(worksheetsQuery, async (worksheetsSnapshot) => {
         const worksheetsData = worksheetsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Worksheet));
-        const [examenesSnap, solicitudesSnap, memorandumSnap, aforoMetaSnap] = await Promise.all([ getDocs(collection(db, 'examenesPrevios')), getDocs(query(collection(db, "SolicitudCheques"), orderBy("savedAt", "desc"))), getDocs(query(collection(db, "Memorandum"), orderBy("savedAt", "desc"))), getDocs(collectionGroup(db, 'aforo')) ]);
-        
-        const examenesMap = new Map(examenesSnap.docs.map(doc => [doc.id, doc.data() as any]));
-        const allSolicitudes = new Map<string, SolicitudRecord[]>();
-        [...solicitudesSnap.docs, ...memorandumSnap.docs].forEach(doc => { const data = doc.data() as SolicitudRecord; if(data.examNe) { const ne = data.examNe; if (!allSolicitudes.has(ne)) { allSolicitudes.set(ne, []); } allSolicitudes.get(ne)!.push({ solicitudId: doc.id, ...data }); }});
-        const aforoDataMap = new Map(aforoMetaSnap.docs.map(doc => [doc.ref.parent.parent!.id, doc.data()]));
+        const worksheetIds = worksheetsData.map(ws => ws.id);
 
-        const combinedDataPromises = worksheetsData.map(async (ws) => {
-            const aforoData = aforoDataMap.get(ws.id) || {};
-            const updatesRef = collection(db, 'worksheets', ws.id, 'actualizaciones');
-            const acuseQuery = query(updatesRef, where('newValue', '==', 'worksheet_received'), orderBy('updatedAt', 'desc'));
-            const acuseSnapshot = await getDocs(acuseQuery);
-            const acuseLog = acuseSnapshot.empty ? null : acuseSnapshot.docs[0].data() as AforoCaseUpdate;
-            return { ...ws, ...aforoData, worksheet: ws, examenPrevio: examenesMap.get(ws.id) || null, pagos: allSolicitudes.get(ws.ne) || [], acuseLog: acuseLog,};
-        });
-        const combinedData = await Promise.all(combinedDataPromises);
+        let aforoDataMap = new Map<string, any>();
+        if(worksheetIds.length > 0) {
+            // Firestore 'in' query can handle up to 30 elements. Chunking is needed for more.
+            const aforoPromises = [];
+            for (let i = 0; i < worksheetIds.length; i += 30) {
+                const chunk = worksheetIds.slice(i, i + 30);
+                const q = query(collectionGroup(db, 'aforo'), where(document.name, 'in', chunk.map(id => `worksheets/${id}/aforo/metadata`)));
+                aforoPromises.push(getDocs(q));
+            }
+            const aforoSnapshots = await Promise.all(aforoPromises);
+            aforoSnapshots.forEach(snap => snap.forEach(doc => {
+                 aforoDataMap.set(doc.ref.parent.parent!.id, doc.data())
+            }));
+        }
+        
+        const combinedData = worksheetsData.map(ws => ({
+            ...aforoDataMap.get(ws.id),
+            ...ws,
+            id: ws.id, // ensure worksheet ID is primary
+            worksheet: ws,
+            aforo: aforoDataMap.get(ws.id) || {},
+        }));
+
         setAllCases(combinedData as WorksheetWithCase[]);
         setIsLoading(false);
     }, (error) => { toast({ title: "Error de Carga", description: "No se pudieron cargar los datos de los casos.", variant: "destructive" }); setIsLoading(false); });
-    return () => unsubscribe();
+    
+    return unsubscribe;
   }, [user, toast]);
+
 
   useEffect(() => {
     if (!authLoading && !user) router.push('/');
@@ -202,22 +221,20 @@ function ExecutivePageContent() {
   };
 
   const handleDuplicateAndRetire = async () => {
-    if (!user || !user.displayName || !modalState.duplicate || !modalState.duplicate.worksheet) { return; }
+    if (!user || !user.displayName || !modalState.duplicate || !modalState.duplicate.worksheet) return;
     const newNe = newNeForDuplicate.trim().toUpperCase();
-    if (!newNe || !duplicateReason) { toast({title:'Error', description:'Nuevo NE y motivo son requeridos', variant:'destructive'}); return; }
-
-    setSavingState(prev => ({...prev, [modalState.duplicate!.id]: true}));
+    if (!newNe || !duplicateReason) { toast({ title: 'Error', description: 'Nuevo NE y motivo son requeridos', variant: 'destructive' }); return; }
     
+    setSavingState(prev => ({ ...prev, [modalState.duplicate!.id]: true }));
+
     const newWorksheetRef = doc(db, 'worksheets', newNe);
     const originalWorksheetRef = doc(db, 'worksheets', modalState.duplicate.id);
-    const newAforoMetaRef = doc(newWorksheetRef, 'aforo', 'metadata');
-    const originalAforoMetaRef = doc(originalWorksheetRef, 'aforo', 'metadata');
-    
+
     try {
         const newWsSnap = await getDoc(newWorksheetRef);
         if (newWsSnap.exists()) {
             toast({ title: "Duplicado", description: `Ya existe un registro con el NE ${newNe}.`, variant: "destructive" });
-            setSavingState(prev => ({...prev, [modalState.duplicate!.id]: false}));
+            setSavingState(prev => ({ ...prev, [modalState.duplicate!.id]: false }));
             return;
         }
 
@@ -225,14 +242,21 @@ function ExecutivePageContent() {
         const creationTimestamp = Timestamp.now();
         const createdByInfo = { by: user.displayName, at: creationTimestamp };
         const { id: oldId, ne: oldNe, createdAt: oldCreatedAt, lastUpdatedAt: oldLastUpdatedAt, ...worksheetToCopy } = modalState.duplicate.worksheet;
+        
+        // 1. Create new worksheet
         const newWorksheetData: Worksheet = { ...worksheetToCopy, id: newNe, ne: newNe, createdAt: creationTimestamp, createdBy: user.email!, lastUpdatedAt: creationTimestamp };
         batch.set(newWorksheetRef, newWorksheetData);
         
-        const newCaseData: Omit<AforoCase, 'id'> = { ne: newNe, executive: modalState.duplicate.executive, consignee: modalState.duplicate.consignee, facturaNumber: modalState.duplicate.facturaNumber, declarationPattern: modalState.duplicate.declarationPattern, merchandise: modalState.duplicate.merchandise, createdBy: user.uid, createdAt: creationTimestamp, aforador: '', assignmentDate: null, aforadorStatus: 'Pendiente ', aforadorStatusLastUpdate: createdByInfo, revisorStatus: 'Pendiente', revisorStatusLastUpdate: createdByInfo, preliquidationStatus: 'Pendiente', preliquidationStatusLastUpdate: createdByInfo, digitacionStatus: 'Pendiente', digitacionStatusLastUpdate: createdByInfo, incidentStatus: 'Pendiente', incidentStatusLastUpdate: createdByInfo, revisorAsignado: '', revisorAsignadoLastUpdate: createdByInfo, digitadorAsignado: '', digitadorAsignadoLastUpdate: createdByInfo, worksheetId: newNe, entregadoAforoAt: null, isArchived: false, executiveComments: [{id: uuidv4(), author: user.displayName, text: `Duplicado del NE: ${modalState.duplicate.ne}. Motivo: ${duplicateReason}`, createdAt: creationTimestamp }] };
+        // 2. Create new aforo metadata
+        const newAforoMetaRef = doc(newWorksheetRef, 'aforo', 'metadata');
+        const newCaseData: Omit<AforoCase, 'id'> = { ne: newNe, executive: modalState.duplicate.executive, consignee: modalState.duplicate.consignee, facturaNumber: modalState.duplicate.facturaNumber, declarationPattern: modalState.duplicate.declarationPattern, merchandise: modalState.duplicate.merchandise, createdBy: user.uid, createdAt: creationTimestamp, aforador: '', assignmentDate: null, aforadorStatus: 'Pendiente ', aforadorStatusLastUpdate: createdByInfo, revisorStatus: 'Pendiente', revisorStatusLastUpdate: createdByInfo, preliquidationStatus: 'Pendiente', preliquidationStatusLastUpdate: createdByInfo, digitacionStatus: 'Pendiente', digitacionStatusLastUpdate: createdByInfo, incidentStatus: 'Pendiente', incidentStatusLastUpdate: createdByInfo, revisorAsignado: '', revisorAsignadoLastUpdate: createdByInfo, digitadorAsignado: '', digitadorAsignadoLastUpdate: createdByInfo, worksheetId: newNe, entregadoAforoAt: null, isArchived: false, executiveComments: [{ id: uuidv4(), author: user.displayName, text: `Duplicado del NE: ${modalState.duplicate.ne}. Motivo: ${duplicateReason}`, createdAt: creationTimestamp }] };
         batch.set(newAforoMetaRef, newCaseData);
-        
+
+        // 3. Update old aforo metadata
+        const originalAforoMetaRef = doc(originalWorksheetRef, 'aforo', 'metadata');
         batch.update(originalAforoMetaRef, { digitacionStatus: 'TRASLADADO', isArchived: true });
-        
+
+        // 4. Log actions on both worksheets' audit trails
         const originalUpdatesRef = collection(originalWorksheetRef, 'actualizaciones');
         const updateLog: AforoCaseUpdate = { updatedAt: Timestamp.now(), updatedBy: user.displayName, field: 'digitacionStatus', oldValue: modalState.duplicate.digitacionStatus, newValue: 'TRASLADADO', comment: `Caso trasladado al nuevo NE: ${newNe}. Motivo: ${duplicateReason}` };
         batch.set(doc(originalUpdatesRef), updateLog);
@@ -244,12 +268,14 @@ function ExecutivePageContent() {
         await batch.commit();
         toast({ title: 'Éxito', description: `El caso ${modalState.duplicate.ne} fue duplicado a ${newNe} y retirado.` });
         setDuplicateAndRetireModalOpen(false);
+
     } catch (e) {
         toast({ title: 'Error', description: 'No se pudo duplicar el caso.', variant: 'destructive' });
     } finally {
         if(modalState.duplicate) setSavingState(prev => ({ ...prev, [modalState.duplicate!.id]: false }));
     }
   };
+
 
   const filteredCases = useMemo(() => {
     let filtered = allCases.filter(c => !c.isArchived);
@@ -404,6 +430,11 @@ function ExecutivePageContent() {
                 </CardHeader>
                 <CardContent>
                     <Tabs defaultValue={activeTab} className="w-full" onValueChange={handleTabChange}>
+                         <TabsList className="mb-4">
+                           <TabsTrigger value="worksheets">Hojas de Trabajo</TabsTrigger>
+                           <TabsTrigger value="anexos">Anexos</TabsTrigger>
+                           <TabsTrigger value="corporate">Reportes Corporativos</TabsTrigger>
+                         </TabsList>
                         <ExecutiveFilters
                            activeTab={activeTab as TabValue}
                            searchTerm={searchTerm}
@@ -463,7 +494,7 @@ function ExecutivePageContent() {
                 </DialogDescription>
             </DialogHeader>
             <div className="py-4 space-y-4">
-                <div><Label htmlFor="new-ne">Nuevo NE</Label><Input id="new-ne" value={newNeForDuplicate} onChange={e => setNewNeForDuplicate(e.target.value)} placeholder="Ingrese el nuevo NE" /></div>
+                <div><Label htmlFor="new-ne">Nuevo NE</Label><Input id="new-ne" value={newNeForDuplicate} onChange={e => setNewNeForDuplicateState(e.target.value)} placeholder="Ingrese el nuevo NE" /></div>
                 <div><Label htmlFor="reason">Motivo</Label><Textarea id="reason" value={duplicateReason} onChange={e => setDuplicateReason(e.target.value)} placeholder="Explique brevemente el motivo de la duplicación" /></div>
             </div>
             <DialogFooter><Button variant="outline" onClick={() => setDuplicateAndRetireModalOpen(false)}>Cancelar</Button><Button onClick={handleDuplicateAndRetire} disabled={savingState[caseToDuplicate?.id || '']}>Duplicar y Retirar</Button></DialogFooter>
@@ -481,5 +512,3 @@ export default function ExecutivePage() {
         </Suspense>
     );
 }
-
-    
