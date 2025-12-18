@@ -277,7 +277,9 @@ function ExecutivePageContent() {
     const newWorksheetRef=doc(db,'worksheets',newNe);
 
     try {
-        const [newCaseSnap, newWorksheetSnap] = await Promise.all([getDoc(newCaseRef), getDoc(newWorksheetRef)]);
+        const newCaseSnap = await getDoc(newCaseRef);
+        const newWorksheetSnap = await getDoc(newWorksheetRef);
+
         if (newCaseSnap.exists() || newWorksheetSnap.exists()) {
             toast({ title: "Duplicado", description: `Ya existe un registro con el NE ${newNe}.`, variant: "destructive" });
             setSavingState(prev => ({...prev, [caseItem.id]: false}));
@@ -514,4 +516,3 @@ export default function ExecutivePage() {
     );
 }
 
-```
