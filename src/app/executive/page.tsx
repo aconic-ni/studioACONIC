@@ -9,8 +9,8 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Loader2, FilePlus, Search, Edit, Eye, History, PlusSquare, UserCheck, Inbox, AlertTriangle, Download, ChevronsUpDown, Info, CheckCircle, CalendarRange, Calendar, CalendarDays, ShieldAlert, BookOpen, FileCheck2, MessageSquare, View, Banknote, Bell as BellIcon, RefreshCw, Send, StickyNote, Scale, Briefcase, KeyRound, Copy, Archive } from 'lucide-react';
 import { db } from '@/lib/firebase';
-import { collection, query, where, onSnapshot, orderBy, Timestamp, doc, getDoc, updateDoc, writeBatch, addDoc, getDocs, collectionGroup, serverTimestamp, setDoc } from 'firebase/firestore';
-import type { Worksheet, worksheet, AforadorStatus, noexisteStatus, DigitacionStatus, WorksheetWithCase, AforoUpdate, PreliquidationStatus, IncidentType, LastUpdateInfo, ExecutiveComment, InitialDataContext, AppUser, SolicitudRecord, ExamDocument, FacturacionStatus } from '@/types';
+import { collection, query, where, onSnapshot, orderBy, Timestamp, doc, getDoc, updateDoc, writeBatch, addDoc, getDocs, collectionGroup, serverTimestamp, setDoc, documentId } from 'firebase/firestore';
+import type { Worksheet, AforadorStatus, noexisteStatus, DigitacionStatus, WorksheetWithCase, AforoUpdate, PreliquidationStatus, IncidentType, LastUpdateInfo, ExecutiveComment, InitialDataContext, AppUser, SolicitudRecord, ExamDocument, FacturacionStatus, AforoData } from '@/types';
 import { format, toDate, isSameDay, startOfDay, endOfDay, differenceInDays, startOfMonth, endOfMonth } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { Input } from '@/components/ui/input';
@@ -53,7 +53,7 @@ import { ExecutiveCasesTable } from '@/components/executive/ExecutiveCasesTable'
 import { ExecutiveFilters } from '@/components/executive/ExecutiveFilters';
 import { v4 as uuidv4 } from 'uuid';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
-import { PaymentRequestFlow } from '@/components/examinerPay/InitialDataForm';
+import { PaymentRequestFlow} from '@/components/examinerPay/InitialInfoForm';
 
 type DateFilterType = 'range' | 'month' | 'today';
 
@@ -74,7 +74,7 @@ function ExecutivePageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { toast } = useToast();
-  const { openPaymentRequestFlow, setInitialContextData, setIsMemorandumMode, caseToAssignAforador, setCaseToAssignAforador } = useAppContext();
+  const { isPaymentRequestFlowOpen, closePaymentRequestFlow, setInitialContextData, setIsMemorandumMode, caseToAssignAforador, setCaseToAssignAforador } = useAppContext();
   const [allCases, setAllCases] = useState<WorksheetWithCase[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isExporting, setIsExporting] = useState(false);
@@ -87,6 +87,7 @@ function ExecutivePageContent() {
     worksheet: null | WorksheetWithCase;
     comment: null | AforoData;
     quickRequest: null | WorksheetWithCase;
+    payment: null | AforoData;
     paymentList: null | AforoData;
     resa: null | AforoData;
     viewIncidents: null | AforoData;
@@ -100,6 +101,7 @@ function ExecutivePageContent() {
     worksheet: null,
     comment: null,
     quickRequest: null,
+    payment: null,
     paymentList: null,
     resa: null,
     viewIncidents: null,
@@ -444,7 +446,7 @@ const fetchCases = useCallback(async () => {
             caseId: c.id
         };
         setInitialContextData(initialData);
-        openPaymentRequestFlow();
+        setModalState(prev => ({...prev, payment: c}));
     },
     setSelectedCaseForPaymentList: (c: AforoData) => setModalState(prev => ({...prev, paymentList: c})),
     setSelectedCaseForResa: (c: AforoData) => setModalState(prev => ({...prev, resa: c})),
@@ -490,6 +492,7 @@ const fetchCases = useCallback(async () => {
     setSearchTerm('');
     setFacturadoFilter({ facturado: false, noFacturado: true });
     setAcuseFilter({ conAcuse: false, sinAcuse: true });
+    setPreliquidationFilter(false);
     setDateRangeInput(undefined);
     setColumnFilters({ ne: '', ejecutivo: '', consignatario: '', factura: '', selectividad: '', incidentType: '' });
     setAppliedFilters({ searchTerm: '', facturado: false, noFacturado: true, conAcuse: false, sinAcuse: true, preliquidation: false, dateFilterType: 'range', dateRange: undefined, isSearchActive: false });
@@ -497,25 +500,17 @@ const fetchCases = useCallback(async () => {
     setSearchHint(null);
   };
   const handleOpenPaymentRequest = () => {
-    const initialData: InitialDataContext = {
-        ne: `SOL-${format(new Date(), 'ddMMyy-HHmmss')}`,
-        manager: user?.displayName || 'Usuario Desconocido',
-        date: new Date(),
-        recipient: '',
-        isMemorandum: false,
-    };
+    const initialData: InitialDataContext = { ne: `SOL-${new Date().getTime()}`, manager: user?.displayName || 'N/A', date: new Date(), recipient: 'Contabilidad', isMemorandum: false, };
     setInitialContextData(initialData);
-    setIsMemorandumMode(true);
-    openPaymentRequestFlow();
+    setIsRequestPaymentModalOpen(true);
   };
   const approvePreliquidation = (caseId: string) => { handleAutoSave(caseId, 'preliquidationStatus', 'Aprobada'); };
-  const getIncidentTypeDisplay = (c: AforoData) => {
+  const getIncidentTypeDisplay = (c: AforoCase) => {
     const types = [];
     if (c.incidentType === 'Rectificacion') types.push('Rectificación');
     if (c.hasValueDoubt) types.push('Duda de Valor');
     return types.length > 0 ? types.join(' / ') : 'N/A';
   };
-  
   const handleSelectAllForPreliquidation = () => {
     const selectableIds = filteredCases.filter(c => c.aforo?.revisorStatus === 'Aprobado' && c.aforo.preliquidationStatus !== 'Aprobada').map(c => c.id);
     if (selectedRows.length === selectableIds.length) {
@@ -524,35 +519,49 @@ const fetchCases = useCallback(async () => {
       setSelectedRows(selectableIds);
     }
   };
-  
-  const handleExport = async () => {
-    if (filteredCases.length === 0) {
-        toast({ title: "No hay datos", description: "No hay casos en la tabla para exportar.", variant: "secondary" });
-        return;
-    }
-    setIsExporting(true);
-
-    try {
-        if (activeTab === 'corporate') {
-            await downloadCorporateReportAsExcel(filteredCases.map(c => c.worksheet).filter(ws => ws !== null) as Worksheet[]);
-        } else {
-            await downloadExecutiveReportAsExcel(paginatedCases, []);
-        }
-    } catch (e) {
-        console.error("Error exporting data: ", e);
-        toast({ title: "Error de Exportación", description: "No se pudieron obtener todos los detalles para el reporte.", variant: "destructive" });
-    } finally {
-        setIsExporting(false);
+  const handleViewIncidents = (caseItem: AforoCase) => {
+    const hasRectificacion = caseItem.incidentType === 'Rectificacion';
+    const hasDuda = caseItem.hasValueDoubt;
+    if (hasRectificacion && hasDuda) {
+        setModalState(prev => ({...prev, viewIncidents: caseItem}));
+    } else if (hasRectificacion) {
+        setModalState(prev => ({...prev, incidentDetails: caseItem}));
+    } else if (hasDuda) {
+        setModalState(prev => ({...prev, valueDoubt: caseItem}));
+    } else {
+        toast({ title: "Sin Incidencias", description: "Este caso no tiene incidencias reportadas.", variant: "default" });
     }
   };
 
+  const handleSendToFacturacion = async (caseId: string) => {
+    if (!user || !user.displayName) return;
+
+    setSavingState(prev => ({...prev, [caseId]: true}));
+    
+    const aforoMetadataRef = doc(db, 'worksheets', caseId, 'aforo', 'metadata');
+    try {
+        await updateDoc(aforoMetadataRef, {
+            facturacionStatus: 'Enviado a Facturacion',
+            enviadoAFacturacionAt: Timestamp.now(),
+            facturadorAsignado: 'Alvaro Gonzalez',
+            facturadorAsignadoAt: Timestamp.now(),
+        });
+        toast({ title: 'Enviado a Facturación', description: 'El caso ha sido remitido al módulo de facturación y asignado a Alvaro Gonzalez.' });
+    } catch (e) {
+        toast({ title: 'Error', description: 'No se pudo enviar el caso a facturación.', variant: 'destructive'});
+    } finally {
+        setSavingState(prev => ({...prev, [caseId]: false}));
+    }
+  }
+  
   if (authLoading || !user) return <div className="min-h-screen flex items-center justify-center bg-background"><Loader2 className="h-12 w-12 animate-spin text-primary" /></div>;
   if (modalState.incidentDetails) {
-      return <AppShell><div className="py-2 md:py-5"><IncidentReportDetails caseData={modalState.incidentDetails as any} onClose={() => setModalState(prev => ({...prev, incidentDetails: null}))}/></div></AppShell>;
+      return <AppShell><div className="py-2 md:py-5"><IncidentReportDetails caseData={modalState.incidentDetails} onClose={() => setModalState(prev => ({...prev, incidentDetails: null}))}/></div></AppShell>;
   }
   if (modalState.worksheet) {
-      return <AppShell><div className="py-2 md:py-5"><WorksheetDetails worksheet={modalState.worksheet} onClose={() => setModalState(prev => ({...prev, worksheet: null}))}/></div></AppShell>;
+      return <AppShell><div className="py-2 md:py-5"><WorksheetDetails worksheet={modalState.worksheet as WorksheetWithCase} onClose={() => setModalState(prev => ({...prev, worksheet: null}))}/></div></AppShell>;
   }
+
 
   return (
     <>
@@ -638,11 +647,9 @@ const fetchCases = useCallback(async () => {
     {modalState.valueDoubt && (<ValueDoubtModal isOpen={!!modalState.valueDoubt} onClose={() => setModalState(p => ({...p, valueDoubt: null}))} caseData={modalState.valueDoubt} />)}
     {modalState.comment && (<ExecutiveCommentModal isOpen={!!modalState.comment} onClose={() => setModalState(p => ({...p, comment: null}))} caseData={modalState.comment} />)}
     {modalState.quickRequest && (<QuickRequestModal isOpen={!!modalState.quickRequest} onClose={() => setModalState(p => ({...p, quickRequest: null}))} caseWithWorksheet={modalState.quickRequest} />)}
-    {modalState.payment && (<PaymentRequestModal isOpen={!!modalState.payment} onClose={() => setModalState(p => ({...p, payment: null}))} caseData={modalState.payment as Worksheet} />)}
-    {isRequestPaymentModalOpen && (<PaymentRequestModal isOpen={isRequestPaymentModalOpen} onClose={() => setIsRequestPaymentModalOpen(false)} caseData={null} />)}
-    {modalState.paymentList && (<PaymentListModal isOpen={!!modalState.paymentList} onClose={() => setModalState(p => ({...p, paymentList: null}))} caseData={modalState.paymentList as Worksheet} />)}
-    {modalState.resa && (<ResaNotificationModal isOpen={!!modalState.resa} onClose={() => setModalState(p => ({...p, resa: null}))} caseData={modalState.resa as worksheet} />)}
-    {caseToAssignAforador && (<AssignUserModal isOpen={!!caseToAssignAforador} onClose={() => setCaseToAssignAforador(null)} caseData={caseToAssignAforador as Worksheet} assignableUsers={assignableUsers} onAssign={handleAssignAforador} title="Asignar Aforador (PSMT)" description={`Como el consignatario es PSMT, debe asignar un aforador para el caso NE: ${caseToAssignAforador.ne}.`}/>)}
+    {modalState.paymentList && (<PaymentListModal isOpen={!!modalState.paymentList} onClose={() => setModalState(p => ({...p, paymentList: null}))} caseData={modalState.paymentList} />)}
+    {modalState.resa && (<ResaNotificationModal isOpen={!!modalState.resa} onClose={() => setModalState(p => ({...p, resa: null}))} caseData={modalState.resa} />)}
+    {caseToAssignAforador && (<AssignUserModal isOpen={!!caseToAssignAforador} onClose={() => setCaseToAssignAforador(null)} caseData={caseToAssignAforador} assignableUsers={assignableUsers} onAssign={handleAssignAforador} title="Asignar Aforador (PSMT)" description={`Como el consignatario es PSMT, debe asignar un aforador para el caso NE: ${caseToAssignAforador.ne}.`}/>)}
     {modalState.viewIncidents && (<ViewIncidentsModal isOpen={!!modalState.viewIncidents} onClose={() => setModalState(p => ({...p, viewIncidents: null}))} onSelectRectificacion={() => { setModalState(p => ({...p, incidentDetails: p.viewIncidents, viewIncidents: null})); }} onSelectDudaValor={() => { setModalState(p => ({...p, valueDoubt: p.viewIncidents, viewIncidents: null})); }} />)}
     {modalState.process && (<StatusProcessModal isOpen={!!modalState.process} onClose={() => setModalState(p => ({...p, process: null}))} caseData={modalState.process} />)}
     <AlertDialog open={!!modalState.archive} onOpenChange={(isOpen) => !isOpen && setModalState(p => ({...p, archive: null}))}><AlertDialogContent><AlertDialogHeader><AlertDialogTitle>¿Está seguro?</AlertDialogTitle><AlertDialogDescription>Esta acción archivará el caso y no será visible en las listas principales.</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel>Cancelar</AlertDialogCancel><AlertDialogAction onClick={handleArchiveCase}>Sí, Archivar</AlertDialogAction></AlertDialogFooter></AlertDialogContent></AlertDialog>
@@ -661,10 +668,12 @@ const fetchCases = useCallback(async () => {
             <DialogFooter><Button variant="outline" onClick={() => setDuplicateAndRetireModalOpen(false)}>Cancelar</Button><Button onClick={handleDuplicateAndRetire} disabled={savingState[caseToDuplicate?.id || '']}>Duplicar y Retirar</Button></DialogFooter>
         </DialogContent>
       </Dialog>
+      <Dialog open={isRequestPaymentModalOpen} onOpenChange={setIsRequestPaymentModalOpen}>
       <PaymentRequestFlow
-        isOpen={isPaymentRequestFlowOpen}
-        onClose={() => setIsRequestPaymentModalOpen(false)}
-      />
+          isOpen={isRequestPaymentModalOpen}
+          onClose={() => setIsRequestPaymentModalOpen(false)}
+        />
+      </Dialog>
     </>
   );
 }
@@ -676,5 +685,3 @@ export default function ExecutivePage() {
         </Suspense>
     );
 }
-
-    

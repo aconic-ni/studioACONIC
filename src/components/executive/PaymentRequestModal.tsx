@@ -1,7 +1,6 @@
 
 "use client";
 
-import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -11,16 +10,15 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/context/AuthContext';
-import { db } from '@/lib/firebase';
-import { doc, setDoc, Timestamp, collection } from 'firebase/firestore';
-import type { Worksheet, InitialDataContext } from '@/types';
-import { Loader2, StickyNote } from 'lucide-react';
-import { useAppContext, ExamStep } from '@/context/AppContext';
+import type { AforoCase, InitialDataContext } from '@/types';
+import { StickyNote } from 'lucide-react';
+import { useAppContext } from '@/context/AppContext';
 import { useRouter } from 'next/navigation';
 import { format } from 'date-fns';
 
 
 const paymentRequestSchema = z.object({
+  ne: z.string().optional(),
   reference: z.string().optional(),
   recipient: z.string().min(1, "Destinatario es requerido."),
 });
@@ -30,25 +28,27 @@ type PaymentRequestFormData = z.infer<typeof paymentRequestSchema>;
 interface PaymentRequestModalProps {
   isOpen: boolean;
   onClose: () => void;
-  caseData: Worksheet | null;
+  caseData: AforoCase | null;
 }
 
 export function PaymentRequestModal({ isOpen, onClose, caseData }: PaymentRequestModalProps) {
   const { user } = useAuth();
   const { toast } = useToast();
-  const { setInitialContextData, openPaymentRequestFlow, setIsMemorandumMode } = useAppContext();
+  const { setInitialContextData, openPaymentRequestFlow, setIsMemorandumMode, initialContextData: appInitialData } = useAppContext();
   const router = useRouter();
 
   const form = useForm<PaymentRequestFormData>({
     resolver: zodResolver(paymentRequestSchema),
     defaultValues: { 
-      reference: caseData?.worksheet?.reference || '', 
+      ne: caseData?.ne || appInitialData?.ne || '',
+      reference: '', 
       recipient: 'Contabilidad' 
     },
   });
 
   const handleRecipientClick = (recipient: string) => {
     form.setValue('recipient', recipient, { shouldValidate: true });
+    setIsMemorandumMode(recipient.toLowerCase() === 'memorandum');
   };
 
   const onSubmit = async (data: PaymentRequestFormData) => {
@@ -57,10 +57,8 @@ export function PaymentRequestModal({ isOpen, onClose, caseData }: PaymentReques
       return;
     }
 
-    const ne = caseData?.ne || `SOL-${format(new Date(), 'ddMMyy-HHmmss')}`;
-
     const initialData: InitialDataContext = {
-        ne,
+        ne: data.ne || `SOL-${format(new Date(), 'ddMMyy-HHmmss')}`,
         reference: data.reference,
         manager: user.displayName,
         date: new Date(),
@@ -72,11 +70,8 @@ export function PaymentRequestModal({ isOpen, onClose, caseData }: PaymentReques
     };
     
     setInitialContextData(initialData);
-    setIsMemorandumMode(initialData.isMemorandum);
-    
-    openPaymentRequestFlow(); 
-    
-    onClose(); 
+    openPaymentRequestFlow(); // This will open the main modal flow
+    onClose(); // Close this initial modal
   };
 
   if (!isOpen) return null;
@@ -96,6 +91,19 @@ export function PaymentRequestModal({ isOpen, onClose, caseData }: PaymentReques
         </DialogHeader>
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 py-4">
+             <FormField
+                control={form.control}
+                name="ne"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Número de Entrada (NE)</FormLabel>
+                    <FormControl>
+                      <Input {...field} disabled={!isGeneralRequest} placeholder={isGeneralRequest ? 'ID único autogenerado' : ''} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
              <FormField
                 control={form.control}
                 name="recipient"

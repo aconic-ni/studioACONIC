@@ -11,7 +11,7 @@ import { DatePickerWithRange } from '@/components/reports/DatePickerWithRange';
 import { DatePicker } from '@/components/reports/DatePicker';
 import { Loader2, Search, Eye, Edit, Archive, History, Inbox, Trash2, FolderOpen, Megaphone, BarChartHorizontal } from 'lucide-react';
 import { db } from '@/lib/firebase';
-import { collection, getDocs, query, orderBy, Timestamp, where, doc, updateDoc, addDoc, serverTimestamp, writeBatch } from 'firebase/firestore';
+import { collection, getDocs, query, orderBy, Timestamp, where, doc, updateDoc, addDoc, serverTimestamp, writeBatch, limit, type QueryConstraint } from 'firebase/firestore';
 import type { ExamDocument, AdminAuditLogEntry, AuditLogEntry, WorksheetWithCase } from '@/types';
 import type { DateRange } from 'react-day-picker';
 import { EditableExamDetails } from '@/components/admin/EditableExamDetails';
@@ -50,90 +50,94 @@ export default function AdminControlPage() {
   const [searchMode, setSearchMode] = useState<'range' | 'specific'>('range');
   const [viewMode, setViewMode] = useState<ViewMode>('activeExamenes');
 
-  const [allExams, setAllExams] = useState<ExamDocument[]>([]);
-  const [allworksheet, setallworksheet] = useState<WorksheetWithCase[]>([]);
   const [filteredItems, setFilteredItems] = useState<(ExamDocument | WorksheetWithCase)[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   
   const [selectedExam, setSelectedExam] = useState<ExamDocument | WorksheetWithCase | null>(null);
   const [auditLogs, setAuditLogs] = useState<CombinedLog[]>([]);
   const [isViewingLogs, setIsViewingLogs] = useState(false);
-
-  const fetchInitialData = useCallback(async () => {
-    setIsLoading(true);
-    setError(null);
-    try {
-      const qExamenes = query(collection(db, "examenesPrevios"), orderBy("createdAt", "desc"));
-      const qAforo = query(collection(db, 'worksheets'), orderBy('createdAt', 'desc'));
-      
-      const [examenesSnapshot, aforoSnapshot] = await Promise.all([
-          getDocs(qExamenes),
-          getDocs(qAforo)
-      ]);
-
-      const fetchedExams = examenesSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as ExamDocument));
-      setAllExams(fetchedExams);
-
-      const fetchedWorksheets = aforoSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as WorksheetWithCase));
-      setallworksheet(fetchedWorksheets);
-
-    } catch (err: any) {
-      console.error("Error fetching data:", err);
-      setError("No se pudieron cargar los datos. Verifique los índices de Firestore.");
-      toast({ title: "Error de Carga", description: "No se pudieron cargar los datos iniciales. Verifique los índices de Firestore.", variant: "destructive" });
-    } finally {
-      setIsLoading(false);
-    }
-  }, [toast]);
+  const [isSearchActive, setIsSearchActive] = useState(false);
 
   useEffect(() => {
     if (!authLoading && (!user || user.role !== 'admin')) {
       router.push('/');
-    } else if(user) {
-        fetchInitialData();
     }
-  }, [user, authLoading, router, fetchInitialData]);
+  }, [user, authLoading, router]);
 
-  const applyFilters = useCallback(() => {
-    let sourceData: (ExamDocument | WorksheetWithCase)[] = [];
-    if (viewMode === 'activeExamenes') {
-        sourceData = allExams.filter(e => !e.isArchived);
-    } else if (viewMode === 'archivedExamenes') {
-        sourceData = allExams.filter(e => e.isArchived === true);
-    } else if (viewMode === 'archivedAforo') {
-        sourceData = allworksheet.filter(c => c.isArchived === true);
+  const handleSearch = async () => {
+    if ((searchMode === 'range' && !dateRange?.from) || (searchMode === 'specific' && !specificDate)) {
+        setError("Por favor, seleccione una fecha o un rango de fechas para buscar.");
+        return;
     }
-
-    let dateFiltered = sourceData;
     
-    if (searchMode === 'range' && dateRange?.from) {
-        const start = dateRange.from;
-        const end = dateRange.to ? new Date(dateRange.to) : new Date(dateRange.from);
-        end.setHours(23, 59, 59, 999);
-        dateFiltered = sourceData.filter(item => {
-            const itemDate = item.createdAt?.toDate();
-            return itemDate && itemDate >= start && itemDate <= end;
-        });
-    } else if (searchMode === 'specific' && specificDate) {
-        const start = new Date(specificDate);
-        start.setHours(0, 0, 0, 0);
-        const end = new Date(specificDate);
-        end.setHours(23, 59, 59, 999);
-        dateFiltered = sourceData.filter(item => {
-             const itemDate = item.createdAt?.toDate();
-             return itemDate && itemDate >= start && itemDate <= end;
-        });
+    setIsLoading(true);
+    setError(null);
+    setFilteredItems([]);
+    setIsSearchActive(true);
+
+    try {
+        let collectionName: 'examenesPrevios' | 'worksheets';
+        let isArchivedQuery: boolean;
+
+        switch(viewMode) {
+            case 'activeExamenes':
+                collectionName = 'examenesPrevios';
+                isArchivedQuery = false;
+                break;
+            case 'archivedExamenes':
+                collectionName = 'examenesPrevios';
+                isArchivedQuery = true;
+                break;
+            case 'archivedAforo':
+                collectionName = 'worksheets';
+                isArchivedQuery = true;
+                break;
+            default:
+                collectionName = 'examenesPrevios';
+                isArchivedQuery = false;
+        }
+
+        const qConstraints: QueryConstraint[] = [
+            where("isArchived", "==", isArchivedQuery),
+            orderBy("createdAt", "desc"),
+            limit(50) // Limit results for performance
+        ];
+        
+        let start: Date | undefined, end: Date | undefined;
+        if (searchMode === 'range' && dateRange?.from) {
+            start = dateRange.from;
+            end = dateRange.to ? new Date(dateRange.to) : new Date(dateRange.from);
+            end.setHours(23, 59, 59, 999);
+        } else if (searchMode === 'specific' && specificDate) {
+            start = new Date(specificDate);
+            start.setHours(0, 0, 0, 0);
+            end = new Date(specificDate);
+            end.setHours(23, 59, 59, 999);
+        }
+
+        if (start && end) {
+            qConstraints.unshift(where("createdAt", "<=", end));
+            qConstraints.unshift(where("createdAt", ">=", start));
+        }
+
+        const q = query(collection(db, collectionName), ...qConstraints);
+        const snapshot = await getDocs(q);
+        
+        const fetchedItems = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as ExamDocument | WorksheetWithCase));
+        setFilteredItems(fetchedItems);
+
+        if (fetchedItems.length === 0) {
+            setError("No se encontraron registros para los criterios de búsqueda actuales.");
+        }
+
+    } catch (err: any) {
+      console.error("Error fetching filtered data:", err);
+      setError("Error al buscar. Revise los índices de Firestore si el problema persiste.");
+      toast({ title: "Error de Búsqueda", description: "Ocurrió un error al filtrar los datos.", variant: "destructive" });
+    } finally {
+      setIsLoading(false);
     }
-    setFilteredItems(dateFiltered);
-  }, [allExams, allworksheet, dateRange, searchMode, specificDate, viewMode]);
-  
-  useEffect(() => {
-    applyFilters();
-  }, [viewMode, allExams, allworksheet, applyFilters]);
-  
-  const handleSearch = () => {
-    applyFilters();
   };
   
   const handleViewDetails = (item: ExamDocument | WorksheetWithCase) => {
@@ -208,22 +212,25 @@ export default function AdminControlPage() {
       }
 
       // Log to the corresponding worksheet/exam's audit trail
-      const auditCollectionPath = isExamen ? `examenesPrevios/${item.id}/actualizaciones` : `worksheets/${worksheetId}/actualizaciones`;
-      if (isExamen || worksheetId) {
-          const logRef = doc(collection(db, auditCollectionPath));
-          batch.set(logRef, {
-              updatedAt: serverTimestamp(),
-              updatedBy: user.email,
-              field: 'isArchived',
-              oldValue: oldValue,
-              newValue: archive,
-              comment: `Registro ${archive ? 'archivado' : 'restaurado'} por administrador.`
-          });
-      }
+      const auditCollectionPath = isExamen ? `examenesPrevios/${item.id}/actualizaciones` : `worksheets/${worksheetId || item.id}/actualizaciones`;
+      
+      const logRef = doc(collection(db, auditCollectionPath));
+      batch.set(logRef, {
+          updatedAt: serverTimestamp(),
+          updatedBy: user.email,
+          field: 'isArchived',
+          oldValue: oldValue,
+          newValue: archive,
+          comment: `Registro ${archive ? 'archivado' : 'restaurado'} por administrador.`
+      });
+      
 
       await batch.commit();
       toast({ title: `Registro ${archive ? 'archivado' : 'restaurado'} con éxito.` });
-      fetchInitialData();
+      
+      // Refetch data to update the view
+      handleSearch();
+
     } catch (error) {
       console.error("Error archiving document:", error);
       toast({ title: "Error", description: `No se pudo ${archive ? 'archivar' : 'restaurar'} el registro.`, variant: "destructive" });
@@ -333,7 +340,7 @@ export default function AdminControlPage() {
                 {error && !isLoading && (
                   <div className="mt-4 p-4 bg-destructive/10 text-destructive border border-destructive/30 rounded-md text-center">{error}</div>
                 )}
-                {!isLoading && filteredItems.length > 0 && (
+                {!isLoading && isSearchActive && filteredItems.length > 0 && (
                   <div className="overflow-x-auto table-container rounded-lg border">
                     <Table>
                       <TableHeader className="bg-gray-50">
@@ -350,16 +357,16 @@ export default function AdminControlPage() {
                       <TableBody>
                         {filteredItems.map((item) => {
                             const isExamen = 'products' in item;
-                            const isComplete = isExamen ? item.status === 'complete' : item.aforadorStatus === 'En revisión';
+                            const isComplete = isExamen ? item.status === 'complete' : (item as WorksheetWithCase).aforadorStatus === 'En revisión';
                             return (
                               <TableRow key={item.id}>
                                 <TableCell className="font-medium">{item.ne}</TableCell>
                                 <TableCell>{isExamen ? 'Examen Previo' : 'Caso Aforo'}</TableCell>
                                 <TableCell>{item.consignee}</TableCell>
-                                <TableCell><Badge variant="secondary">{isExamen ? (item.assignedTo || item.manager) : item.executive}</Badge></TableCell>
+                                <TableCell><Badge variant="secondary">{isExamen ? (item.assignedTo || item.manager) : (item as WorksheetWithCase).executive}</Badge></TableCell>
                                 <TableCell>{formatTimestamp(item.createdAt)}</TableCell>
                                 <TableCell>
-                                  {item.isArchived ? <Badge variant="destructive">Archivado</Badge> : (isComplete ? <Badge className="bg-green-500 text-white">Completo</Badge> : <Badge variant="outline">{isExamen ? item.status : item.aforadorStatus}</Badge>)}
+                                  {item.isArchived ? <Badge variant="destructive">Archivado</Badge> : (isComplete ? <Badge className="bg-green-500 text-white">Completo</Badge> : <Badge variant="outline">{isExamen ? item.status : (item as WorksheetWithCase).aforadorStatus}</Badge>)}
                                 </TableCell>
                                 <TableCell className="text-right space-x-1">
                                     <Button variant="ghost" size="sm" onClick={() => handleViewDetails(item)}><Eye className="h-4 w-4"/> <span className="sr-only">Ver</span></Button>
@@ -394,9 +401,14 @@ export default function AdminControlPage() {
                     </Table>
                   </div>
                 )}
-                 {!isLoading && !error && filteredItems.length === 0 && (
+                 {!isLoading && !error && isSearchActive && filteredItems.length === 0 && (
                     <div className="mt-4 p-4 bg-blue-500/10 text-blue-700 border border-blue-500/30 rounded-md text-center">
                         No se encontraron registros para los criterios de búsqueda actuales.
+                    </div>
+                )}
+                 {!isSearchActive && !isLoading && (
+                    <div className="mt-4 p-4 bg-blue-500/10 text-blue-700 border border-blue-500/30 rounded-md text-center">
+                        Por favor, realice una búsqueda para ver los registros.
                     </div>
                 )}
             </div>
@@ -406,3 +418,5 @@ export default function AdminControlPage() {
     </AppShell>
   );
 }
+
+    
