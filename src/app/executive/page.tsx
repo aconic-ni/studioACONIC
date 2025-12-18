@@ -10,7 +10,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Loader2, FilePlus, Search, Edit, Eye, History, PlusSquare, UserCheck, Inbox, AlertTriangle, Download, ChevronsUpDown, Info, CheckCircle, CalendarRange, Calendar, CalendarDays, ShieldAlert, BookOpen, FileCheck2, MessageSquare, View, Banknote, Bell as BellIcon, RefreshCw, Send, StickyNote, Scale, Briefcase, KeyRound, Copy, Archive } from 'lucide-react';
 import { db } from '@/lib/firebase';
 import { collection, query, where, onSnapshot, orderBy, Timestamp, doc, getDoc, updateDoc, writeBatch, addDoc, getDocs, collectionGroup, serverTimestamp, setDoc, documentId } from 'firebase/firestore';
-import type { Worksheet, no existe, AforadorStatus, no existeStatus, DigitacionStatus, WorksheetWithCase, no existeUpdate, PreliquidationStatus, IncidentType, LastUpdateInfo, ExecutiveComment, InitialDataContext, AppUser, SolicitudRecord, ExamDocument, FacturacionStatus } from '@/types';
+import type { Worksheet, AforoData, AforadorStatus, AforoDataStatus, DigitacionStatus, WorksheetWithCase, AforoDataUpdate, PreliquidationStatus, IncidentType, LastUpdateInfo, ExecutiveComment, InitialDataContext, AppUser, SolicitudRecord, ExamDocument, FacturacionStatus } from '@/types';
 import { format, toDate, isSameDay, startOfDay, endOfDay, differenceInDays, startOfMonth, endOfMonth } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { Input } from '@/components/ui/input';
@@ -75,18 +75,18 @@ function ExecutivePageContent() {
   const [isExporting, setIsExporting] = useState(false);
   const [assignableUsers, setAssignableUsers] = useState<AppUser[]>([]);
   const [modalState, setModalState] = useState({
-    history: null as no existe | null,
-    incident: null as no existe | null,
-    valueDoubt: null as no existe | null,
-    incidentDetails: null as no existe | null,
+    history: null as AforoData | null,
+    incident: null as AforoData | null,
+    valueDoubt: null as AforoData | null,
+    incidentDetails: null as AforoData | null,
     worksheet: null as Worksheet | null,
-    comment: null as no existe | null,
+    comment: null as AforoData | null,
     quickRequest: null as WorksheetWithCase | null,
-    payment: null as no existe | null,
-    paymentList: null as no existe | null,
-    resa: null as no existe | null,
-    viewIncidents: null as no existe | null,
-    process: null as no existe | null,
+    payment: null as AforoData | null,
+    paymentList: null as AforoData | null,
+    resa: null as AforoData | null,
+    viewIncidents: null as AforoData | null,
+    process: null as AforoData | null,
     archive: null as WorksheetWithCase | null,
   });
   const [caseToDuplicate, setCaseToDuplicate] = useState<WorksheetWithCase | null>(null);
@@ -125,7 +125,7 @@ function ExecutivePageContent() {
     if (!user) return () => {};
     setIsLoading(true);
     
-    let worksheetsQuery: Query;
+    let worksheetsQuery: any;
     const globalVisibilityRoles = ['admin', 'supervisor', 'coordinadora'];
     const groupVisibilityRoles = ['ejecutivo'];
 
@@ -190,11 +190,11 @@ function ExecutivePageContent() {
     return () => { if(unsubscribe) unsubscribe(); };
   }, [authLoading, user, router, fetchCases]);
   
-  const handleAutoSave = useCallback(async (caseId: string, field: keyof no existe, value: any, isTriggerFromFieldUpdate: boolean = false) => {
+  const handleAutoSave = useCallback(async (caseId: string, field: keyof AforoData, value: any, isTriggerFromFieldUpdate: boolean = false) => {
     if (!user || !user.displayName) { toast({ title: "No autenticado", variant: 'destructive' }); return; }
     const originalCase = allCases.find(c => c.id === caseId);
     if (!originalCase || !originalCase.worksheetId) return;
-    const oldValue = originalCase[field as keyof no existe];
+    const oldValue = originalCase[field as keyof AforoData];
     setSavingState(prev => ({ ...prev, [caseId]: true }));
     const aforoMetadataRef = doc(db, 'worksheets', originalCase.worksheetId, 'aforo', 'metadata');
     const updatesSubcollectionRef = collection(db, 'worksheets', originalCase.worksheetId, 'actualizaciones');
@@ -204,7 +204,7 @@ function ExecutivePageContent() {
         if (field === 'facturado' && value === true) updateData.facturadoAt = Timestamp.now();
         if (field.toLowerCase().includes('status')) updateData[`${''}${field}LastUpdate`] = { by: user.displayName, at: Timestamp.now() }
         batch.set(aforoMetadataRef, updateData, { merge: true });
-        const updateLog: no existeUpdate = { updatedAt: Timestamp.now(), updatedBy: user.displayName, field: field as keyof no existe, oldValue: oldValue ?? null, newValue: value,};
+        const updateLog: AforoDataUpdate = { updatedAt: Timestamp.now(), updatedBy: user.displayName, field: field as keyof AforoData, oldValue: oldValue ?? null, newValue: value,};
         batch.set(doc(updatesSubcollectionRef), updateLog);
         await batch.commit();
         if(!isTriggerFromFieldUpdate) toast({ title: "Guardado Automático", description: `El campo se ha actualizado.` });
@@ -260,18 +260,18 @@ function ExecutivePageContent() {
         batch.set(newWorksheetRef, newWorksheetData);
         
         const newAforoMetaRef = doc(newWorksheetRef, 'aforo', 'metadata');
-        const newCaseData: Omit<no existe, 'id'> = { ne: newNe, executive: caseToDuplicate.executive, consignee: caseToDuplicate.consignee, facturaNumber: caseToDuplicate.facturaNumber, declarationPattern: caseToDuplicate.declarationPattern, merchandise: caseToDuplicate.merchandise, createdBy: user.uid, createdAt: creationTimestamp, aforador: '', assignmentDate: null, aforadorStatus: 'Pendiente ', aforadorStatusLastUpdate: createdByInfo, revisorStatus: 'Pendiente', revisorStatusLastUpdate: createdByInfo, preliquidationStatus: 'Pendiente', preliquidationStatusLastUpdate: createdByInfo, digitacionStatus: 'Pendiente', digitacionStatusLastUpdate: createdByInfo, incidentStatus: 'Pendiente', incidentStatusLastUpdate: createdByInfo, revisorAsignado: '', revisorAsignadoLastUpdate: createdByInfo, digitadorAsignado: '', digitadorAsignadoLastUpdate: createdByInfo, worksheetId: newNe, entregadoAforoAt: null, isArchived: false, executiveComments: [{ id: uuidv4(), author: user.displayName, text: `Duplicado del NE: ${caseToDuplicate.ne}. Motivo: ${duplicateReason}`, createdAt: creationTimestamp }] };
+        const newCaseData: Omit<AforoData, 'id'> = { ne: newNe, executive: caseToDuplicate.executive, consignee: caseToDuplicate.consignee, facturaNumber: caseToDuplicate.facturaNumber, declarationPattern: caseToDuplicate.declarationPattern, merchandise: caseToDuplicate.merchandise, createdBy: user.uid, createdAt: creationTimestamp, aforador: '', assignmentDate: null, aforadorStatus: 'Pendiente ', aforadorStatusLastUpdate: createdByInfo, revisorStatus: 'Pendiente', revisorStatusLastUpdate: createdByInfo, preliquidationStatus: 'Pendiente', preliquidationStatusLastUpdate: createdByInfo, digitacionStatus: 'Pendiente', digitacionStatusLastUpdate: createdByInfo, incidentStatus: 'Pendiente', incidentStatusLastUpdate: createdByInfo, revisorAsignado: '', revisorAsignadoLastUpdate: createdByInfo, digitadorAsignado: '', digitadorAsignadoLastUpdate: createdByInfo, worksheetId: newNe, entregadoAforoAt: null, isArchived: false, executiveComments: [{ id: uuidv4(), author: user.displayName, text: `Duplicado del NE: ${caseToDuplicate.ne}. Motivo: ${duplicateReason}`, createdAt: creationTimestamp }] };
         batch.set(newAforoMetaRef, newCaseData);
 
         const originalAforoMetaRef = doc(originalWorksheetRef, 'aforo', 'metadata');
         batch.update(originalAforoMetaRef, { digitacionStatus: 'TRASLADADO', isArchived: true });
 
         const originalUpdatesRef = collection(originalWorksheetRef, 'actualizaciones');
-        const updateLog: no existeUpdate = { updatedAt: Timestamp.now(), updatedBy: user.displayName, field: 'digitacionStatus', oldValue: caseToDuplicate.digitacionStatus, newValue: 'TRASLADADO', comment: `Caso trasladado al nuevo NE: ${newNe}. Motivo: ${duplicateReason}` };
+        const updateLog: AforoDataUpdate = { updatedAt: Timestamp.now(), updatedBy: user.displayName, field: 'digitacionStatus', oldValue: caseToDuplicate.digitacionStatus, newValue: 'TRASLADADO', comment: `Caso trasladado al nuevo NE: ${newNe}. Motivo: ${duplicateReason}` };
         batch.set(doc(originalUpdatesRef), updateLog);
         
         const newUpdatesRef = collection(newWorksheetRef, 'actualizaciones');
-        const newCaseLog: no existeUpdate = { updatedAt: creationTimestamp, updatedBy: user.displayName, field: 'creation', oldValue: null, newValue: `duplicated_from_${caseToDuplicate.ne}`, comment: `Caso duplicado desde ${caseToDuplicate.ne}. Motivo: ${duplicateReason}` };
+        const newCaseLog: AforoDataUpdate = { updatedAt: creationTimestamp, updatedBy: user.displayName, field: 'creation', oldValue: null, newValue: `duplicated_from_${caseToDuplicate.ne}`, comment: `Caso duplicado desde ${caseToDuplicate.ne}. Motivo: ${duplicateReason}` };
         batch.set(doc(newUpdatesRef), newCaseLog);
 
         await batch.commit();
@@ -302,7 +302,7 @@ function ExecutivePageContent() {
             batch.update(worksheetRef, { worksheetType: 'corporate_report' });
 
             const updatesSubcollectionRef = collection(worksheetRef, 'actualizaciones');
-            const updateLog: no existeUpdate = {
+            const updateLog: AforoDataUpdate = {
                 updatedAt: Timestamp.now(),
                 updatedBy: user.displayName,
                 field: 'worksheetType',
@@ -387,9 +387,9 @@ function ExecutivePageContent() {
   const paginatedCases = appliedFilters.isSearchActive ? filteredCases.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage) : filteredCases;
   
   const caseActions = {
-    handleViewWorksheet: (c: no existe) => setModalState(prev => ({...prev, worksheet: c.worksheet as Worksheet})),
+    handleViewWorksheet: (c: AforoData) => setModalState(prev => ({...prev, worksheet: c.worksheet as Worksheet})),
     setSelectedCaseForQuickRequest: (c: WorksheetWithCase) => setModalState(prev => ({...prev, quickRequest: c})),
-    setSelectedCaseForPayment: (c: no existe) => {
+    setSelectedCaseForPayment: (c: AforoData) => {
         const initialData: InitialDataContext = {
             ne: c.ne,
             reference: c.worksheet?.reference || undefined,
@@ -404,18 +404,18 @@ function ExecutivePageContent() {
         setInitialContextData(initialData);
         openPaymentRequestFlow();
     },
-    setSelectedCaseForPaymentList: (c: no existe) => setModalState(prev => ({...prev, paymentList: c})),
-    setSelectedCaseForResa: (c: no existe) => setModalState(prev => ({...prev, resa: c})),
-    setSelectedCaseForIncident: (c: no existe) => setModalState(prev => ({...prev, incident: c})),
-    setSelectedCaseForValueDoubt: (c: no existe) => setModalState(prev => ({...prev, valueDoubt: c})),
-    setSelectedCaseForHistory: (c: no existe) => setModalState(prev => ({...prev, history: c})),
-    handleViewIncidents: (c: no existe) => handleViewIncidents(c),
-    setSelectedCaseForComment: (c: no existe) => setModalState(prev => ({...prev, comment: c})),
+    setSelectedCaseForPaymentList: (c: AforoData) => setModalState(prev => ({...prev, paymentList: c})),
+    setSelectedCaseForResa: (c: AforoData) => setModalState(prev => ({...prev, resa: c})),
+    setSelectedCaseForIncident: (c: AforoData) => setModalState(prev => ({...prev, incident: c})),
+    setSelectedCaseForValueDoubt: (c: AforoData) => setModalState(prev => ({...prev, valueDoubt: c})),
+    setSelectedCaseForHistory: (c: AforoData) => setModalState(prev => ({...prev, history: c})),
+    handleViewIncidents: (c: AforoData) => handleViewIncidents(c),
+    setSelectedCaseForComment: (c: AforoData) => setModalState(prev => ({...prev, comment: c})),
     handleSearchPrevio: (ne: string) => router.push(`/database?ne=${ne}`),
     setCaseToArchive: (c: WorksheetWithCase) => setModalState(prev => ({...prev, archive: c})),
     setCaseToDuplicate,
     setDuplicateAndRetireModalOpen,
-    setSelectedCaseForProcess: (c: no existe) => setModalState(prev => ({...prev, process: c})),
+    setSelectedCaseForProcess: (c: AforoData) => setModalState(prev => ({...prev, process: c})),
   };
 
   const handleSearch = () => {
@@ -449,13 +449,13 @@ function ExecutivePageContent() {
     openPaymentRequestFlow();
   };
   const approvePreliquidation = (caseId: string) => { handleAutoSave(caseId, 'preliquidationStatus', 'Aprobada'); };
-  const getIncidentTypeDisplay = (c: no existe) => {
+  const getIncidentTypeDisplay = (c: AforoData) => {
     const types = [];
     if (c.incidentType === 'Rectificacion') types.push('Rectificación');
     if (c.hasValueDoubt) types.push('Duda de Valor');
     return types.length > 0 ? types.join(' / ') : 'N/A';
   };
-  const handleViewIncidents = (caseItem: no existe) => {
+  const handleViewIncidents = (caseItem: AforoData) => {
     const hasRectificacion = caseItem.incidentType === 'Rectificacion';
     const hasDuda = caseItem.hasValueDoubt;
     if (hasRectificacion && hasDuda) {
@@ -625,3 +625,4 @@ export default function ExecutivePage() {
 }
 
     
+
