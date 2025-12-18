@@ -1,4 +1,3 @@
-
 "use client";
 import { useState, useEffect, type FormEvent, useCallback, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
@@ -116,6 +115,12 @@ export default function DatabasePage() {
   
   const [isViewErrorDialogOpen, setIsViewErrorDialogOpen] = useState(false);
   const [errorMessageToView, setErrorMessageToView] = useState('');
+
+  // Pagination State
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(20);
+  const [isSearchActive, setIsSearchActive] = useState(false);
+
 
 
   useEffect(() => {
@@ -238,6 +243,22 @@ export default function DatabasePage() {
     statusFilter,
     sortOrder // Add sortOrder as a dependency
   ]);
+  
+  // Paginating the final filtered list
+  const paginatedSolicitudes = useMemo(() => {
+    if (!displayedSolicitudes) return null;
+    if (!isSearchActive) return displayedSolicitudes; // Don't paginate if not searching
+
+    const startIndex = (currentPage - 1) * itemsPerPage;
+    const endIndex = itemsPerPage === 0 ? displayedSolicitudes.length : startIndex + itemsPerPage;
+    return displayedSolicitudes.slice(startIndex, endIndex);
+  }, [displayedSolicitudes, currentPage, itemsPerPage, isSearchActive]);
+  
+  const totalPages = useMemo(() => {
+    if (!displayedSolicitudes || !isSearchActive || itemsPerPage === 0) return 1;
+    return Math.ceil(displayedSolicitudes.length / itemsPerPage);
+  }, [displayedSolicitudes, itemsPerPage, isSearchActive]);
+
 
   const handleUpdatePaymentStatus = useCallback(async (solicitudId: string, newPaymentStatus: string | null) => {
     if (!user || !user.email) {
@@ -590,7 +611,9 @@ export default function DatabasePage() {
       toast({ title: "No autenticado", description: "Debe iniciar sesión para buscar.", variant: "destructive" });
       return;
     }
-
+    
+    setIsSearchActive(true);
+    setCurrentPage(1);
     setIsLoading(true);
     setError(null);
     setFetchedSolicitudes(null);
@@ -961,53 +984,104 @@ export default function DatabasePage() {
             {isLoading && <div className="flex justify-center items-center py-6"><Loader2 className="h-8 w-8 animate-spin text-primary" /><p className="ml-3 text-muted-foreground">Cargando solicitudes...</p></div>}
             {error && !isLoading && <div className="mt-4 p-4 bg-destructive/10 text-destructive border border-destructive/30 rounded-md text-center">{error}</div>}
 
-            {displayedSolicitudes && !isLoading && (
-              <SearchResultsTable
-                solicitudes={displayedSolicitudes}
-                searchType={searchType}
-                searchTerm={currentSearchTermForDisplay}
-                currentUserRole={user?.role}
-                isMinutaValidationEnabled={isMinutaValidationEnabled}
-                onUpdatePaymentStatus={handleUpdatePaymentStatus}
-                onUpdateRecepcionDCStatus={handleUpdateRecepcionDCStatus}
-                onUpdateEmailMinutaStatus={handleUpdateEmailMinutaStatus}
-                onOpenMessageDialog={openMessageDialog}
-                onSaveMinuta={handleSaveMinuta}
-                onViewDetails={handleViewDetails}
-                onOpenCommentsDialog={openCommentsDialog}
-                onDeleteSolicitud={handleDeleteSolicitudRequest} 
-                onRefreshSearch={() => handleSearch({ preserveFilters: true })}
-                filterRecpDocsInput={filterRecpDocsInput}
-                setFilterRecpDocsInput={setFilterRecpDocsInput}
-                filterNotMinutaInput={filterNotMinutaInput}
-                setFilterNotMinutaInput={setFilterNotMinutaInput}
-                filterSolicitudIdInput={filterSolicitudIdInput}
-                setFilterSolicitudIdInput={setFilterSolicitudIdInput}
-                filterNEInput={filterNEInput}
-                setFilterNEInput={setFilterNEInput}
-                filterEstadoPagoInput={filterEstadoPagoInput}
-                setFilterEstadoPagoInput={setFilterEstadoPagoInput}
-                filterFechaSolicitudInput={filterFechaSolicitudInput}
-                setFilterFechaSolicitudInput={setFilterFechaSolicitudInput}
-                filterMontoInput={filterMontoInput}
-                setFilterMontoInput={setFilterMontoInput}
-                filterConsignatarioInput={filterConsignatarioInput}
-                setFilterConsignatarioInput={setFilterConsignatarioInput}
-                filterDeclaracionInput={filterDeclaracionInput}
-                setFilterDeclaracionInput={setFilterDeclaracionInput}
-                filterReferenciaInput={filterReferenciaInput}
-                setFilterReferenciaInput={setFilterReferenciaInput}
-                filterGuardadoPorInput={filterGuardadoPorInput}
-                setFilterGuardadoPorInput={setFilterGuardadoPorInput}
-                filterEstadoSolicitudInput={filterEstadoSolicitudInput}
-                setFilterEstadoSolicitudInput={setFilterEstadoSolicitudInput}
-                duplicateSets={duplicateSets}
-                onResolveDuplicate={() => {}}
-                resolvedDuplicateKeys={resolvedDuplicateKeys}
-                permanentlyResolvedDuplicateKeys={permanentlyResolvedDuplicateKeys}
-                onOpenViewErrorDialog={(msg) => { setErrorMessageToView(msg); setIsViewErrorDialogOpen(true); }}
-                onFilterByDuplicateSet={() => {}}
-              />
+            {paginatedSolicitudes && !isLoading && (
+              <>
+                <SearchResultsTable
+                    solicitudes={paginatedSolicitudes}
+                    searchType={searchType}
+                    searchTerm={currentSearchTermForDisplay}
+                    currentUserRole={user?.role}
+                    isMinutaValidationEnabled={isMinutaValidationEnabled}
+                    onUpdatePaymentStatus={handleUpdatePaymentStatus}
+                    onUpdateRecepcionDCStatus={handleUpdateRecepcionDCStatus}
+                    onUpdateEmailMinutaStatus={handleUpdateEmailMinutaStatus}
+                    onOpenMessageDialog={openMessageDialog}
+                    onSaveMinuta={handleSaveMinuta}
+                    onViewDetails={handleViewDetails}
+                    onOpenCommentsDialog={openCommentsDialog}
+                    onDeleteSolicitud={handleDeleteSolicitudRequest} 
+                    onRefreshSearch={() => handleSearch({ preserveFilters: true })}
+                    filterRecpDocsInput={filterRecpDocsInput}
+                    setFilterRecpDocsInput={setFilterRecpDocsInput}
+                    filterNotMinutaInput={filterNotMinutaInput}
+                    setFilterNotMinutaInput={setFilterNotMinutaInput}
+                    filterSolicitudIdInput={filterSolicitudIdInput}
+                    setFilterSolicitudIdInput={setFilterSolicitudIdInput}
+                    filterNEInput={filterNEInput}
+                    setFilterNEInput={setFilterNEInput}
+                    filterEstadoPagoInput={filterEstadoPagoInput}
+                    setFilterEstadoPagoInput={setFilterEstadoPagoInput}
+                    filterFechaSolicitudInput={filterFechaSolicitudInput}
+                    setFilterFechaSolicitudInput={setFilterFechaSolicitudInput}
+                    filterMontoInput={filterMontoInput}
+                    setFilterMontoInput={setFilterMontoInput}
+                    filterConsignatarioInput={filterConsignatarioInput}
+                    setFilterConsignatarioInput={setFilterConsignatarioInput}
+                    filterDeclaracionInput={filterDeclaracionInput}
+                    setFilterDeclaracionInput={setFilterDeclaracionInput}
+                    filterReferenciaInput={filterReferenciaInput}
+                    setFilterReferenciaInput={setFilterReferenciaInput}
+                    filterGuardadoPorInput={filterGuardadoPorInput}
+                    setFilterGuardadoPorInput={setFilterGuardadoPorInput}
+                    filterEstadoSolicitudInput={filterEstadoSolicitudInput}
+                    setFilterEstadoSolicitudInput={setFilterEstadoSolicitudInput}
+                    duplicateSets={duplicateSets}
+                    onResolveDuplicate={() => {}}
+                    resolvedDuplicateKeys={resolvedDuplicateKeys}
+                    permanentlyResolvedDuplicateKeys={permanentlyResolvedDuplicateKeys}
+                    onOpenViewErrorDialog={(msg) => { setErrorMessageToView(msg); setIsViewErrorDialogOpen(true); }}
+                    onFilterByDuplicateSet={() => {}}
+                />
+                {isSearchActive && paginatedSolicitudes.length > 0 && (
+                  <div className="flex items-center justify-between space-x-2 py-4">
+                      <div className="flex items-center space-x-2">
+                          <p className="text-sm font-medium">Filas por página</p>
+                          <Select
+                              value={String(itemsPerPage)}
+                              onValueChange={(value) => {
+                                  setItemsPerPage(value === '0' ? 0 : Number(value));
+                                  setCurrentPage(1);
+                              }}
+                          >
+                              <SelectTrigger className="h-8 w-[70px]">
+                                  <SelectValue placeholder={itemsPerPage === 0 ? 'Todas' : itemsPerPage} />
+                              </SelectTrigger>
+                              <SelectContent side="top">
+                                  {[20, 30, 50, 0].map((pageSize) => (
+                                      <SelectItem key={pageSize} value={`${pageSize}`}>
+                                          {pageSize === 0 ? 'Todas' : pageSize}
+                                      </SelectItem>
+                                  ))}
+                              </SelectContent>
+                          </Select>
+                      </div>
+                      <div className="text-sm text-muted-foreground">
+                          Total de solicitudes: {displayedSolicitudes?.length || 0}
+                      </div>
+                      <div className="flex items-center space-x-2">
+                          <span className="text-sm">
+                              Página {currentPage} de {totalPages}
+                          </span>
+                          <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                              disabled={currentPage === 1}
+                          >
+                              Anterior
+                          </Button>
+                          <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+                              disabled={currentPage === totalPages}
+                          >
+                              Siguiente
+                          </Button>
+                      </div>
+                  </div>
+                )}
+              </>
             )}
             {!fetchedSolicitudes && !isLoading && !error && !currentSearchTermForDisplay && <div className="mt-4 p-4 bg-blue-500/10 text-blue-700 border border-blue-500/30 rounded-md text-center">Seleccione un tipo de búsqueda e ingrese los criterios para ver resultados.</div>}
             {fetchedSolicitudes && fetchedSolicitudes.length === 0 && !isLoading && !error && currentSearchTermForDisplay && (
