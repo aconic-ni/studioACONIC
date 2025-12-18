@@ -33,7 +33,7 @@ type StatusFilterType = 'todos' | 'Pendiente' | 'Aprobado' | 'Rechazado';
 
 const months = [
     { value: 0, label: 'Enero' }, { value: 1, label: 'Febrero' }, { value: 2, label: 'Marzo' },
-    { value: 3, label: 'Abril' }, { value: 4, label: 'Mayo' }, { value: 5, label: 'Junio' },
+    { value: 3, label: 'Abril' }, { value: 5, label: 'Mayo' }, { value: 5, label: 'Junio' },
     { value: 6, label: 'Julio' }, { value: 7, label: 'Agosto' }, { value: 8, label: 'Septiembre' },
     { value: 9, 'label': 'Octubre' }, { value: 10, label: 'Noviembre' }, { value: 11, label: 'Diciembre' }
 ];
@@ -118,8 +118,8 @@ export default function AgenteCasosPage() {
             if (wsData && aforoData) {
                  const combinedData: WorksheetWithCase = {
                     ...aforoData,
-                    ...wsData, // merge worksheet data at top level
-                    id: wsDoc.id, // Ensure worksheet ID is the main ID
+                    ...wsData, 
+                    id: wsData.id,
                     worksheet: wsData,
                  };
                 casesData.push(combinedData);
@@ -475,4 +475,5 @@ export default function AgenteCasosPage() {
     </AppShell>
   );
 }
+
 
