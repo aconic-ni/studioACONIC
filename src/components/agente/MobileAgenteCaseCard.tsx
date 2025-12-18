@@ -1,7 +1,6 @@
-
 "use client";
 import React from 'react';
-import type { AforoCase, AforoCaseStatus, PreliquidationStatus, DigitacionStatus } from '@/types';
+import type { WorksheetWithCase, AforoCaseStatus, PreliquidationStatus, DigitacionStatus } from '@/types';
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -10,11 +9,11 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/
 import { BookOpen, AlertTriangle, History, CheckCircle, XCircle, Clock } from 'lucide-react';
 
 interface MobileAgenteCaseCardProps {
-  caseItem: AforoCase;
+  caseItem: WorksheetWithCase;
   caseActions: {
-    openActionModal: (caseItem: AforoCase, action: 'observation' | 'history') => void;
-    handleViewWorksheet: (caseItem: AforoCase) => void;
-    setIncidentToView: (caseItem: AforoCase) => void;
+    openActionModal: (caseItem: WorksheetWithCase, action: 'observation' | 'history') => void;
+    handleViewWorksheet: (caseItem: WorksheetWithCase) => void;
+    setIncidentToView: (caseItem: WorksheetWithCase) => void;
   };
 }
 
@@ -107,4 +106,3 @@ export const MobileAgenteCaseCard: React.FC<MobileAgenteCaseCardProps> = ({ case
         </Card>
     );
 }
-    

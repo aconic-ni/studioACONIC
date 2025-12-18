@@ -111,15 +111,14 @@ export default function AgenteCasosPage() {
         });
         
         const casesData: WorksheetWithCase[] = [];
-        for (const wsDoc of worksheetSnapshots.flatMap(s => s.docs)) {
-            const wsData = wsDoc.data() as Worksheet;
-            const aforoData = aforoDataMap.get(wsDoc.id);
-            
-            if (aforoData) {
-                const combinedData: WorksheetWithCase = {
+        for (const wsId of worksheetIds) {
+            const wsData = worksheetsMap.get(wsId);
+            const aforoData = aforoDataMap.get(wsId);
+            if (wsData && aforoData) {
+                 const combinedData: WorksheetWithCase = {
                     ...wsData, 
                     ...aforoData,
-                    id: wsDoc.id, 
+                    id: wsId, 
                     worksheet: wsData,
                     declarationPattern: aforoData.declarationPattern || wsData.patternRegime || '',
                     merchandise: aforoData.merchandise || wsData.description || '',
@@ -143,13 +142,15 @@ export default function AgenteCasosPage() {
 
   useEffect(() => {
     let unsubscribe: (() => void) | undefined;
-    fetchData().then(unsub => {
-        if(unsub) unsubscribe = unsub;
-    });
+    if (user) {
+        fetchData().then(unsub => {
+            if (unsub) unsubscribe = unsub;
+        });
+    }
     return () => {
         if (unsubscribe) unsubscribe();
     };
-  }, [fetchData]);
+}, [fetchData, user]);
 
   const applyFilters = useCallback(() => {
     let cases = [...allCases];
@@ -210,7 +211,7 @@ export default function AgenteCasosPage() {
 
     selectedRows.forEach(caseId => {
         const originalCase = allCases.find(c => c.id === caseId);
-        if (!originalCase?.id || !originalCase.worksheetId) return;
+        if (!originalCase?.id) return;
         
         const aforoMetadataRef = doc(db, 'worksheets', originalCase.id, 'aforo', 'metadata');
         const updatesSubcollectionRef = collection(db, 'worksheets', originalCase.id, 'actualizaciones');

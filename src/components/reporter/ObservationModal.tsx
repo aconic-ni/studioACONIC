@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useEffect } from 'react';
@@ -12,8 +11,8 @@ import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/context/AuthContext';
 import { db } from '@/lib/firebase';
-import { doc, updateDoc, addDoc, collection, Timestamp } from 'firebase/firestore';
-import type { AforoCase, AforoCaseStatus, AforoCaseUpdate } from '@/types';
+import { doc, updateDoc, addDoc, collection, Timestamp, writeBatch } from 'firebase/firestore';
+import type { AforoCase, AforoCaseStatus, AforoCaseUpdate, WorksheetWithCase } from '@/types';
 import { Loader2 } from 'lucide-react';
 import { Badge } from '../ui/badge';
 
@@ -26,7 +25,7 @@ type ObservationFormData = z.infer<typeof observationSchema>;
 interface ObservationModalProps {
   isOpen: boolean;
   onClose: () => void;
-  caseData: AforoCase;
+  caseData: WorksheetWithCase;
 }
 
 export function ObservationModal({ isOpen, onClose, caseData }: ObservationModalProps) {
@@ -62,11 +61,12 @@ export function ObservationModal({ isOpen, onClose, caseData }: ObservationModal
     }
 
     setIsSubmitting(true);
-    const caseDocRef = doc(db, 'AforoCases', caseData.id);
-    const updatesSubcollectionRef = collection(caseDocRef, 'actualizaciones');
+    const aforoMetadataRef = doc(db, 'worksheets', caseData.id, 'aforo', 'metadata');
+    const updatesSubcollectionRef = collection(db, 'worksheets', caseData.id, 'actualizaciones');
+    const batch = writeBatch(db);
 
     try {
-        await updateDoc(caseDocRef, {
+        batch.update(aforoMetadataRef, {
             revisorStatus: newStatus,
             observacionRevisor: comment,
             revisorStatusLastUpdate: { by: user.displayName, at: Timestamp.now() }
@@ -80,7 +80,9 @@ export function ObservationModal({ isOpen, onClose, caseData }: ObservationModal
             newValue: newStatus,
             comment: comment,
         };
-        await addDoc(updatesSubcollectionRef, updateLog);
+        batch.set(doc(updatesSubcollectionRef), updateLog);
+        
+        await batch.commit();
 
         toast({
             title: `Caso ${newStatus}`,
