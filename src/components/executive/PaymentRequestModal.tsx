@@ -10,7 +10,7 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/context/AuthContext';
-import type { worksheet, InitialDataContext } from '@/types';
+import type { Worksheet, InitialDataContext } from '@/types';
 import { StickyNote } from 'lucide-react';
 import { useAppContext } from '@/context/AppContext';
 import { useRouter } from 'next/navigation';
@@ -28,13 +28,13 @@ type PaymentRequestFormData = z.infer<typeof paymentRequestSchema>;
 interface PaymentRequestModalProps {
   isOpen: boolean;
   onClose: () => void;
-  caseData: no existe | null;
+  caseData: Worksheet | null;
 }
 
 export function PaymentRequestModal({ isOpen, onClose, caseData }: PaymentRequestModalProps) {
   const { user } = useAuth();
   const { toast } = useToast();
-  const { setInitialContextData, openPaymentRequestFlow, setIsMemorandumMode, initialContextData: appInitialData } = useAppContext();
+  const { setInitialContextData, openAddProductModal, setIsMemorandumMode, initialContextData: appInitialData } = useAppContext();
   const router = useRouter();
 
   const form = useForm<PaymentRequestFormData>({
@@ -70,8 +70,14 @@ export function PaymentRequestModal({ isOpen, onClose, caseData }: PaymentReques
     };
     
     setInitialContextData(initialData);
-    openPaymentRequestFlow(); // This will open the main modal flow
-    onClose(); // Close this initial modal
+    
+    router.push('/examinerPay');
+    onClose();
+    
+    // Open the AddProductModal after a short delay to allow navigation and context update
+    setTimeout(() => {
+        openAddProductModal();
+    }, 100);
   };
 
   if (!isOpen) return null;
@@ -98,7 +104,7 @@ export function PaymentRequestModal({ isOpen, onClose, caseData }: PaymentReques
                   <FormItem>
                     <FormLabel>Número de Entrada (NE)</FormLabel>
                     <FormControl>
-                      <Input {...field} disabled={!isGeneralRequest} placeholder={isGeneralRequest ? 'ID único autogenerado' : ''} />
+                      <Input {...field} disabled={isGeneralRequest} placeholder={isGeneralRequest ? 'ID único autogenerado' : ''} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
