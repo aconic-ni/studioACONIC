@@ -9,7 +9,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Loader2, FilePlus, Search, Edit, Eye, History, PlusSquare, UserCheck, Inbox, AlertTriangle, Download, ChevronsUpDown, Info, CheckCircle, CalendarRange, Calendar, CalendarDays, ShieldAlert, BookOpen, FileCheck2, MessageSquare, View, Banknote, Bell as BellIcon, RefreshCw, Send, StickyNote, Scale, Briefcase, KeyRound, Copy, Archive } from 'lucide-react';
 import { db } from '@/lib/firebase';
-import { collection, query, where, onSnapshot, orderBy, Timestamp, doc, getDoc, updateDoc, writeBatch, addDoc, getDocs, collectionGroup, serverTimestamp, setDoc } from 'firebase/firestore';
+import { collection, query, where, onSnapshot, orderBy, Timestamp, doc, getDoc, updateDoc, writeBatch, addDoc, getDocs, collectionGroup, serverTimestamp, setDoc, documentId } from 'firebase/firestore';
 import type { Worksheet, AforoData, AforadorStatus, AforoDataStatus, DigitacionStatus, WorksheetWithCase, AforoDataUpdate, PreliquidationStatus, IncidentType, LastUpdateInfo, ExecutiveComment, InitialDataContext, AppUser, SolicitudRecord, ExamDocument, FacturacionStatus } from '@/types';
 import { format, toDate, isSameDay, startOfDay, endOfDay, differenceInDays, startOfMonth, endOfMonth } from 'date-fns';
 import { es } from 'date-fns/locale';
@@ -141,60 +141,65 @@ function ExecutivePageContent() {
   const fetchCases = useCallback(async () => {
     if (!user) return () => {};
     setIsLoading(true);
-    
-    let worksheetsQuery: Query;
-    const globalVisibilityRoles = ['admin', 'supervisor', 'coordinadora'];
-    const groupVisibilityRoles = ['ejecutivo'];
 
-    if (user.role && globalVisibilityRoles.includes(user.role)) {
-        worksheetsQuery = query(collection(db, 'worksheets'), orderBy('createdAt', 'desc'));
-    } else if (user.role && groupVisibilityRoles.includes(user.role) && user.visibilityGroup && user.visibilityGroup.length > 0) {
-        const groupDisplayNames = Array.from(new Set([user.displayName, ...(user.visibilityGroup?.map(m => m.displayName) || [])])).filter(Boolean) as string[];
-        worksheetsQuery = groupDisplayNames.length > 0 ? query(collection(db, 'worksheets'), where("executive", "in", groupDisplayNames), orderBy('createdAt', 'desc')) : query(collection(db, 'worksheets'), where("executive", "==", user.displayName), orderBy('createdAt', 'desc'));
-    } else if (user.displayName) {
-        worksheetsQuery = query(collection(db, 'worksheets'), where('executive', '==', user.displayName), orderBy('createdAt', 'desc'));
-    } else {
-        setAllCases([]);
-        setIsLoading(false);
-        return () => {};
-    }
+    const aforoQuery = query(collectionGroup(db, 'aforo'), orderBy('createdAt', 'desc'));
 
-    const unsubscribe = onSnapshot(worksheetsQuery, async (worksheetsSnapshot) => {
-        const worksheetsData = worksheetsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Worksheet));
-        const worksheetIds = worksheetsData.map(ws => ws.id);
+    const unsubscribe = onSnapshot(aforoQuery, async (aforoSnapshot) => {
+        const aforoMetadatas = aforoSnapshot.docs.map(doc => ({
+            worksheetId: doc.ref.parent.parent!.id,
+            ...doc.data()
+        } as AforoData & { worksheetId: string }));
+        
+        const worksheetIds = aforoMetadatas.map(meta => meta.worksheetId).filter(Boolean);
+        
+        let filteredWorksheetIds = worksheetIds;
 
-        let aforoDataMap = new Map<string, any>();
-        if(worksheetIds.length > 0) {
-            const aforoPromises = [];
-            for (let i = 0; i < worksheetIds.length; i += 30) {
-                const chunk = worksheetIds.slice(i, i + 30);
-                const q = query(collectionGroup(db, 'aforo'), where(documentId(), 'in', chunk.map(id => `worksheets/${id}/aforo/metadata`)));
-                aforoPromises.push(getDocs(q));
-            }
-            const aforoSnapshots = await Promise.all(aforoPromises);
-            aforoSnapshots.forEach(snap => snap.forEach(doc => {
-                 aforoDataMap.set(doc.ref.parent.parent!.id, doc.data())
-            }));
+        // Apply visibility filters before fetching worksheets
+        if (user.role === 'ejecutivo') {
+            const visibleExecutives = Array.from(new Set([user.displayName, ...(user.visibilityGroup?.map(m => m.displayName) || [])])).filter(Boolean) as string[];
+            const execFilteredMetadatas = aforoMetadatas.filter(meta => visibleExecutives.includes(meta.executive));
+            filteredWorksheetIds = execFilteredMetadatas.map(meta => meta.worksheetId);
         }
         
-        const combinedDataPromises = worksheetsData.map(async ws => {
-            const updatesRef = collection(db, 'worksheets', ws.id, 'actualizaciones');
+        if (filteredWorksheetIds.length === 0) {
+            setAllCases([]);
+            setIsLoading(false);
+            return;
+        }
+
+        const worksheetsMap = new Map<string, Worksheet>();
+        // Firestore 'in' queries are limited to 30 items.
+        for (let i = 0; i < filteredWorksheetIds.length; i += 30) {
+            const chunk = filteredWorksheetIds.slice(i, i + 30);
+            if (chunk.length === 0) continue;
+            const worksheetsQuery = query(collection(db, 'worksheets'), where(documentId(), 'in', chunk));
+            const wsSnapshot = await getDocs(worksheetsQuery);
+            wsSnapshot.forEach(doc => {
+                worksheetsMap.set(doc.id, { id: doc.id, ...doc.data() } as Worksheet);
+            });
+        }
+        
+        const combinedDataPromises = aforoMetadatas.map(async meta => {
+            const ws = worksheetsMap.get(meta.worksheetId);
+            if (!ws) return null; // If worksheet doesn't exist for a meta, skip it.
+
+            const updatesRef = collection(db, 'worksheets', meta.worksheetId, 'actualizaciones');
             const acuseQuery = query(updatesRef, where('newValue', '==', 'worksheet_received'), orderBy('updatedAt', 'desc'));
             const acuseSnapshot = await getDocs(acuseQuery);
             const acuseLog = acuseSnapshot.empty ? null : acuseSnapshot.docs[0].data() as AforoDataUpdate;
 
             return {
-                ...(aforoDataMap.get(ws.id) || {}),
+                ...meta,
                 ...ws,
-                id: ws.id, // ensure worksheet ID is primary
+                id: ws.id,
                 worksheet: ws,
-                aforo: aforoDataMap.get(ws.id) || {},
+                aforo: meta,
                 acuseLog: acuseLog
             };
         });
-        const combinedData = await Promise.all(combinedDataPromises);
+        const combinedData = (await Promise.all(combinedDataPromises)).filter(Boolean) as WorksheetWithCase[];
 
-        setAllCases(combinedData as WorksheetWithCase[]);
+        setAllCases(combinedData);
         setIsLoading(false);
     }, (error) => { toast({ title: "Error de Carga", description: "No se pudieron cargar los datos de los casos.", variant: "destructive" }); setIsLoading(false); });
     
@@ -327,7 +332,7 @@ function ExecutivePageContent() {
     } catch (e) {
         toast({ title: 'Error', description: 'No se pudo duplicar el caso.', variant: 'destructive' });
     } finally {
-        if(caseToDuplicate) setSavingState(prev => ({ ...prev, [caseToDuplicate.id]: false }));
+        if(caseToDuplicate) setSavingState(prev => ({...prev, [caseToDuplicate.id]: false }));
     }
   };
 
@@ -425,8 +430,8 @@ function ExecutivePageContent() {
   const paginatedCases = appliedFilters.isSearchActive ? filteredCases.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage) : filteredCases;
   
   const caseActions = {
-    handleViewWorksheet: (c: AforoData) => setModalState(prev => ({...prev, worksheet: c.worksheet as Worksheet})),
-    setSelectedCaseForDocs: (c: AforoData) => setModalState(prev => ({...prev, docs: c})),
+    handleViewWorksheet: (c: AforoData) => setSelectedWorksheet(c.worksheet as Worksheet),
+    setSelectedCaseForDocs: (c: AforoData) => {},
     setSelectedCaseForQuickRequest: (c: WorksheetWithCase) => setModalState(prev => ({...prev, quickRequest: c})),
     setSelectedCaseForPayment: (c: AforoData) => {
         const initialData: InitialDataContext = {
@@ -468,17 +473,16 @@ function ExecutivePageContent() {
         dateRange = { from: today, to: today };
     }
 
-    setAppliedFilters({ searchTerm, ...facturadoFilter, ...acuseFilter, preliquidation: preliquidationFilter, dateFilterType, dateRange, isSearchActive: true });
+    setAppliedFilters({ searchTerm, ...facturadoFilter, ...acuseFilter, dateFilterType, dateRange, isSearchActive: true });
     setCurrentPage(1);
   };
   const clearFilters = () => {
     setSearchTerm('');
     setFacturadoFilter({ facturado: false, noFacturado: true });
     setAcuseFilter({ conAcuse: false, sinAcuse: true });
-    setPreliquidationFilter(false);
     setDateRangeInput(undefined);
     setColumnFilters({ ne: '', ejecutivo: '', consignatario: '', factura: '', selectividad: '', incidentType: '' });
-    setAppliedFilters({ searchTerm: '', facturado: false, noFacturado: true, conAcuse: false, sinAcuse: true, preliquidation: false, dateFilterType: 'range', dateRange: undefined, isSearchActive: false });
+    setAppliedFilters({ searchTerm: '', facturado: false, noFacturado: true, conAcuse: false, sinAcuse: true, dateFilterType: 'range', dateRange: undefined, isSearchActive: false });
     setCurrentPage(1);
     setSearchHint(null);
   };
@@ -557,30 +561,11 @@ function ExecutivePageContent() {
     }
   };
   
-  const handleSendToFacturacion = async (caseId: string) => {
-    if (!user || !user.displayName) return;
-
-    setSavingState(prev => ({...prev, [caseId]: true}));
-    
-    const aforoMetadataRef = doc(db, 'worksheets', caseId, 'aforo', 'metadata');
-    try {
-        await updateDoc(aforoMetadataRef, {
-            facturacionStatus: 'Enviado a Facturacion',
-            enviadoAFacturacionAt: Timestamp.now(),
-            facturadorAsignado: 'Alvaro Gonzalez',
-            facturadorAsignadoAt: Timestamp.now(),
-        });
-        toast({ title: 'Enviado a Facturación', description: 'El caso ha sido remitido al módulo de facturación y asignado a Alvaro Gonzalez.' });
-    } catch (e) {
-        toast({ title: 'Error', description: 'No se pudo enviar el caso a facturación.', variant: 'destructive'});
-    } finally {
-        setSavingState(prev => ({...prev, [caseId]: false}));
-    }
-  }
+  
 
   if (authLoading || !user) return <div className="min-h-screen flex items-center justify-center bg-background"><Loader2 className="h-12 w-12 animate-spin text-primary" /></div>;
   if (modalState.incidentDetails) {
-      return <AppShell><div className="py-2 md:py-5"><IncidentReportDetails caseData={modalState.incidentDetails} onClose={() => setModalState(prev => ({...prev, incidentDetails: null}))}/></div></AppShell>;
+      return <AppShell><div className="py-2 md:py-5"><IncidentReportDetails caseData={modalState.incidentDetails as any} onClose={() => setModalState(prev => ({...prev, incidentDetails: null}))}/></div></AppShell>;
   }
   if (modalState.worksheet) {
       return <AppShell><div className="py-2 md:py-5"><WorksheetDetails worksheet={modalState.worksheet as WorksheetWithCase} onClose={() => setModalState(prev => ({...prev, worksheet: null}))}/></div></AppShell>;
@@ -693,18 +678,18 @@ function ExecutivePageContent() {
             </Card>
         </div>
       </AppShell>
-    {modalState.history && (<AforoHistoryModal isOpen={!!modalState.history} onClose={() => setModalState(p => ({...p, history: null}))} caseData={modalState.history} />)}
-    {modalState.incident && (<IncidentReportModal isOpen={!!modalState.incident} onClose={() => setModalState(p => ({...p, incident: null}))} caseData={modalState.incident} />)}
-    {modalState.valueDoubt && (<ValueDoubtModal isOpen={!!modalState.valueDoubt} onClose={() => setModalState(p => ({...p, valueDoubt: null}))} caseData={modalState.valueDoubt} />)}
-    {modalState.comment && (<ExecutiveCommentModal isOpen={!!modalState.comment} onClose={() => setModalState(p => ({...p, comment: null}))} caseData={modalState.comment} />)}
+    {modalState.history && (<AforoHistoryModal isOpen={!!modalState.history} onClose={() => setModalState(p => ({...p, history: null}))} caseData={modalState.history as any} />)}
+    {modalState.incident && (<IncidentReportModal isOpen={!!modalState.incident} onClose={() => setModalState(p => ({...p, incident: null}))} caseData={modalState.incident as any} />)}
+    {modalState.valueDoubt && (<ValueDoubtModal isOpen={!!modalState.valueDoubt} onClose={() => setModalState(p => ({...p, valueDoubt: null}))} caseData={modalState.valueDoubt as any} />)}
+    {modalState.comment && (<ExecutiveCommentModal isOpen={!!modalState.comment} onClose={() => setModalState(p => ({...p, comment: null}))} caseData={modalState.comment as any} />)}
     {modalState.quickRequest && (<QuickRequestModal isOpen={!!modalState.quickRequest} onClose={() => setModalState(p => ({...p, quickRequest: null}))} caseWithWorksheet={modalState.quickRequest} />)}
-    {modalState.payment && (<PaymentRequestModal isOpen={!!modalState.payment} onClose={() => setModalState(p => ({...p, payment: null}))} caseData={modalState.payment} />)}
+    {modalState.payment && (<PaymentRequestModal isOpen={!!modalState.payment} onClose={() => setModalState(p => ({...p, payment: null}))} caseData={modalState.payment as any} />)}
     {isRequestPaymentModalOpen && (<PaymentRequestModal isOpen={isRequestPaymentModalOpen} onClose={() => setIsRequestPaymentModalOpen(false)} caseData={null} />)}
-    {modalState.paymentList && (<PaymentListModal isOpen={!!modalState.paymentList} onClose={() => setModalState(p => ({...p, paymentList: null}))} caseData={modalState.paymentList} />)}
-    {modalState.resa && (<ResaNotificationModal isOpen={!!modalState.resa} onClose={() => setModalState(p => ({...p, resa: null}))} caseData={modalState.resa} />)}
-    {caseToAssignAforador && (<AssignUserModal isOpen={!!caseToAssignAforador} onClose={() => setCaseToAssignAforador(null)} caseData={caseToAssignAforador} assignableUsers={assignableUsers} onAssign={handleAssignAforador} title="Asignar Aforador (PSMT)" description={`Como el consignatario es PSMT, debe asignar un aforador para el caso NE: ${caseToAssignAforador.ne}.`}/>)}
+    {modalState.paymentList && (<PaymentListModal isOpen={!!modalState.paymentList} onClose={() => setModalState(p => ({...p, paymentList: null}))} caseData={modalState.paymentList as any} />)}
+    {modalState.resa && (<ResaNotificationModal isOpen={!!modalState.resa} onClose={() => setModalState(p => ({...p, resa: null}))} caseData={modalState.resa as any} />)}
+    {caseToAssignAforador && (<AssignUserModal isOpen={!!caseToAssignAforador} onClose={() => setCaseToAssignAforador(null)} caseData={caseToAssignAforador as any} assignableUsers={assignableUsers} onAssign={handleAssignAforador} title="Asignar Aforador (PSMT)" description={`Como el consignatario es PSMT, debe asignar un aforador para el caso NE: ${caseToAssignAforador.ne}.`}/>)}
     {modalState.viewIncidents && (<ViewIncidentsModal isOpen={!!modalState.viewIncidents} onClose={() => setModalState(p => ({...p, viewIncidents: null}))} onSelectRectificacion={() => { setModalState(p => ({...p, incidentDetails: p.viewIncidents, viewIncidents: null})); }} onSelectDudaValor={() => { setModalState(p => ({...p, valueDoubt: p.viewIncidents, viewIncidents: null})); }} />)}
-    {modalState.process && (<StatusProcessModal isOpen={!!modalState.process} onClose={() => setModalState(p => ({...p, process: null}))} caseData={modalState.process} />)}
+    {modalState.process && (<StatusProcessModal isOpen={!!modalState.process} onClose={() => setModalState(p => ({...p, process: null}))} caseData={modalState.process as any} />)}
     <AlertDialog open={!!modalState.archive} onOpenChange={(isOpen) => !isOpen && setModalState(p => ({...p, archive: null}))}><AlertDialogContent><AlertDialogHeader><AlertDialogTitle>¿Está seguro?</AlertDialogTitle><AlertDialogDescription>Esta acción archivará el caso y no será visible en las listas principales.</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel>Cancelar</AlertDialogCancel><AlertDialogAction onClick={handleArchiveCase}>Sí, Archivar</AlertDialogAction></AlertDialogFooter></AlertDialogContent></AlertDialog>
       <Dialog open={duplicateAndRetireModalOpen} onOpenChange={setDuplicateAndRetireModalOpen}>
         <DialogContent>
@@ -739,8 +724,7 @@ function ExecutivePageContent() {
             </DialogFooter>
         </DialogContent>
       </Dialog>
-      {modalState.payment && (<PaymentRequestModal isOpen={!!modalState.payment} onClose={() => setModalState(p => ({...p, payment: null}))} caseData={modalState.payment} />)}
-      {isRequestPaymentModalOpen && (<PaymentRequestModal isOpen={isRequestPaymentModalOpen} onClose={() => setIsRequestPaymentModalOpen(false)} caseData={null} />)}
+      
     </>
   );
 }
@@ -752,3 +736,4 @@ export default function ExecutivePage() {
         </Suspense>
     );
 }
+
