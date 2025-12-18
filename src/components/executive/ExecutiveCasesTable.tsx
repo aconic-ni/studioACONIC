@@ -1,7 +1,8 @@
+
 "use client";
 import React from 'react';
 import type { AforoCase, AforoCaseStatus, DigitacionStatus, PreliquidationStatus, WorksheetWithCase } from '@/types';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Table, TableBody, TableCell, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator } from '@/components/ui/dropdown-menu';
@@ -203,14 +204,14 @@ export function ExecutiveCasesTable({
                             </Tooltip>
                            </div>
                         </TableCell>
-                        <TableCell>
+                         <TableCell>
                             <div className="flex items-center">
                                 {(aforoData.revisorStatus === 'Aprobado' && aforoData.preliquidationStatus !== 'Aprobada') ? (
                                     <Button size="sm" onClick={() => approvePreliquidation(c.id)} disabled={savingState[c.id]}>
                                         <CheckCircle className="mr-2 h-4 w-4" /> Aprobar
                                     </Button>
                                 ) : (
-                                    aforoData.preliquidationStatus === 'Aprobada' ? <Badge variant="default" className="bg-green-600">Aprobada</Badge> : <Badge variant="outline">Pendiente</Badge>
+                                    <Badge variant={aforoData.preliquidationStatus === 'Aprobada' ? 'default' : 'outline'}>{aforoData.preliquidationStatus || 'Pendiente'}</Badge>
                                 )}
                                 <LastUpdateTooltip lastUpdate={aforoData.preliquidationStatusLastUpdate} caseCreation={c.createdAt}/>
                             </div>
@@ -252,7 +253,10 @@ export function ExecutiveCasesTable({
                             </TooltipProvider>
                         </TableCell>
                         <TableCell>
-                            {getIncidentTypeDisplay(c)}
+                          <div className="flex items-center">
+                           <span>{getIncidentTypeDisplay(c)}</span>
+                            <LastUpdateTooltip lastUpdate={c.incidentStatusLastUpdate} caseCreation={c.createdAt}/>
+                          </div>
                         </TableCell>
                         <TableCell>
                             <div className="flex items-center justify-center">
@@ -267,3 +271,4 @@ export function ExecutiveCasesTable({
     </div>
   );
 }
+`

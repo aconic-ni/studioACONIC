@@ -1,3 +1,4 @@
+
 "use client";
 import React from 'react';
 import { TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -69,3 +70,4 @@ export function ExecutiveTableHeader({
         </TableHeader>
     );
 }
+`

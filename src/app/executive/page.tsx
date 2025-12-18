@@ -7,18 +7,11 @@ import { useAuth } from '@/context/AuthContext';
 import { AppShell } from '@/components/layout/AppShell';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Loader2, FilePlus, Search, Edit, Eye, History, PlusSquare, UserCheck, Inbox, AlertTriangle, Download, ChevronsUpDown, Info, CheckCircle, CalendarRange, Calendar, CalendarDays, ShieldAlert, BookOpen, FileCheck2, MessageSquare, View, Banknote, Bell as BellIcon, RefreshCw, Send, StickyNote, Scale, Briefcase, KeyRound, Copy, Archive } from 'lucide-react';
+import { Loader2, FilePlus, Edit, Inbox, Banknote, StickyNote, Briefcase } from 'lucide-react';
 import { db } from '@/lib/firebase';
 import { collection, query, where, onSnapshot, orderBy, Timestamp, doc, getDoc, updateDoc, writeBatch, addDoc, getDocs, collectionGroup, serverTimestamp, setDoc } from 'firebase/firestore';
-import type { Worksheet, AforoCase, AforadorStatus, AforoCaseStatus, DigitacionStatus, WorksheetWithCase, AforoCaseUpdate, PreliquidationStatus, IncidentType, LastUpdateInfo, ExecutiveComment, InitialDataContext, AppUser, SolicitudRecord, ExamDocument, FacturacionStatus } from '@/types';
-import { format, toDate, isSameDay, startOfDay, endOfDay, differenceInDays, startOfMonth, endOfMonth } from 'date-fns';
-import { es } from 'date-fns/locale';
-import { AforoCaseHistoryModal } from '@/components/reporter/AforoCaseHistoryModal';
-import { IncidentReportModal } from '@/components/reporter/IncidentReportModal';
-import { Badge } from '@/components/ui/badge';
-import { IncidentReportDetails } from '@/components/reporter/IncidentReportDetails';
-import { ValueDoubtModal } from '@/components/executive/ValueDoubtModal';
-import { DatePickerWithTime } from '@/components/reports/DatePickerWithTime';
+import type { Worksheet, AforoCase, WorksheetWithCase, AforoCaseUpdate, InitialDataContext, AppUser, SolicitudRecord } from '@/types';
+import { isSameDay, startOfDay, endOfDay } from 'date-fns';
 import { useToast } from '@/hooks/use-toast';
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuLabel } from '@/components/ui/dropdown-menu';
 import type { DateRange } from 'react-day-picker';
@@ -30,18 +23,19 @@ import { PaymentListModal } from '@/components/executive/PaymentListModal';
 import { AnnouncementsCarousel } from '@/components/executive/AnnouncementsCarousel';
 import { AssignUserModal } from '@/components/reporter/AssignUserModal';
 import { ResaNotificationModal } from '@/components/executive/ResaNotificationModal';
-import { useIsMobile } from '@/hooks/use-mobile';
-import { MobileCasesList } from '@/components/executive/MobileCasesList';
 import { useAppContext } from '@/context/AppContext';
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { ViewIncidentsModal } from '@/components/executive/ViewIncidentsModal';
 import { StatusProcessModal } from '@/components/executive/StatusProcessModal';
 import { Textarea } from '@/components/ui/textarea';
 import { v4 as uuidv4 } from 'uuid';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ExecutiveFilters } from '@/components/executive/ExecutiveFilters';
 import { ExecutiveCasesTable } from '@/components/executive/ExecutiveCasesTable';
+import { AforoCaseHistoryModal } from '@/components/reporter/AforoCaseHistoryModal';
+import { IncidentReportModal } from '@/components/reporter/IncidentReportModal';
+import { IncidentReportDetails } from '@/components/reporter/IncidentReportDetails';
+import { ValueDoubtModal } from '@/components/executive/ValueDoubtModal';
 
 type DateFilterType = 'range' | 'month' | 'today';
 type TabValue = 'worksheets' | 'anexos' | 'corporate';
@@ -52,7 +46,6 @@ function ExecutivePageContent() {
   const searchParams = useSearchParams();
   const { toast } = useToast();
   const { openAddProductModal, setInitialContextData, setIsMemorandumMode, caseToAssignAforador, setCaseToAssignAforador } = useAppContext();
-  const isMobile = useIsMobile();
   const [allCases, setAllCases] = useState<WorksheetWithCase[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isExporting, setIsExporting] = useState(false);
@@ -84,7 +77,6 @@ function ExecutivePageContent() {
   const [appliedFilters, setAppliedFilters] = useState({ searchTerm: '', facturado: false, noFacturado: true, conAcuse: false, sinAcuse: true, preliquidation: false, dateFilterType: 'range' as DateFilterType, dateRange: undefined as DateRange | undefined, isSearchActive: false });
   const [columnFilters, setColumnFilters] = useState({ ne: '', ejecutivo: '', consignatario: '', factura: '', selectividad: '', incidentType: '' });
   const [savingState, setSavingState] = useState<{ [key: string]: boolean }>({});
-  const [pinInput, setNewNeForDuplicate] = useState('');
   const [newNeForDuplicate, setNewNeForDuplicateState] = useState('');
   const [duplicateReason, setDuplicateReason] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
@@ -245,7 +237,7 @@ function ExecutivePageContent() {
       } else { setSearchHint(null); }
 
     return finalFiltered;
-  }, [allCases, appliedFilters, activeTab, columnFilters, acuseFilter]);
+  }, [allCases, appliedFilters, activeTab, columnFilters, acuseFilter, preliquidationFilter]);
 
   const totalPages = Math.ceil(filteredCases.length / itemsPerPage);
   const paginatedCases = appliedFilters.isSearchActive ? filteredCases.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage) : filteredCases;
@@ -370,6 +362,27 @@ function ExecutivePageContent() {
     handleAutoSave(caseId, 'preliquidationStatus', 'Aprobada');
   };
 
+  const handleSendToFacturacion = async (caseId: string) => {
+    if (!user || !user.displayName) return;
+
+    setSavingState(prev => ({...prev, [caseId]: true}));
+    
+    const caseDocRef = doc(db, 'AforoCases', caseId);
+    try {
+        await updateDoc(caseDocRef, {
+            facturacionStatus: 'Enviado a Facturacion',
+            enviadoAFacturacionAt: Timestamp.now(),
+            facturadorAsignado: 'Alvaro Gonzalez',
+            facturadorAsignadoAt: Timestamp.now(),
+        });
+        toast({ title: 'Enviado a Facturación', description: 'El caso ha sido remitido al módulo de facturación y asignado a Alvaro Gonzalez.' });
+    } catch (e) {
+        toast({ title: 'Error', description: 'No se pudo enviar el caso a facturación.', variant: 'destructive'});
+    } finally {
+        setSavingState(prev => ({...prev, [caseId]: false}));
+    }
+  }
+
   if (authLoading || !user) return <div className="min-h-screen flex items-center justify-center bg-background"><Loader2 className="h-12 w-12 animate-spin text-primary" /></div>;
 
   return (
@@ -377,47 +390,45 @@ function ExecutivePageContent() {
       <AppShell>
         <div className="py-2 md:py-5 space-y-6">
           <AnnouncementsCarousel />
-            <Tabs defaultValue={activeTab} className="w-full" onValueChange={handleTabChange}>
-                <Card>
-                    <CardHeader>
-                        <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-4">
-                            <div>
-                                <CardTitle className="flex items-center gap-2 text-2xl"><Inbox/> Panel Ejecutivo</CardTitle>
-                                <CardDescription>Seguimiento de operaciones, desde la hoja de trabajo hasta la facturación.</CardDescription>
-                            </div>
-                            <div className="flex flex-col sm:flex-row items-center gap-3">
-                                <AlertDialog>
-                                    <AlertDialogTrigger asChild>
-                                        <Button size="lg" variant="secondary" className="h-12 text-md">
-                                            <Banknote className="mr-2 h-5 w-5" /> Solicitud de Pago General
-                                        </Button>
-                                    </AlertDialogTrigger>
-                                    <AlertDialogContent>
-                                        <AlertDialogHeader><AlertDialogTitle>¿Está seguro?</AlertDialogTitle><AlertDialogDescription>Esta acción iniciará una solicitud de pago no vinculada a un Número de Entrada (NE) específico. Se generará un ID único en su lugar.</AlertDialogDescription></AlertDialogHeader>
-                                        <AlertDialogFooter><AlertDialogCancel>Cancelar</AlertDialogCancel><AlertDialogAction onClick={handleOpenPaymentRequest}>Sí, continuar</AlertDialogAction></AlertDialogFooter>
-                                    </AlertDialogContent>
-                                </AlertDialog>
-                                <DropdownMenu>
-                                    <DropdownMenuTrigger asChild><Button size="lg" variant="default" className="h-12 text-md"><Edit className="mr-2 h-5 w-5" />Crear Registro</Button></DropdownMenuTrigger>
-                                    <DropdownMenuContent>
-                                        <DropdownMenuLabel>Tipo de Documento</DropdownMenuLabel><DropdownMenuSeparator />
-                                        <DropdownMenuItem asChild><Link href="/executive/worksheet"><FilePlus className="mr-2 h-4 w-4" /> Hoja de Trabajo</Link></DropdownMenuItem>
-                                        <DropdownMenuItem asChild><Link href="/executive/corporate-report"><Briefcase className="mr-2 h-4 w-4" /> Reporte Consignatario</Link></DropdownMenuItem>
-                                        <DropdownMenuItem asChild><Link href="/executive/anexos?type=anexo_5"><StickyNote className="mr-2 h-4 w-4" /> Anexo 5</Link></DropdownMenuItem>
-                                        <DropdownMenuItem asChild><Link href="/executive/anexos?type=anexo_7"><StickyNote className="mr-2 h-4 w-4" /> Anexo 7</Link></DropdownMenuItem>
-                                    </DropdownMenuContent>
-                                </DropdownMenu>
-                            </div>
+            <Card>
+                <CardHeader>
+                    <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-4">
+                        <div>
+                            <CardTitle className="flex items-center gap-2 text-2xl"><Inbox/> Panel Ejecutivo</CardTitle>
+                            <CardDescription>Seguimiento de operaciones, desde la hoja de trabajo hasta la facturación.</CardDescription>
                         </div>
-                         <div className="border-t pt-4 mt-2">
-                           <TabsList>
-                               <TabsTrigger value="worksheets">Hojas de Trabajo</TabsTrigger>
-                               <TabsTrigger value="anexos">Anexos</TabsTrigger>
-                               <TabsTrigger value="corporate">Reportes Corporativos</TabsTrigger>
-                           </TabsList>
+                        <div className="flex flex-col sm:flex-row items-center gap-3">
+                            <AlertDialog>
+                                <AlertDialogTrigger asChild>
+                                    <Button size="lg" variant="secondary" className="h-12 text-md">
+                                        <Banknote className="mr-2 h-5 w-5" /> Solicitud de Pago General
+                                    </Button>
+                                </AlertDialogTrigger>
+                                <AlertDialogContent>
+                                    <AlertDialogHeader><AlertDialogTitle>¿Está seguro?</AlertDialogTitle><AlertDialogDescription>Esta acción iniciará una solicitud de pago no vinculada a un Número de Entrada (NE) específico. Se generará un ID único en su lugar.</AlertDialogDescription></AlertDialogHeader>
+                                    <AlertDialogFooter><AlertDialogCancel>Cancelar</AlertDialogCancel><AlertDialogAction onClick={handleOpenPaymentRequest}>Sí, continuar</AlertDialogAction></AlertDialogFooter>
+                                </AlertDialogContent>
+                            </AlertDialog>
+                            <DropdownMenu>
+                                <DropdownMenuTrigger asChild><Button size="lg" variant="default" className="h-12 text-md"><Edit className="mr-2 h-5 w-5" />Crear Registro</Button></DropdownMenuTrigger>
+                                <DropdownMenuContent>
+                                    <DropdownMenuLabel>Tipo de Documento</DropdownMenuLabel><DropdownMenuSeparator />
+                                    <DropdownMenuItem asChild><Link href="/executive/worksheet"><FilePlus className="mr-2 h-4 w-4" /> Hoja de Trabajo</Link></DropdownMenuItem>
+                                    <DropdownMenuItem asChild><Link href="/executive/corporate-report"><Briefcase className="mr-2 h-4 w-4" /> Reporte Consignatario</Link></DropdownMenuItem>
+                                    <DropdownMenuItem asChild><Link href="/executive/anexos?type=anexo_5"><StickyNote className="mr-2 h-4 w-4" /> Anexo 5</Link></DropdownMenuItem>
+                                    <DropdownMenuItem asChild><Link href="/executive/anexos?type=anexo_7"><StickyNote className="mr-2 h-4 w-4" /> Anexo 7</Link></DropdownMenuItem>
+                                </DropdownMenuContent>
+                            </DropdownMenu>
                         </div>
-                    </CardHeader>
-                    <CardContent>
+                    </div>
+                </CardHeader>
+                <CardContent>
+                    <Tabs defaultValue={activeTab} className="w-full" onValueChange={handleTabChange}>
+                         <TabsList className="mb-4">
+                           <TabsTrigger value="worksheets">Hojas de Trabajo</TabsTrigger>
+                           <TabsTrigger value="anexos">Anexos</TabsTrigger>
+                           <TabsTrigger value="corporate">Reportes Corporativos</TabsTrigger>
+                       </TabsList>
                        <ExecutiveFilters
                            activeTab={activeTab as TabValue}
                            searchTerm={searchTerm}
@@ -448,24 +459,26 @@ function ExecutivePageContent() {
                         <TabsContent value="corporate" className="mt-6">
                             <ExecutiveCasesTable cases={paginatedCases} savingState={savingState} onAutoSave={handleAutoSave} approvePreliquidation={approvePreliquidation} caseActions={caseActions} selectedRows={selectedRows} onSelectRow={setSelectedRows} onSelectAllRows={()=>{}} columnFilters={columnFilters} setColumnFilters={setColumnFilters} handleSendToFacturacion={handleSendToFacturacion} onSearch={handleSearch} />
                         </TabsContent>
-                    </CardContent>
-                </Card>
-            </Tabs>
+                    </Tabs>
+                </CardContent>
+            </Card>
         </div>
       </AppShell>
-      {modalState.history && (<AforoCaseHistoryModal isOpen={!!modalState.history} onClose={() => setModalState(p => ({...p, history: null}))} caseData={modalState.history} />)}
-      {modalState.incident && (<IncidentReportModal isOpen={!!modalState.incident} onClose={() => setModalState(p => ({...p, incident: null}))} caseData={modalState.incident} />)}
-      {modalState.valueDoubt && (<ValueDoubtModal isOpen={!!modalState.valueDoubt} onClose={() => setModalState(p => ({...p, valueDoubt: null}))} caseData={modalState.valueDoubt} />)}
-      {modalState.comment && (<ExecutiveCommentModal isOpen={!!modalState.comment} onClose={() => setModalState(p => ({...p, comment: null}))} caseData={modalState.comment} />)}
-      {modalState.quickRequest && (<QuickRequestModal isOpen={!!modalState.quickRequest} onClose={() => setModalState(p => ({...p, quickRequest: null}))} caseWithWorksheet={modalState.quickRequest} />)}
-      {modalState.payment && (<PaymentRequestModal isOpen={!!modalState.payment} onClose={() => setModalState(p => ({...p, payment: null}))} caseData={modalState.payment} />)}
-      {isRequestPaymentModalOpen && (<PaymentRequestModal isOpen={isRequestPaymentModalOpen} onClose={() => setIsRequestPaymentModalOpen(false)} caseData={null} />)}
-      {modalState.paymentList && (<PaymentListModal isOpen={!!modalState.paymentList} onClose={() => setModalState(p => ({...p, paymentList: null}))} caseData={modalState.paymentList} />)}
-      {modalState.resa && (<ResaNotificationModal isOpen={!!modalState.resa} onClose={() => setModalState(p => ({...p, resa: null}))} caseData={modalState.resa} />)}
-      {caseToAssignAforador && (<AssignUserModal isOpen={!!caseToAssignAforador} onClose={() => setCaseToAssignAforador(null)} caseData={caseToAssignAforador} assignableUsers={assignableUsers} onAssign={() => {}} title="Asignar Aforador (PSMT)" description={`Como el consignatario es PSMT, debe asignar un aforador para el caso NE: ${caseToAssignAforador.ne}.`}/>)}
-      {modalState.viewIncidents && (<ViewIncidentsModal isOpen={!!modalState.viewIncidents} onClose={() => setModalState(p => ({...p, viewIncidents: null}))} onSelectRectificacion={() => { setModalState(p => ({...p, incidentDetails: p.viewIncidents, viewIncidents: null})); }} onSelectDudaValor={() => { setModalState(p => ({...p, valueDoubt: p.viewIncidents, viewIncidents: null})); }} />)}
-      {modalState.process && (<StatusProcessModal isOpen={!!modalState.process} onClose={() => setModalState(p => ({...p, process: null}))} caseData={modalState.process} />)}
-      <AlertDialog open={!!modalState.archive} onOpenChange={(isOpen) => !isOpen && setModalState(p => ({...p, archive: null}))}><AlertDialogContent><AlertDialogHeader><AlertDialogTitle>¿Está seguro?</AlertDialogTitle><AlertDialogDescription>Esta acción archivará el caso y no será visible en las listas principales.</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel>Cancelar</AlertDialogCancel><AlertDialogAction onClick={handleArchiveCase}>Sí, Archivar</AlertDialogAction></AlertDialogFooter></AlertDialogContent></AlertDialog>
+    {modalState.history && (<AforoCaseHistoryModal isOpen={!!modalState.history} onClose={() => setModalState(p => ({...p, history: null}))} caseData={modalState.history} />)}
+    {modalState.incident && (<IncidentReportModal isOpen={!!modalState.incident} onClose={() => setModalState(p => ({...p, incident: null}))} caseData={modalState.incident} />)}
+    {modalState.valueDoubt && (<ValueDoubtModal isOpen={!!modalState.valueDoubt} onClose={() => setModalState(p => ({...p, valueDoubt: null}))} caseData={modalState.valueDoubt} />)}
+    {modalState.incidentDetails && (<IncidentReportDetails caseData={modalState.incidentDetails} onClose={() => setModalState(p => ({...p, incidentDetails: null}))}/>)}
+    {modalState.worksheet && (<WorksheetDetails worksheet={modalState.worksheet as WorksheetWithCase} onClose={() => setModalState(p => ({...p, worksheet: null}))}/>)}
+    {modalState.comment && (<ExecutiveCommentModal isOpen={!!modalState.comment} onClose={() => setModalState(p => ({...p, comment: null}))} caseData={modalState.comment} />)}
+    {modalState.quickRequest && (<QuickRequestModal isOpen={!!modalState.quickRequest} onClose={() => setModalState(p => ({...p, quickRequest: null}))} caseWithWorksheet={modalState.quickRequest} />)}
+    {modalState.payment && (<PaymentRequestModal isOpen={!!modalState.payment} onClose={() => setModalState(p => ({...p, payment: null}))} caseData={modalState.payment} />)}
+    {isRequestPaymentModalOpen && (<PaymentRequestModal isOpen={isRequestPaymentModalOpen} onClose={() => setIsRequestPaymentModalOpen(false)} caseData={null} />)}
+    {modalState.paymentList && (<PaymentListModal isOpen={!!modalState.paymentList} onClose={() => setModalState(p => ({...p, paymentList: null}))} caseData={modalState.paymentList} />)}
+    {modalState.resa && (<ResaNotificationModal isOpen={!!modalState.resa} onClose={() => setModalState(p => ({...p, resa: null}))} caseData={modalState.resa} />)}
+    {caseToAssignAforador && (<AssignUserModal isOpen={!!caseToAssignAforador} onClose={() => setCaseToAssignAforador(null)} caseData={caseToAssignAforador} assignableUsers={assignableUsers} onAssign={() => {}} title="Asignar Aforador (PSMT)" description={`Como el consignatario es PSMT, debe asignar un aforador para el caso NE: ${caseToAssignAforador.ne}.`}/>)}
+    {modalState.viewIncidents && (<ViewIncidentsModal isOpen={!!modalState.viewIncidents} onClose={() => setModalState(p => ({...p, viewIncidents: null}))} onSelectRectificacion={() => { setModalState(p => ({...p, incidentDetails: p.viewIncidents, viewIncidents: null})); }} onSelectDudaValor={() => { setModalState(p => ({...p, valueDoubt: p.viewIncidents, viewIncidents: null})); }} />)}
+    {modalState.process && (<StatusProcessModal isOpen={!!modalState.process} onClose={() => setModalState(p => ({...p, process: null}))} caseData={modalState.process} />)}
+    <AlertDialog open={!!modalState.archive} onOpenChange={(isOpen) => !isOpen && setModalState(p => ({...p, archive: null}))}><AlertDialogContent><AlertDialogHeader><AlertDialogTitle>¿Está seguro?</AlertDialogTitle><AlertDialogDescription>Esta acción archivará el caso y no será visible en las listas principales.</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel>Cancelar</AlertDialogCancel><AlertDialogAction onClick={handleArchiveCase}>Sí, Archivar</AlertDialogAction></AlertDialogFooter></AlertDialogContent></AlertDialog>
       <Dialog open={duplicateAndRetireModalOpen} onOpenChange={setDuplicateAndRetireModalOpen}>
         <DialogContent>
             <DialogHeader>
@@ -481,7 +494,7 @@ function ExecutivePageContent() {
             <DialogFooter><Button variant="outline" onClick={() => setDuplicateAndRetireModalOpen(false)}>Cancelar</Button><Button onClick={handleDuplicateAndRetire} disabled={savingState[modalState.duplicate?.id || '']}>Duplicar y Retirar</Button></DialogFooter>
         </DialogContent>
       </Dialog>
-      <Dialog open={isDeathkeyModalOpen} onOpenChange={setIsDeathkeyModalOpen}><DialogContent><DialogHeader><DialogTitle>Confirmar Acción "Deathkey"</DialogTitle><DialogDescription>Esta acción reclasificará {selectedRows.length} caso(s) a "Reporte Corporativo", excluyéndolos de la lógica de Aforo. Es irreversible. Ingrese el PIN para confirmar.</DialogDescription></DialogHeader><div className="py-4 space-y-2"><Label htmlFor="pin-input" className="flex items-center gap-2"><KeyRound/>PIN de Seguridad</Label><Input id="pin-input" type="password" value={pinInput} onChange={(e) => setNewNeForDuplicate(e.target.value)} placeholder="PIN de 6 dígitos"/></div><DialogFooter><Button variant="outline" onClick={() => setIsDeathkeyModalOpen(false)}>Cancelar</Button><Button variant="destructive" onClick={handleDeathkey} disabled={isLoading}>{isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin"/>}Confirmar y Ejecutar</Button></DialogFooter></DialogContent></Dialog>
+      <Dialog open={isDeathkeyModalOpen} onOpenChange={setIsDeathkeyModalOpen}><DialogContent><DialogHeader><DialogTitle>Confirmar Acción "Deathkey"</DialogTitle><DialogDescription>Esta acción reclasificará {selectedRows.length} caso(s) a "Reporte Corporativo", excluyéndolos de la lógica de Aforo. Es irreversible. Ingrese el PIN para confirmar.</DialogDescription></DialogHeader><div className="py-4 space-y-2"><Label htmlFor="pin-input" className="flex items-center gap-2"><KeyRound/>PIN de Seguridad</Label><Input id="pin-input" type="password" value={pinInput} onChange={(e) => setPinInput(e.target.value)} placeholder="PIN de 6 dígitos"/></div><DialogFooter><Button variant="outline" onClick={() => setIsDeathkeyModalOpen(false)}>Cancelar</Button><Button variant="destructive" onClick={handleDeathkey} disabled={isLoading}>{isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin"/>}Confirmar y Ejecutar</Button></DialogFooter></DialogContent></Dialog>
     </>
   );
 }
@@ -493,3 +506,4 @@ export default function ExecutivePage() {
         </Suspense>
     );
 }
+`

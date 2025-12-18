@@ -1,5 +1,6 @@
+
 "use client";
-import React from 'react';
+import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -109,21 +110,21 @@ export function ExecutiveFilters({
                         </PopoverTrigger>
                         <PopoverContent className="w-56 p-2" align="end">
                             <div className="grid gap-2">
-                                <label className="flex items-center gap-2 text-sm font-normal"><Checkbox checked={facturadoFilter.noFacturado} onCheckedChange={(checked) => setFacturadoFilter(f => ({ ...f, noFacturado: !!checked }))} />No Facturados</label>
-                                <label className="flex items-center gap-2 text-sm font-normal"><Checkbox checked={facturadoFilter.facturado} onCheckedChange={(checked) => setFacturadoFilter(f => ({ ...f, facturado: !!checked }))} />Facturados</label>
+                              <label className="flex items-center gap-2 text-sm font-normal"><Checkbox checked={facturadoFilter.noFacturado} onCheckedChange={(checked) => setFacturadoFilter(f => ({ ...f, noFacturado: !!checked }))} />No Facturados</label>
+                              <label className="flex items-center gap-2 text-sm font-normal"><Checkbox checked={facturadoFilter.facturado} onCheckedChange={(checked) => setFacturadoFilter(f => ({ ...f, facturado: !!checked }))} />Facturados</label>
                             </div>
                             <div className="grid gap-2 mt-2 pt-2 border-t">
                                 <label className="flex items-center gap-2 text-sm font-normal"><Checkbox checked={acuseFilter.sinAcuse} onCheckedChange={(checked) => setAcuseFilter(f => ({ ...f, sinAcuse: !!checked }))} />Sin Acuse</label>
                                 <label className="flex items-center gap-2 text-sm font-normal"><Checkbox checked={acuseFilter.conAcuse} onCheckedChange={(checked) => setAcuseFilter(f => ({ ...f, conAcuse: !!checked }))} />Con Acuse</label>
                             </div>
-                            <div className="grid gap-2 mt-2 pt-2 border-t">
+                             <div className="grid gap-2 mt-2 pt-2 border-t">
                                 <label className="flex items-center gap-2 text-sm font-normal"><Checkbox checked={preliquidationFilter} onCheckedChange={setPreliquidationFilter} />Pendiente Preliquidación</label>
                             </div>
                         </PopoverContent>
                     </Popover>
                     <Button onClick={handleSearch}><Search className="mr-2 h-4 w-4" /> Buscar</Button>
                     <Button variant="outline" onClick={clearFilters}>Limpiar Filtros</Button>
-                    <Button variant="outline" onClick={() => {}}><RefreshCw className="mr-2 h-4 w-4" /> Actualizar</Button>
+                     <Button variant="outline" onClick={() => {}}><RefreshCw className="mr-2 h-4 w-4" /> Actualizar</Button>
                     <Button onClick={() => {}} disabled={allCasesCount === 0 || isExporting}><Download className="mr-2 h-4 w-4" />Exportar</Button>
                 </div>
             </div>
@@ -141,6 +142,17 @@ export function ExecutiveFilters({
                     </div>
                 )}
             </div>
+            {searchHint && (
+                <div className="mt-2 p-2 bg-blue-100 dark:bg-blue-900/30 border border-blue-300 dark:border-blue-700 rounded-md flex items-center gap-2 text-sm">
+                    <p>También se encontraron resultados en:</p>
+                    <Button onClick={() => {
+                        const newUrl = `/executive?tab=${searchHint.foundIn}`;
+                        window.history.pushState({ ...window.history.state, as: newUrl, url: newUrl }, '', newUrl);
+                        window.dispatchEvent(new PopStateEvent('popstate'));
+                    }} variant="secondary" size="sm">{searchHint.label}</Button>
+                </div>
+            )}
         </div>
     );
 }
+`
