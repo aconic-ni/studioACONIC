@@ -1,9 +1,10 @@
+
 "use client";
 import React from 'react';
 import Image from 'next/image';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
-import { X, Printer, FileText, User, Building, Weight, Truck, MapPin, Anchor, Plane, FileSymlink, Link as LinkIcon, Eye, Shield, FileBadge, FileKey, Edit, Calendar } from 'lucide-react';
+import { X, Printer, FileText, User, Building, Weight, Truck, MapPin, Anchor, Plane, FileSymlink, Link as LinkIcon, Eye, Shield, FileBadge, FileKey, Edit, Calendar, Package } from 'lucide-react';
 import type { Worksheet, WorksheetWithCase } from '@/types';
 import { Timestamp } from 'firebase/firestore';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
