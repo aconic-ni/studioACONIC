@@ -9,7 +9,7 @@ import { Loader2, Search, FileSpreadsheet, Inbox } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { db } from '@/lib/firebase';
-import { collection, query, where, onSnapshot, orderBy, doc, getDoc, getDocs, collectionGroup, Timestamp, limit } from 'firebase/firestore';
+import { collection, query, where, onSnapshot, orderBy, doc, getDoc, getDocs, collectionGroup, Timestamp, limit, documentId } from 'firebase/firestore';
 import type { Worksheet, WorksheetWithCase } from '@/types';
 import { useToast } from '@/hooks/use-toast';
 import { AforadorCasesTable } from '@/components/aforador/AforadorCasesTable';

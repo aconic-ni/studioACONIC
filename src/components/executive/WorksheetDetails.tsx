@@ -230,7 +230,7 @@ export function WorksheetDetails({ worksheet, onClose }: { worksheet: WorksheetW
               <div>
                 <h4 className="text-lg font-medium mb-2 text-foreground print:text-sm print:mb-1">Detalles de Operación</h4>
                 <div className="space-y-3 p-4 border rounded-md print:border print:p-2 print:space-y-1">
-                    <DetailItem label="Tipo de Operación" value={worksheet.worksheet?.operationType ? worksheet.worksheet.operationType.charAt(0).toUpperCase() + worksheet.worksheet.operationType.slice(1) : undefined} icon={ListChecks} />
+                    <DetailItem label="Tipo de Operación" value={worksheet.worksheet?.operationType ? worksheet.worksheet.operationType.charAt(0).toUpperCase() + worksheet.worksheet.operationType.slice(1) : undefined} icon={FileSymlink} />
                     {worksheet.worksheet?.operationType && (
                         <>
                          <DetailItem label="Modelo (Patrón)" value={worksheet.worksheet.patternRegime} />

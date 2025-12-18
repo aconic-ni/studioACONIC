@@ -17,18 +17,17 @@ export function WorksheetDetailModal({ isOpen, onClose, worksheet }: WorksheetDe
   if (!isOpen || !worksheet) return null;
 
   const renderContent = () => {
-    // The full worksheet data is nested inside the 'worksheet' property for WorksheetWithCase
-    const ws = 'worksheet' in worksheet && worksheet.worksheet ? worksheet.worksheet : worksheet;
-    const wsType = ws.worksheetType;
+    // Determine the actual worksheet object, which might be nested.
+    const wsData = 'worksheet' in worksheet && worksheet.worksheet ? worksheet.worksheet : worksheet;
 
-    switch (wsType) {
+    switch (wsData.worksheetType) {
       case 'anexo_5':
-        return <Anexo5Details worksheet={ws as Worksheet} onClose={onClose} />;
+        return <Anexo5Details worksheet={wsData as Worksheet} onClose={onClose} />;
       case 'anexo_7':
-        return <Anexo7Details worksheet={ws as Worksheet} onClose={onClose} />;
+        return <Anexo7Details worksheet={wsData as Worksheet} onClose={onClose} />;
       case 'hoja_de_trabajo':
       default:
-        // Pass the full case data to WorksheetDetails if it's available
+        // Pass the full case data to WorksheetDetails if it's available, otherwise just the worksheet part.
         return <WorksheetDetails worksheet={worksheet as WorksheetWithCase} onClose={onClose} />;
     }
   };
