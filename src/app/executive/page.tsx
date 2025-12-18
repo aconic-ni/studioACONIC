@@ -14,7 +14,7 @@ import type { Worksheet, AforoData, AforadorStatus, AforoDataStatus, DigitacionS
 import { format, toDate, isSameDay, startOfDay, endOfDay, differenceInDays, startOfMonth, endOfMonth } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { Input } from '@/components/ui/input';
-import { no existeHistoryModal } from '@/components/reporter/no existeHistoryModal';
+import { AforoCaseHistoryModal } from '@/components/reporter/AforoCaseHistoryModal';
 import { IncidentReportModal } from '@/components/reporter/IncidentReportModal';
 import { Badge } from '@/components/ui/badge';
 import { IncidentReportDetails } from '@/components/reporter/IncidentReportDetails';
@@ -160,13 +160,23 @@ function ExecutivePageContent() {
             }));
         }
         
-        const combinedData = worksheetsData.map(ws => ({
-            ...aforoDataMap.get(ws.id),
-            ...ws,
-            id: ws.id, // ensure worksheet ID is primary
-            worksheet: ws,
-            aforo: aforoDataMap.get(ws.id) || {},
-        }));
+        const combinedDataPromises = worksheetsData.map(async ws => {
+            const updatesRef = collection(db, 'worksheets', ws.id, 'actualizaciones');
+            const acuseQuery = query(updatesRef, where('newValue', '==', 'worksheet_received'), orderBy('updatedAt', 'desc'));
+            const acuseSnapshot = await getDocs(acuseQuery);
+            const acuseLog = acuseSnapshot.empty ? null : acuseSnapshot.docs[0].data() as AforoDataUpdate;
+
+            return {
+                ...aforoDataMap.get(ws.id),
+                ...ws,
+                id: ws.id, // ensure worksheet ID is primary
+                worksheet: ws,
+                aforo: aforoDataMap.get(ws.id) || {},
+                acuseLog,
+            };
+        });
+
+        const combinedData = await Promise.all(combinedDataPromises);
 
         setAllCases(combinedData as WorksheetWithCase[]);
         setIsLoading(false);
@@ -468,25 +478,6 @@ function ExecutivePageContent() {
         toast({ title: "Sin Incidencias", description: "Este caso no tiene incidencias reportadas.", variant: "default" });
     }
   };
-
-  const handleSendToFacturacion = async (caseId: string) => {
-    if (!user || !user.displayName) return;
-    setSavingState(prev => ({...prev, [caseId]: true}));
-    const aforoMetadataRef = doc(db, 'worksheets', caseId, 'aforo', 'metadata');
-    try {
-        await updateDoc(aforoMetadataRef, {
-            facturacionStatus: 'Enviado a Facturacion',
-            enviadoAFacturacionAt: Timestamp.now(),
-            facturadorAsignado: 'Alvaro Gonzalez',
-            facturadorAsignadoAt: Timestamp.now(),
-        });
-        toast({ title: 'Enviado a Facturación', description: 'El caso ha sido remitido al módulo de facturación y asignado a Alvaro Gonzalez.' });
-    } catch (e) {
-        toast({ title: 'Error', description: 'No se pudo enviar el caso a facturación.', variant: 'destructive'});
-    } finally {
-        setSavingState(prev => ({...prev, [caseId]: false}));
-    }
-  }
   
   if (authLoading || !user) return <div className="min-h-screen flex items-center justify-center bg-background"><Loader2 className="h-12 w-12 animate-spin text-primary" /></div>;
   if (modalState.incidentDetails) {
@@ -576,11 +567,12 @@ function ExecutivePageContent() {
             </Card>
         </div>
       </AppShell>
-    {modalState.history && (<no existeHistoryModal isOpen={!!modalState.history} onClose={() => setModalState(p => ({...p, history: null}))} caseData={modalState.history} />)}
+    {modalState.history && (<AforoCaseHistoryModal isOpen={!!modalState.history} onClose={() => setModalState(p => ({...p, history: null}))} caseData={modalState.history} />)}
     {modalState.incident && (<IncidentReportModal isOpen={!!modalState.incident} onClose={() => setModalState(p => ({...p, incident: null}))} caseData={modalState.incident} />)}
     {modalState.valueDoubt && (<ValueDoubtModal isOpen={!!modalState.valueDoubt} onClose={() => setModalState(p => ({...p, valueDoubt: null}))} caseData={modalState.valueDoubt} />)}
     {modalState.comment && (<ExecutiveCommentModal isOpen={!!modalState.comment} onClose={() => setModalState(p => ({...p, comment: null}))} caseData={modalState.comment} />)}
     {modalState.quickRequest && (<QuickRequestModal isOpen={!!modalState.quickRequest} onClose={() => setModalState(p => ({...p, quickRequest: null}))} caseWithWorksheet={modalState.quickRequest} />)}
+    {modalState.payment && (<PaymentRequestModal isOpen={!!modalState.payment} onClose={() => setModalState(p => ({...p, payment: null}))} caseData={modalState.payment} />)}
     {modalState.paymentList && (<PaymentListModal isOpen={!!modalState.paymentList} onClose={() => setModalState(p => ({...p, paymentList: null}))} caseData={modalState.paymentList} />)}
     {modalState.resa && (<ResaNotificationModal isOpen={!!modalState.resa} onClose={() => setModalState(p => ({...p, resa: null}))} caseData={modalState.resa} />)}
     {caseToAssignAforador && (<AssignUserModal isOpen={!!caseToAssignAforador} onClose={() => setCaseToAssignAforador(null)} caseData={caseToAssignAforador} assignableUsers={assignableUsers} onAssign={() => {}} title="Asignar Aforador (PSMT)" description={`Como el consignatario es PSMT, debe asignar un aforador para el caso NE: ${caseToAssignAforador.ne}.`}/>)}
@@ -623,6 +615,3 @@ export default function ExecutivePage() {
         </Suspense>
     );
 }
-
-    
-
