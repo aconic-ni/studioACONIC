@@ -212,7 +212,7 @@ const generateSheet = (headers: string[], rows: (string|number|null|undefined)[]
     return ws;
 };
 
-export async function downloadExecutiveReportAsExcel(cases: (no existe & { worksheet?: Worksheet | null })[], auditLogs: (AforoUpdate & { caseNe: string })[]) {
+export async function downloadExecutiveReportAsExcel(cases: (Partial<worksheet> & { worksheet?: Worksheet | null })[], auditLogs: (AforoUpdate & { caseNe: string })[]) {
     const now = new Date();
     const fechaHoraExportacion = format(now, 'dd/MM/yy HH:mm', { locale: es });
 
