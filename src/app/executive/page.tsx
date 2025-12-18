@@ -9,9 +9,8 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Loader2, FilePlus, Search, Edit, Eye, History, PlusSquare, UserCheck, Inbox, AlertTriangle, Download, ChevronsUpDown, Info, CheckCircle, CalendarRange, Calendar, CalendarDays, ShieldAlert, BookOpen, FileCheck2, MessageSquare, View, Banknote, Bell as BellIcon, RefreshCw, Send, StickyNote, Scale, Briefcase, KeyRound, Copy, Archive } from 'lucide-react';
 import { db } from '@/lib/firebase';
-import { collection, query, where, onSnapshot, orderBy, Timestamp, doc, getDoc, updateDoc, writeBatch, addDoc, getDocs, collectionGroup, serverTimestamp, setDoc, documentId } from 'firebase/firestore';
-import type { Worksheet, AforoData, AforadorStatus, noexisteStatus, DigitacionStatus, WorksheetWithCase, AforoUpdate, PreliquidationStatus, IncidentType, LastUpdateInfo, ExecutiveComment, InitialDataContext, AppUser, SolicitudRecord, ExamDocument, FacturacionStatus } from '@/types';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { collection, query, where, onSnapshot, orderBy, Timestamp, doc, getDoc, updateDoc, writeBatch, addDoc, getDocs, collectionGroup, serverTimestamp, setDoc } from 'firebase/firestore';
+import type { Worksheet, worksheet, AforadorStatus, noexisteStatus, DigitacionStatus, WorksheetWithCase, AforoUpdate, PreliquidationStatus, IncidentType, LastUpdateInfo, ExecutiveComment, InitialDataContext, AppUser, SolicitudRecord, ExamDocument, FacturacionStatus } from '@/types';
 import { format, toDate, isSameDay, startOfDay, endOfDay, differenceInDays, startOfMonth, endOfMonth } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { Input } from '@/components/ui/input';
@@ -51,6 +50,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { StatusProcessModal } from '@/components/executive/StatusProcessModal';
 import { Textarea } from '@/components/ui/textarea';
 import { ExecutiveCasesTable } from '@/components/executive/ExecutiveCasesTable';
+import { ExecutiveFilters } from '@/components/executive/ExecutiveFilters';
 import { v4 as uuidv4 } from 'uuid';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { PaymentRequestFlow } from '@/components/examinerPay/InitialDataForm';
@@ -378,25 +378,6 @@ const fetchCases = useCallback(async () => {
     }
   };
 
-  const handleSendToFacturacion = async (caseId: string) => {
-    if (!user || !user.displayName) return;
-    setSavingState(prev => ({ ...prev, [caseId]: true }));
-    const aforoMetadataRef = doc(db, 'worksheets', caseId, 'aforo', 'metadata');
-    try {
-      await setDoc(aforoMetadataRef, {
-        facturacionStatus: 'Enviado a Facturacion',
-        enviadoAFacturacionAt: Timestamp.now(),
-        facturadorAsignado: 'Alvaro Gonzalez',
-        facturadorAsignadoAt: Timestamp.now(),
-      }, { merge: true });
-      toast({ title: 'Enviado a Facturación', description: 'El caso ha sido remitido al módulo de facturación y asignado a Alvaro Gonzalez.' });
-    } catch (e) {
-      toast({ title: 'Error', description: 'No se pudo enviar el caso a facturación.', variant: 'destructive' });
-    } finally {
-      setSavingState(prev => ({ ...prev, [caseId]: false }));
-    }
-  };
-
   const filteredCases = useMemo(() => {
     let baseCases = allCases.slice().sort((a, b) => (b.createdAt?.toMillis() ?? 0) - (a.createdAt?.toMillis() ?? 0));
     
@@ -448,7 +429,7 @@ const fetchCases = useCallback(async () => {
   const paginatedCases = appliedFilters.isSearchActive ? filteredCases.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage) : filteredCases;
   
   const caseActions = {
-    handleViewWorksheet: (c: WorksheetWithCase) => setModalState(prev => ({...prev, worksheet: c})),
+    handleViewWorksheet: (c: AforoData) => setModalState(prev => ({...prev, worksheet: c as WorksheetWithCase})),
     setSelectedCaseForQuickRequest: (c: WorksheetWithCase) => setModalState(prev => ({...prev, quickRequest: c})),
     setSelectedCaseForPayment: (c: AforoData) => {
         const initialData: InitialDataContext = {
@@ -502,7 +483,7 @@ const fetchCases = useCallback(async () => {
         dateRange = { from: today, to: today };
     }
 
-    setAppliedFilters({ searchTerm, ...facturadoFilter, ...acuseFilter, preliquidation: preliquidationFilter, dateFilterType, dateRange, isSearchActive: true });
+    setAppliedFilters({ searchTerm, ...facturadoFilter, ...acuseFilter, preliquidation: false, dateFilterType, dateRange, isSearchActive: true });
     setCurrentPage(1);
   };
   const clearFilters = () => {
@@ -525,7 +506,7 @@ const fetchCases = useCallback(async () => {
         isMemorandum: false,
     };
     setInitialContextData(initialData);
-    setIsRequestPaymentModalOpen(true);
+    openPaymentRequestFlow();
   };
   const approvePreliquidation = (caseId: string) => { handleAutoSave(caseId, 'preliquidationStatus', 'Aprobada'); };
   const getIncidentTypeDisplay = (c: AforoData) => {
@@ -565,31 +546,7 @@ const fetchCases = useCallback(async () => {
         if (activeTab === 'corporate') {
             await downloadCorporateReportAsExcel(filteredCases.map(c => c.worksheet).filter(ws => ws !== null) as Worksheet[]);
         } else {
-            const casesWithDetails: (AforoData & { dispatchCustoms?: string })[] = [];
-            const auditLogs: (AforoUpdate & { caseNe: string })[] = [];
-
-            for (const caseItem of paginatedCases) {
-                if (!caseItem.worksheetId) continue;
-                
-                const caseDetails: AforoData & { dispatchCustoms?: string } = { ...caseItem };
-                
-                const wsDocRef = doc(db, 'worksheets', caseItem.worksheetId);
-                const wsSnap = await getDoc(wsDocRef);
-                if (wsSnap.exists()) {
-                    caseDetails.dispatchCustoms = (wsSnap.data() as Worksheet).dispatchCustoms;
-                }
-                casesWithDetails.push(caseDetails);
-
-                const logsQuery = query(collection(db, 'worksheets', caseItem.worksheetId, 'actualizaciones'), orderBy('updatedAt', 'asc'));
-                const logSnapshot = await getDocs(logsQuery);
-                logSnapshot.forEach(logDoc => {
-                    auditLogs.push({
-                        ...(logDoc.data() as AforoUpdate),
-                        caseNe: caseItem.ne
-                    });
-                });
-            }
-            await downloadExecutiveReportAsExcel(casesWithDetails, auditLogs);
+            await downloadExecutiveReportAsExcel(paginatedCases, []);
         }
     } catch (e) {
         console.error("Error exporting data: ", e);
@@ -636,16 +593,14 @@ const fetchCases = useCallback(async () => {
                             </DropdownMenu>
                         </div>
                     </div>
-                    <div className="border-t pt-4 mt-2">
-                       <TabsList>
-                            <TabsTrigger value="worksheets">Hojas de Trabajo</TabsTrigger>
-                            <TabsTrigger value="anexos">Anexos</TabsTrigger>
-                            <TabsTrigger value="corporate">Reportes Corporativos</TabsTrigger>
-                        </TabsList>
-                    </div>
                 </CardHeader>
                  <CardContent>
                     <Tabs defaultValue={activeTab} className="w-full" onValueChange={handleTabChange}>
+                        <TabsList className="mb-4">
+                           <TabsTrigger value="worksheets">Hojas de Trabajo</TabsTrigger>
+                           <TabsTrigger value="anexos">Anexos</TabsTrigger>
+                           <TabsTrigger value="corporate">Reportes Corporativos</TabsTrigger>
+                        </TabsList>
                         <ExecutiveFilters
                            activeTab={activeTab}
                            searchTerm={searchTerm}
@@ -654,8 +609,8 @@ const fetchCases = useCallback(async () => {
                            setFacturadoFilter={setFacturadoFilter}
                            acuseFilter={acuseFilter}
                            setAcuseFilter={setAcuseFilter}
-                           preliquidationFilter={preliquidationFilter}
-                           setPreliquidationFilter={setPreliquidationFilter}
+                           preliquidationFilter={false}
+                           setPreliquidationFilter={() => {}}
                            dateFilterType={dateFilterType}
                            setDateFilterType={setDateFilterType}
                            dateRangeInput={dateRangeInput}
@@ -686,7 +641,6 @@ const fetchCases = useCallback(async () => {
     {modalState.valueDoubt && (<ValueDoubtModal isOpen={!!modalState.valueDoubt} onClose={() => setModalState(p => ({...p, valueDoubt: null}))} caseData={modalState.valueDoubt} />)}
     {modalState.comment && (<ExecutiveCommentModal isOpen={!!modalState.comment} onClose={() => setModalState(p => ({...p, comment: null}))} caseData={modalState.comment} />)}
     {modalState.quickRequest && (<QuickRequestModal isOpen={!!modalState.quickRequest} onClose={() => setModalState(p => ({...p, quickRequest: null}))} caseWithWorksheet={modalState.quickRequest} />)}
-    {isRequestPaymentModalOpen && (<PaymentRequestModal isOpen={isRequestPaymentModalOpen} onClose={() => setIsRequestPaymentModalOpen(false)} caseData={null} />)}
     {modalState.paymentList && (<PaymentListModal isOpen={!!modalState.paymentList} onClose={() => setModalState(p => ({...p, paymentList: null}))} caseData={modalState.paymentList} />)}
     {modalState.resa && (<ResaNotificationModal isOpen={!!modalState.resa} onClose={() => setModalState(p => ({...p, resa: null}))} caseData={modalState.resa} />)}
     {caseToAssignAforador && (<AssignUserModal isOpen={!!caseToAssignAforador} onClose={() => setCaseToAssignAforador(null)} caseData={caseToAssignAforador} assignableUsers={assignableUsers} onAssign={handleAssignAforador} title="Asignar Aforador (PSMT)" description={`Como el consignatario es PSMT, debe asignar un aforador para el caso NE: ${caseToAssignAforador.ne}.`}/>)}
@@ -708,12 +662,12 @@ const fetchCases = useCallback(async () => {
             <DialogFooter><Button variant="outline" onClick={() => setDuplicateAndRetireModalOpen(false)}>Cancelar</Button><Button onClick={handleDuplicateAndRetire} disabled={savingState[caseToDuplicate?.id || '']}>Duplicar y Retirar</Button></DialogFooter>
         </DialogContent>
       </Dialog>
-      {isPaymentRequestFlowOpen && (
+      <Dialog open={isRequestPaymentModalOpen} onOpenChange={setIsRequestPaymentModalOpen}>
         <PaymentRequestFlow
-          isOpen={isPaymentRequestFlowOpen}
-          onClose={closePaymentRequestFlow}
+          isOpen={isRequestPaymentModalOpen}
+          onClose={() => setIsRequestPaymentModalOpen(false)}
         />
-      )}
+      </Dialog>
     </>
   );
 }
