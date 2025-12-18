@@ -9,7 +9,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Loader2, FilePlus, Search, Edit, Eye, History, PlusSquare, UserCheck, Inbox, AlertTriangle, Download, ChevronsUpDown, Info, CheckCircle, CalendarRange, Calendar, CalendarDays, ShieldAlert, BookOpen, FileCheck2, MessageSquare, View, Banknote, Bell as BellIcon, RefreshCw, Send, StickyNote, Scale, Briefcase, KeyRound, Copy, Archive } from 'lucide-react';
 import { db } from '@/lib/firebase';
-import { collection, query, where, onSnapshot, orderBy, Timestamp, doc, getDoc, updateDoc, writeBatch, addDoc, getDocs, collectionGroup, documentId, serverTimestamp, setDoc } from 'firebase/firestore';
+import { collection, query, where, onSnapshot, orderBy, Timestamp, doc, getDoc, updateDoc, writeBatch, addDoc, getDocs, collectionGroup, serverTimestamp, setDoc } from 'firebase/firestore';
 import type { Worksheet, AforoCase, AforadorStatus, AforoCaseStatus, DigitacionStatus, WorksheetWithCase, AforoCaseUpdate, PreliquidationStatus, IncidentType, LastUpdateInfo, ExecutiveComment, InitialDataContext, AppUser, SolicitudRecord, ExamDocument, FacturacionStatus } from '@/types';
 import { format, toDate, isSameDay, startOfDay, endOfDay, differenceInDays, startOfMonth, endOfMonth } from 'date-fns';
 import { es } from 'date-fns/locale';
@@ -45,10 +45,10 @@ import { ExecutiveCasesTable } from '@/components/executive/ExecutiveCasesTable'
 import { ExecutiveFilters } from '@/components/executive/ExecutiveFilters';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { v4 as uuidv4 } from 'uuid';
-import { Label } from '@/components/ui/label';
-import { InitialDataForm as PaymentRequestFlow } from '@/components/examinerPay/InitialInfoForm';
+import { InitialDataForm as PaymentRequestFlow } from '@/components/examinerPay/InitialDataForm';
 
 
 type DateFilterType = 'range' | 'month' | 'today';
@@ -110,6 +110,8 @@ function ExecutivePageContent() {
   const [selectedRows, setSelectedRows] = useState<string[]>([]);
   const [isDeathkeyModalOpen, setIsDeathkeyModalOpen] = useState(false);
   const [pinInput, setPinInput] = useState('');
+  const [selectedMonth, setSelectedMonth] = useState<number>(new Date().getMonth());
+  const [selectedYear, setSelectedYear] = useState<number>(currentYear);
 
   const urlTab = searchParams.get('tab') as TabValue | null;
   const activeTab = urlTab || 'worksheets';
@@ -344,9 +346,16 @@ function ExecutivePageContent() {
       else if (appliedFilters.facturado && !appliedFilters.noFacturado) finalFiltered = finalFiltered.filter(c => c.facturado === true);
       if (appliedFilters.conAcuse && !appliedFilters.sinAcuse) finalFiltered = finalFiltered.filter(c => c.entregadoAforoAt);
       else if (appliedFilters.sinAcuse && !appliedFilters.conAcuse) finalFiltered = finalFiltered.filter(c => !c.entregadoAforoAt);
-      if (appliedFilters.preliquidation) finalFiltered = finalFiltered.filter(c => c.revisorStatus === 'Aprobado' && c.preliquidationStatus !== 'Aprobada');
+      if (preliquidationFilter) finalFiltered = finalFiltered.filter(c => c.revisorStatus === 'Aprobado' && c.preliquidationStatus !== 'Aprobada');
       
-      if (appliedFilters.dateRange?.from) { finalFiltered = finalFiltered.filter(item => item.createdAt?.toDate() >= appliedFilters.dateRange!.from! && item.createdAt?.toDate() <= (appliedFilters.dateRange!.to ? appliedFilters.dateRange!.to : appliedFilters.dateRange!.from!)); }
+      if (appliedFilters.dateRange?.from) {
+        const start = startOfDay(appliedFilters.dateRange.from);
+        const end = appliedFilters.dateRange.to ? endOfDay(appliedFilters.dateRange.to) : endOfDay(start);
+        finalFiltered = finalFiltered.filter(item => {
+            const itemDate = item.createdAt?.toDate();
+            return itemDate && itemDate >= start && itemDate <= end;
+        });
+      }
       
       const { ne, ejecutivo, consignatario, factura, selectividad, incidentType } = columnFilters;
       if (ne) finalFiltered = finalFiltered.filter(c => c.ne.toLowerCase().includes(ne.toLowerCase()));
@@ -373,7 +382,7 @@ function ExecutivePageContent() {
     
     setSearchHint(null);
     return tabFiltered.slice(0, 15);
-  }, [allCases, appliedFilters, activeTab, columnFilters]);
+  }, [allCases, appliedFilters, activeTab, columnFilters, preliquidationFilter]);
 
   const totalPages = Math.ceil(filteredCases.length / itemsPerPage);
   const paginatedCases = appliedFilters.isSearchActive ? filteredCases.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage) : filteredCases;
@@ -387,14 +396,14 @@ function ExecutivePageContent() {
             reference: c.worksheet?.reference || undefined,
             manager: user?.displayName || 'N/A',
             date: new Date(),
-            recipient: '',
+            recipient: 'Contabilidad',
             isMemorandum: false,
             consignee: c.consignee,
             declaracionAduanera: c.declaracionAduanera,
             caseId: c.id
         };
         setInitialContextData(initialData);
-        setModalState(prev => ({...prev, payment: c}));
+        setIsRequestPaymentModalOpen(true);
     },
     setSelectedCaseForPaymentList: (c: AforoCase) => setModalState(prev => ({...prev, paymentList: c})),
     setSelectedCaseForResa: (c: AforoCase) => setModalState(prev => ({...prev, resa: c})),
@@ -463,9 +472,7 @@ function ExecutivePageContent() {
 
   const handleSendToFacturacion = async (caseId: string) => {
     if (!user || !user.displayName) return;
-
     setSavingState(prev => ({...prev, [caseId]: true}));
-    
     const aforoMetadataRef = doc(db, 'worksheets', caseId, 'aforo', 'metadata');
     try {
         await updateDoc(aforoMetadataRef, {
@@ -599,12 +606,10 @@ function ExecutivePageContent() {
         </DialogContent>
       </Dialog>
       <Dialog open={isDeathkeyModalOpen} onOpenChange={setIsDeathkeyModalOpen}><DialogContent><DialogHeader><AlertDialogTitle>Confirmar Acción "Deathkey"</AlertDialogTitle><DialogDescription>Esta acción reclasificará {selectedRows.length} caso(s) a "Reporte Corporativo", excluyéndolos de la lógica de Aforo. Es irreversible. Ingrese el PIN para confirmar.</DialogDescription></DialogHeader><div className="py-4 space-y-2"><Label htmlFor="pin-input" className="flex items-center gap-2"><KeyRound/>PIN de Seguridad</Label><Input id="pin-input" type="password" value={pinInput} onChange={(e) => setPinInput(e.target.value)} placeholder="PIN de 6 dígitos"/></div><DialogFooter><Button variant="outline" onClick={() => setIsDeathkeyModalOpen(false)}>Cancelar</Button><Button variant="destructive" onClick={handleDeathkey} disabled={isLoading}>{isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin"/>}Confirmar y Ejecutar</Button></DialogFooter></DialogContent></Dialog>
-      {isPaymentRequestFlowOpen && (
-        <PaymentRequestFlow
-          isOpen={isPaymentRequestFlowOpen}
-          onClose={closePaymentRequestFlow}
-        />
-      )}
+      <PaymentRequestFlow
+        isOpen={isPaymentRequestFlowOpen}
+        onClose={() => setIsRequestPaymentModalOpen(false)}
+      />
     </>
   );
 }
@@ -616,3 +621,5 @@ export default function ExecutivePage() {
         </Suspense>
     );
 }
+
+    

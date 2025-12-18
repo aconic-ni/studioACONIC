@@ -1,3 +1,4 @@
+
 "use client";
 import React from 'react';
 import type { AforoCase, AforoCaseStatus, DigitacionStatus, PreliquidationStatus, WorksheetWithCase } from '@/types';
@@ -74,8 +75,7 @@ export function ExecutiveCasesTable({
   return (
     <div className="overflow-x-auto table-container rounded-lg border">
             <TooltipProvider>
-            <Table>
-                <ExecutiveTableHeader
+            <Table><ExecutiveTableHeader
                     columnFilters={columnFilters}
                     setColumnFilters={setColumnFilters}
                     onSearch={onSearch}
@@ -211,18 +211,6 @@ export function ExecutiveCasesTable({
                            </div>
                         </TableCell>
                          <TableCell>
-                            <div className="flex items-center">
-                                {aforoData.revisorStatus === 'Aprobado' && aforoData.preliquidationStatus !== 'Aprobada' ? (
-                                    <Button size="sm" onClick={() => approvePreliquidation(c.id)} disabled={savingState[c.id]}>
-                                        <CheckCircle className="mr-2 h-4 w-4" /> Aprobar
-                                    </Button>
-                                ) : (
-                                    <Badge variant={aforoData.preliquidationStatus === 'Aprobada' ? 'default' : 'outline'}>{aforoData.preliquidationStatus || 'Pendiente'}</Badge>
-                                )}
-                                <LastUpdateTooltip lastUpdate={aforoData.preliquidationStatusLastUpdate} caseCreation={c.createdAt}/>
-                            </div>
-                        </TableCell>
-                         <TableCell>
                             <div className="flex items-center gap-2">
                                 <Select
                                     value={c.selectividad || ''}
@@ -244,8 +232,7 @@ export function ExecutiveCasesTable({
                                             <Badge variant="secondary" className="cursor-help"><Info className="h-4 w-4" /></Badge>
                                         </TooltipTrigger>
                                         <TooltipContent>
-                                            <p>CONSULTA DE VALORES</p>
-                                        </TooltipContent>
+                                            <p>CONSULTA DE VALORES</p></TooltipContent>
                                     </Tooltip>
                                 )}
                             </div>
@@ -277,3 +264,5 @@ export function ExecutiveCasesTable({
     </div>
   );
 }
+
+    
