@@ -1,4 +1,3 @@
-
 "use client";
 import React, { useEffect, useState, useMemo, useCallback, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
@@ -7,38 +6,38 @@ import { useAuth } from '@/context/AuthContext';
 import { AppShell } from '@/components/layout/AppShell';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Loader2, RefreshCw, KeyRound, Copy, Archive } from 'lucide-react';
+import { Loader2, FilePlus, Banknote, Bell as BellIcon, Edit, KeyRound, Copy, Archive } from 'lucide-react';
 import { db } from '@/lib/firebase';
 import { collection, query, where, onSnapshot, orderBy, Timestamp, doc, getDoc, updateDoc, writeBatch, addDoc, getDocs, collectionGroup, serverTimestamp, setDoc } from 'firebase/firestore';
 import type { Worksheet, AforoCase, WorksheetWithCase, AforoCaseUpdate, AppUser, SolicitudRecord, InitialDataContext } from '@/types';
-import { isSameDay, startOfDay, endOfDay, startOfMonth, endOfMonth } from 'date-fns';
+import { isSameDay, startOfDay, endOfDay } from 'date-fns';
 import { useToast } from '@/hooks/use-toast';
 import type { DateRange } from 'react-day-picker';
-
-// Component Imports
-import { ExecutiveFilters } from '@/components/executive/ExecutiveFilters';
-import { ExecutiveCasesTable } from '@/components/executive/ExecutiveCasesTable';
-import { AnnouncementsCarousel } from '@/components/executive/AnnouncementsCarousel';
 import { AforoCaseHistoryModal } from '@/components/reporter/AforoCaseHistoryModal';
 import { IncidentReportModal } from '@/components/reporter/IncidentReportModal';
 import { IncidentReportDetails } from '@/components/reporter/IncidentReportDetails';
 import { ValueDoubtModal } from '@/components/executive/ValueDoubtModal';
-import { WorksheetDetailModal } from '@/components/reporter/WorksheetDetailModal';
+import { WorksheetDetails } from '@/components/executive/WorksheetDetails';
 import { ExecutiveCommentModal } from '@/components/executive/ExecutiveCommentModal';
 import { QuickRequestModal } from '@/components/executive/QuickRequestModal';
 import { PaymentRequestModal } from '@/components/executive/PaymentRequestModal';
 import { PaymentListModal } from '@/components/executive/PaymentListModal';
-import { ResaNotificationModal } from '@/components/executive/ResaNotificationModal';
+import { AnnouncementsCarousel } from '@/components/executive/AnnouncementsCarousel';
 import { AssignUserModal } from '@/components/reporter/AssignUserModal';
-import { ViewIncidentsModal } from '@/components/executive/ViewIncidentsModal';
-import { StatusProcessModal } from '@/components/executive/StatusProcessModal';
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
-import { Input } from '@/components/ui/input';
-import { Textarea } from '@/components/ui/textarea';
-import { Label } from '@/components/ui/label';
-import { v4 as uuidv4 } from 'uuid';
+import { ResaNotificationModal } from '@/components/executive/ResaNotificationModal';
+import { useIsMobile } from '@/hooks/use-mobile';
+import { MobileCasesList } from '@/components/executive/MobileCasesList';
 import { useAppContext } from '@/context/AppContext';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
+import { ViewIncidentsModal } from '@/components/executive/ViewIncidentsModal';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { StatusProcessModal } from '@/components/executive/StatusProcessModal';
+import { Textarea } from '@/components/ui/textarea';
+import { ExecutiveCasesTable } from '@/components/executive/ExecutiveCasesTable';
+import { v4 as uuidv4 } from 'uuid';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
+import { ExecutiveFilters } from '@/components/executive/ExecutiveFilters';
+import { Label } from '@/components/ui/label';
 
 type DateFilterType = 'range' | 'month' | 'today';
 type TabValue = 'worksheets' | 'anexos' | 'corporate';
@@ -48,15 +47,12 @@ function ExecutivePageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { toast } = useToast();
-  const { setInitialContextData, caseToAssignAforador, setCaseToAssignAforador } = useAppContext();
-
-  // Data state
+  const { openAddProductModal, setInitialContextData, setIsMemorandumMode, caseToAssignAforador, setCaseToAssignAforador } = useAppContext();
+  const isMobile = useIsMobile();
   const [allCases, setAllCases] = useState<WorksheetWithCase[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isExporting, setIsExporting] = useState(false);
   const [assignableUsers, setAssignableUsers] = useState<AppUser[]>([]);
-  
-  // Modal state
   const [modalState, setModalState] = useState({
     history: null as AforoCase | null,
     incident: null as AforoCase | null,
@@ -72,12 +68,9 @@ function ExecutivePageContent() {
     process: null as AforoCase | null,
     archive: null as WorksheetWithCase | null,
     duplicate: null as WorksheetWithCase | null,
-    deathkey: false,
   });
   const [isRequestPaymentModalOpen, setIsRequestPaymentModalOpen] = useState(false);
   const [duplicateAndRetireModalOpen, setDuplicateAndRetireModalOpen] = useState(false);
-
-  // Filter state
   const [searchTerm, setSearchTerm] = useState('');
   const [facturadoFilter, setFacturadoFilter] = useState({ facturado: false, noFacturado: true });
   const [acuseFilter, setAcuseFilter] = useState({ conAcuse: false, sinAcuse: true });
@@ -85,13 +78,7 @@ function ExecutivePageContent() {
   const [dateFilterType, setDateFilterType] = useState<DateFilterType>('range');
   const [dateRangeInput, setDateRangeInput] = useState<DateRange | undefined>();
   const [appliedFilters, setAppliedFilters] = useState({ searchTerm: '', facturado: false, noFacturado: true, conAcuse: false, sinAcuse: true, preliquidation: false, dateFilterType: 'range' as DateFilterType, dateRange: undefined as DateRange | undefined, isSearchActive: false });
-  
-  // Column filter state
-  const [columnFilters, setColumnFilters] = useState({
-      ne: '', ejecutivo: '', consignatario: '', factura: '', selectividad: '', incidentType: ''
-  });
-
-  // UI State
+  const [columnFilters, setColumnFilters] = useState({ ne: '', ejecutivo: '', consignatario: '', factura: '', selectividad: '', incidentType: '' });
   const [savingState, setSavingState] = useState<{ [key: string]: boolean }>({});
   const [pinInput, setPinInput] = useState('');
   const [newNeForDuplicate, setNewNeForDuplicate] = useState('');
@@ -99,10 +86,12 @@ function ExecutivePageContent() {
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(20);
   const [searchHint, setSearchHint] = useState<{ foundIn: TabValue; label: string } | null>(null);
+  const [selectedRows, setSelectedRows] = useState<string[]>([]);
+  const [isDeathkeyModalOpen, setIsDeathkeyModalOpen] = useState(false);
 
   const urlTab = searchParams.get('tab') as TabValue | null;
   const activeTab = urlTab || 'worksheets';
-  
+
   const handleTabChange = (value: string) => {
     router.push(`/executive?tab=${value as TabValue}`, { scroll: false });
     setCurrentPage(1);
@@ -142,7 +131,7 @@ function ExecutivePageContent() {
         setIsLoading(false);
     }, (error) => { toast({ title: "Error de Carga", description: "No se pudieron cargar los datos de los casos.", variant: "destructive" }); setIsLoading(false); });
     return () => unsubscribe();
-}, [user, toast]);
+  }, [user, toast]);
 
   useEffect(() => {
     if (!authLoading && !user) router.push('/');
@@ -197,13 +186,6 @@ function ExecutivePageContent() {
     } catch (error) { toast({ title: "Error", description: "No se pudo archivar el caso.", variant: "destructive" });
     } finally { setSavingState(prev => ({ ...prev, [modalState.archive!.id]: false })); }
   };
-  
-  const getIncidentTypeDisplay = (c: AforoCase) => {
-    const types = [];
-    if (c.incidentType === 'Rectificacion') types.push('Rectificación');
-    if (c.hasValueDoubt) types.push('Duda de Valor');
-    return types.length > 0 ? types.join(' / ') : 'N/A';
-  };
 
   const filteredCases = useMemo(() => {
     let tabFiltered = allCases.filter(c => !c.isArchived);
@@ -230,6 +212,13 @@ function ExecutivePageContent() {
         finalFiltered = finalFiltered.filter(item => item.createdAt?.toDate() >= start && item.createdAt?.toDate() <= end);
     }
     
+    const getIncidentTypeDisplay = (c: AforoCase) => {
+      const types = [];
+      if (c.incidentType === 'Rectificacion') types.push('Rectificación');
+      if (c.hasValueDoubt) types.push('Duda de Valor');
+      return types.length > 0 ? types.join(' / ') : 'N/A';
+    };
+
     const { ne, ejecutivo, consignatario, factura, selectividad, incidentType } = columnFilters;
     if (ne) finalFiltered = finalFiltered.filter(c => c.ne.toLowerCase().includes(ne.toLowerCase()));
     if (ejecutivo) finalFiltered = finalFiltered.filter(c => c.executive.toLowerCase().includes(ejecutivo.toLowerCase()));
@@ -257,6 +246,98 @@ function ExecutivePageContent() {
   const totalPages = Math.ceil(filteredCases.length / itemsPerPage);
   const paginatedCases = appliedFilters.isSearchActive ? filteredCases.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage) : filteredCases;
   
+  const caseActions = {
+    handleViewWorksheet: (c: AforoCase) => setModalState(prev => ({...prev, worksheet: c.worksheet as Worksheet})),
+    setSelectedCaseForQuickRequest: (c: WorksheetWithCase) => setModalState(prev => ({...prev, quickRequest: c})),
+    setSelectedCaseForPayment: (c: AforoCase) => setModalState(prev => ({...prev, payment: c})),
+    setSelectedCaseForPaymentList: (c: AforoCase) => setModalState(prev => ({...prev, paymentList: c})),
+    setSelectedCaseForResa: (c: AforoCase) => setModalState(prev => ({...prev, resa: c})),
+    setSelectedCaseForIncident: (c: AforoCase) => setModalState(prev => ({...prev, incident: c})),
+    setSelectedCaseForValueDoubt: (c: AforoCase) => setModalState(prev => ({...prev, valueDoubt: c})),
+    setSelectedCaseForHistory: (c: AforoCase) => setModalState(prev => ({...prev, history: c})),
+    setSelectedIncidentForDetails: (c: AforoCase) => setModalState(prev => ({...prev, incidentDetails: c})),
+    setSelectedCaseForComment: (c: AforoCase) => setModalState(prev => ({...prev, comment: c})),
+    handleSearchPrevio: (ne: string) => router.push(`/database?ne=${ne}`),
+    setCaseToArchive: (c: WorksheetWithCase) => setModalState(prev => ({...prev, archive: c})),
+    setCaseToDuplicate: (c: WorksheetWithCase) => setModalState(prev => ({...prev, duplicate: c})),
+    setDuplicateAndRetireModalOpen: setDuplicateAndRetireModalOpen,
+    setSelectedCaseForProcess: (c: AforoCase) => setModalState(prev => ({...prev, process: c})),
+  };
+
+  const handleDuplicateAndRetire = async () => {
+    const caseItem = modalState.duplicate;
+    if (!user || !user.displayName || !caseItem || !caseItem.worksheet) { return; }
+    const newNe = newNeForDuplicate.trim().toUpperCase();
+    if (!newNe || !duplicateReason) { toast({title:'Error', description:'Nuevo NE y motivo son requeridos', variant:'destructive'}); return; }
+
+    setSavingState(prev => ({...prev, [caseItem.id]: true}));
+    const batch = writeBatch(db);
+    const newCaseRef = doc(db,'AforoCases',newNe);
+    const newWorksheetRef=doc(db,'worksheets',newNe);
+
+    try {
+        const [newCaseSnap, newWorksheetSnap] = await Promise.all([getDoc(newCaseRef), getDoc(newWorksheetRef)]);
+        if (newCaseSnap.exists() || newWorksheetSnap.exists()) {
+            toast({ title: "Duplicado", description: `Ya existe un registro con el NE ${newNe}.`, variant: "destructive" });
+            return;
+        }
+
+        const creationTimestamp=Timestamp.now();
+        const createdByInfo={by:user.displayName,at:creationTimestamp};
+        const {id:oldId, ne:oldNe, createdAt:oldCreatedAt, lastUpdatedAt:oldLastUpdatedAt, ...worksheetToCopy}=caseItem.worksheet;
+        const newWorksheetData:Worksheet={...worksheetToCopy, id:newNe, ne:newNe, createdAt:creationTimestamp, createdBy:user.email!, lastUpdatedAt:creationTimestamp};
+        batch.set(newWorksheetRef, newWorksheetData);
+        
+        const newCaseData:Omit<AforoCase,'id'>={ne:newNe,executive:caseItem.executive,consignee:caseItem.consignee,facturaNumber:caseItem.facturaNumber,declarationPattern:caseItem.declarationPattern,merchandise:caseItem.merchandise,createdBy:user.uid,createdAt:creationTimestamp,aforador:'',assignmentDate:null,aforadorStatus:'Pendiente ',aforadorStatusLastUpdate:createdByInfo,revisorStatus:'Pendiente',revisorStatusLastUpdate:createdByInfo,preliquidationStatus:'Pendiente',preliquidationStatusLastUpdate:createdByInfo,digitacionStatus:'Pendiente',digitacionStatusLastUpdate:createdByInfo,incidentStatus:'Pendiente',incidentStatusLastUpdate:createdByInfo,revisorAsignado:'',revisorAsignadoLastUpdate:createdByInfo,digitadorAsignado:'',digitadorAsignadoLastUpdate:createdByInfo,worksheetId:newNe,entregadoAforoAt:null,isArchived:false,executiveComments:[{id:uuidv4(),author:user.displayName!,text:`Duplicado del NE: ${caseItem.ne}. Motivo: ${duplicateReason}`,createdAt:creationTimestamp}]};
+        batch.set(newCaseRef, newCaseData);
+        batch.update(doc(db,'AforoCases',caseItem.id),{digitacionStatus:'TRASLADADO',isArchived:true});
+        
+        const originalUpdatesRef=collection(db,'worksheets',caseItem.id,'actualizaciones');
+        const updateLog:AforoCaseUpdate={updatedAt:Timestamp.now(),updatedBy:user.displayName!,field:'digitacionStatus',oldValue:caseItem.digitacionStatus,newValue:'TRASLADADO',comment:`Caso trasladado al nuevo NE: ${newNe}. Motivo: ${duplicateReason}`};
+        batch.set(doc(originalUpdatesRef),updateLog);
+        
+        const newUpdatesRef=collection(db,'worksheets',newNe,'actualizaciones');
+        const newCaseLog:AforoCaseUpdate={updatedAt:creationTimestamp,updatedBy:user.displayName!,field:'creation',oldValue:null,newValue:`duplicated_from_${caseItem.ne}`,comment:`Caso duplicado desde ${caseItem.ne}. Motivo: ${duplicateReason}`};
+        batch.set(doc(newUpdatesRef),newCaseLog);
+        
+        await batch.commit();
+        toast({title:'Éxito', description:`El caso ${caseItem.ne} fue duplicado a ${newNe} y retirado.`});
+        setDuplicateAndRetireModalOpen(false);
+    } catch(e) {
+        toast({title:'Error',description:'No se pudo duplicar el caso.',variant:'destructive'})
+    } finally {
+        setSavingState(prev => ({...prev, [caseItem.id]: false}));
+    }
+  };
+
+  const handleDeathkey = async () => {
+    if (pinInput !== "192438") { toast({ title: "PIN Incorrecto", variant: "destructive" }); return; }
+    if (selectedRows.length === 0 || !user || !user.displayName) return;
+    setIsLoading(true);
+    const batch = writeBatch(db);
+    for (const caseId of selectedRows) {
+        const caseItem = filteredCases.find(c => c.id === caseId);
+        if (caseItem && caseItem.worksheetId) {
+            const worksheetRef = doc(db, 'worksheets', caseItem.worksheetId);
+            batch.update(worksheetRef, { worksheetType: 'corporate_report' });
+            const updatesSubcollectionRef = collection(worksheetRef, 'actualizaciones');
+            const updateLog: AforoCaseUpdate = {updatedAt: Timestamp.now(), updatedBy: user.displayName, field: 'worksheetType', oldValue: 'hoja_de_trabajo', newValue: 'corporate_report', comment: 'Caso reclasificado a Reporte Corporativo via Deathkey.'};
+            batch.set(doc(updatesSubcollectionRef), updateLog);
+        }
+    }
+    try {
+        await batch.commit();
+        toast({ title: "Éxito", description: `${selectedRows.length} casos han sido reclasificados.` });
+        setSelectedRows([]);
+        setIsDeathkeyModalOpen(false);
+        setPinInput('');
+    } catch (error) {
+        toast({ title: "Error", description: "No se pudieron reclasificar los casos.", variant: "destructive" });
+    } finally {
+        setIsLoading(false);
+    }
+  };
+  
   if (authLoading || !user) return <div className="min-h-screen flex items-center justify-center bg-background"><Loader2 className="h-12 w-12 animate-spin text-primary" /></div>;
 
   return (
@@ -264,114 +345,85 @@ function ExecutivePageContent() {
       <AppShell>
         <div className="py-2 md:py-5 space-y-6">
           <AnnouncementsCarousel />
-          <ExecutiveFilters
-            activeTab={activeTab}
-            onTabChange={handleTabChange}
-            searchTerm={searchTerm}
-            setSearchTerm={setSearchTerm}
-            facturadoFilter={facturadoFilter}
-            setFacturadoFilter={setFacturadoFilter}
-            acuseFilter={acuseFilter}
-            setAcuseFilter={setAcuseFilter}
-            preliquidationFilter={preliquidationFilter}
-            setPreliquidationFilter={setPreliquidationFilter}
-            dateFilterType={dateFilterType}
-            setDateFilterType={setDateFilterType}
-            dateRangeInput={dateRangeInput}
-            setDateRangeInput={setDateRangeInput}
-            setAppliedFilters={setAppliedFilters}
-            setCurrentPage={setCurrentPage}
-            isExporting={isExporting}
-            allCasesCount={allCases.length}
-            searchHint={searchHint}
-            clearFilters={() => { setSearchTerm(''); setFacturadoFilter({ facturado: false, noFacturado: true }); setAcuseFilter({ conAcuse: false, sinAcuse: true }); setPreliquidationFilter(false); setDateRangeInput(undefined); setColumnFilters({ ne: '', ejecutivo: '', consignatario: '', factura: '', selectividad: '', incidentType: ''}); setAppliedFilters({ searchTerm: '', facturado: false, noFacturado: true, conAcuse: false, sinAcuse: true, preliquidation: false, dateFilterType: 'range', dateRange: undefined, isSearchActive: false }); setCurrentPage(1); setSearchHint(null);}}
-          />
-
-          <Card>
-            <CardContent className="pt-6">
-              {isLoading ? (
-                <div className="flex justify-center items-center py-10"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>
-              ) : filteredCases.length > 0 ? (
-                <ExecutiveCasesTable
-                  cases={paginatedCases}
-                  savingState={savingState}
-                  onAutoSave={handleAutoSave}
-                  approvePreliquidation={(id) => handleAutoSave(id, 'preliquidationStatus', 'Aprobada')}
-                  caseActions={ { handleViewWorksheet: (c: AforoCase) => setModalState(prev => ({...prev, worksheet: c.worksheet as Worksheet})), setSelectedCaseForQuickRequest: (c: WorksheetWithCase) => setModalState(prev => ({...prev, quickRequest: c})), setSelectedCaseForPayment: (c: AforoCase) => setModalState(prev => ({...prev, payment: c})), setSelectedCaseForPaymentList: (c: AforoCase) => setModalState(prev => ({...prev, paymentList: c})), setSelectedCaseForResa: (c: AforoCase) => setModalState(prev => ({...prev, resa: c})), setSelectedCaseForIncident: (c: AforoCase) => setModalState(prev => ({...prev, incident: c})), setSelectedCaseForValueDoubt: (c: AforoCase) => setModalState(prev => ({...prev, valueDoubt: c})), setSelectedCaseForHistory: (c: AforoCase) => setModalState(prev => ({...prev, history: c})), setSelectedIncidentForDetails: (c: AforoCase) => setModalState(prev => ({...prev, incidentDetails: c})), setSelectedCaseForComment: (c: AforoCase) => setModalState(prev => ({...prev, comment: c})), handleSearchPrevio: (ne: string) => router.push(`/database?ne=${ne}`), setCaseToArchive: (c: WorksheetWithCase) => setModalState(prev => ({...prev, archive: c})), setDuplicateAndRetireModalOpen: setDuplicateAndRetireModalOpen, setCaseToDuplicate: (c: WorksheetWithCase) => setModalState(prev => ({...prev, duplicate: c})), setSelectedCaseForProcess: (c: AforoCase) => setModalState(prev => ({...prev, process: c})), }}
-                  selectedRows={selectedRows}
-                  onSelectRow={(ids) => setSelectedRows(ids)}
-                  onSelectAllRows={() => { const selectableIds = filteredCases.filter(c => ((c as any).aforo || c).revisorStatus === 'Aprobado' && ((c as any).aforo || c).preliquidationStatus !== 'Aprobada').map(c => c.id); if (selectedRows.length === selectableIds.length) { setSelectedRows([]); } else { setSelectedRows(selectableIds); } }}
-                  columnFilters={columnFilters}
-                  setColumnFilters={setColumnFilters}
-                  onSearch={handleSearch}
-                  handleSendToFacturacion={handleSendToFacturacion}
-                />
-              ) : (
-                <p className="text-muted-foreground text-center py-10">No se encontraron casos con los filtros actuales.</p>
-              )}
-               {appliedFilters.isSearchActive && filteredCases.length > itemsPerPage && (
-                    <div className="flex items-center justify-between space-x-2 py-4">
-                        <div className="text-sm text-muted-foreground"> {selectedRows.length} de {filteredCases.length} fila(s) seleccionadas. </div>
-                        <div className="flex items-center space-x-2">
-                          <span className="text-sm"> Página {currentPage} de {totalPages} </span>
-                          <Button variant="outline" size="sm" onClick={() => setCurrentPage(p => Math.max(p - 1, 1))} disabled={currentPage === 1}>Anterior</Button>
-                          <Button variant="outline" size="sm" onClick={() => setCurrentPage(p => Math.min(p + 1, totalPages))} disabled={currentPage === totalPages}>Siguiente</Button>
+          <Tabs defaultValue={activeTab} className="w-full" onValueChange={handleTabChange}>
+            <Card>
+                 <CardHeader>
+                    <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-4">
+                        <div>
+                            <CardTitle className="flex items-center gap-2 text-2xl"><Inbox/> Panel Ejecutivo</CardTitle>
+                            <CardDescription>Seguimiento de operaciones, desde la hoja de trabajo hasta la facturación.</CardDescription>
+                        </div>
+                        <div className="flex flex-col sm:flex-row items-center gap-3">
+                            <AlertDialog>
+                                <AlertDialogTrigger asChild>
+                                    <Button size="lg" variant="secondary" className="h-12 text-md">
+                                        <Banknote className="mr-2 h-5 w-5" /> Solicitud de Pago General
+                                    </Button>
+                                </AlertDialogTrigger>
+                                <AlertDialogContent>
+                                    <AlertDialogHeader><AlertDialogTitle>¿Está seguro?</AlertDialogTitle><AlertDialogDescription>Esta acción iniciará una solicitud de pago no vinculada a un Número de Entrada (NE) específico. Se generará un ID único en su lugar.</AlertDialogDescription></AlertDialogHeader>
+                                    <AlertDialogFooter><AlertDialogCancel>Cancelar</AlertDialogCancel><AlertDialogAction onClick={() => { const initialData: InitialDataContext = { ne: `SOL-${format(new Date(), 'ddMMyy-HHmmss')}`, manager: user?.displayName || 'Usuario Desconocido', date: new Date(), recipient: '', isMemorandum: false, }; setInitialContextData(initialData); setIsRequestPaymentModalOpen(true);}}>Sí, continuar</AlertDialogAction></AlertDialogFooter>
+                                </AlertDialogContent>
+                            </AlertDialog>
+                            <DropdownMenu>
+                                <DropdownMenuTrigger asChild><Button size="lg" variant="default" className="h-12 text-md"><Edit className="mr-2 h-5 w-5" />Crear Registro</Button></DropdownMenuTrigger>
+                                <DropdownMenuContent>
+                                    <DropdownMenuLabel>Tipo de Documento</DropdownMenuLabel><DropdownMenuSeparator />
+                                    <DropdownMenuItem asChild><Link href="/executive/worksheet"><FilePlus className="mr-2 h-4 w-4" /> Hoja de Trabajo</Link></DropdownMenuItem>
+                                    <DropdownMenuItem asChild><Link href="/executive/corporate-report"><Briefcase className="mr-2 h-4 w-4" /> Reporte Consignatario</Link></DropdownMenuItem>
+                                    <DropdownMenuItem asChild><Link href="/executive/anexos?type=anexo_5"><StickyNote className="mr-2 h-4 w-4" /> Anexo 5</Link></DropdownMenuItem>
+                                    <DropdownMenuItem asChild><Link href="/executive/anexos?type=anexo_7"><StickyNote className="mr-2 h-4 w-4" /> Anexo 7</Link></DropdownMenuItem>
+                                </DropdownMenuContent>
+                            </DropdownMenu>
                         </div>
                     </div>
-                )}
-            </CardContent>
-          </Card>
+                    <div className="border-t pt-4 mt-2"><TabsList><TabsTrigger value="worksheets">Hojas de Trabajo</TabsTrigger><TabsTrigger value="anexos">Anexos</TabsTrigger><TabsTrigger value="corporate">Reportes Corporativos</TabsTrigger></TabsList></div>
+                </CardHeader>
+                <CardContent>
+                    <ExecutiveFilters
+                        activeTab={activeTab}
+                        searchTerm={searchTerm}
+                        setSearchTerm={setSearchTerm}
+                        facturadoFilter={facturadoFilter}
+                        setFacturadoFilter={setFacturadoFilter}
+                        acuseFilter={acuseFilter}
+                        setAcuseFilter={setAcuseFilter}
+                        preliquidationFilter={preliquidationFilter}
+                        setPreliquidationFilter={setPreliquidationFilter}
+                        dateFilterType={dateFilterType}
+                        setDateFilterType={setDateFilterType}
+                        dateRangeInput={dateRangeInput}
+                        setDateRangeInput={setDateRangeInput}
+                        setAppliedFilters={setAppliedFilters}
+                        setCurrentPage={setCurrentPage}
+                        isExporting={isExporting}
+                        allCasesCount={allCases.length}
+                        searchHint={searchHint}
+                        clearFilters={clearFilters}
+                    />
+                    <TabsContent value="worksheets" className="mt-6">{renderTable()}</TabsContent>
+                    <TabsContent value="anexos" className="mt-6">{renderTable()}</TabsContent>
+                    <TabsContent value="corporate" className="mt-6">{renderTable()}</TabsContent>
+                </CardContent>
+            </Card>
+          </Tabs>
         </div>
       </AppShell>
-      
-      {/* Modals */}
       {modalState.history && (<AforoCaseHistoryModal isOpen={!!modalState.history} onClose={() => setModalState(p => ({...p, history: null}))} caseData={modalState.history} />)}
       {modalState.incident && (<IncidentReportModal isOpen={!!modalState.incident} onClose={() => setModalState(p => ({...p, incident: null}))} caseData={modalState.incident} />)}
       {modalState.valueDoubt && (<ValueDoubtModal isOpen={!!modalState.valueDoubt} onClose={() => setModalState(p => ({...p, valueDoubt: null}))} caseData={modalState.valueDoubt} />)}
-      {modalState.incidentDetails && (<IncidentReportDetails caseData={modalState.incidentDetails} onClose={() => setModalState(p => ({...p, incidentDetails: null}))} />)}
-      {modalState.worksheet && (<WorksheetDetailModal worksheet={modalState.worksheet} onClose={() => setModalState(p => ({...p, worksheet: null}))} isOpen={!!modalState.worksheet} />)}
       {modalState.comment && (<ExecutiveCommentModal isOpen={!!modalState.comment} onClose={() => setModalState(p => ({...p, comment: null}))} caseData={modalState.comment} />)}
       {modalState.quickRequest && (<QuickRequestModal isOpen={!!modalState.quickRequest} onClose={() => setModalState(p => ({...p, quickRequest: null}))} caseWithWorksheet={modalState.quickRequest} />)}
       {modalState.payment && (<PaymentRequestModal isOpen={!!modalState.payment} onClose={() => setModalState(p => ({...p, payment: null}))} caseData={modalState.payment} />)}
       {isRequestPaymentModalOpen && (<PaymentRequestModal isOpen={isRequestPaymentModalOpen} onClose={() => setIsRequestPaymentModalOpen(false)} caseData={null} />)}
       {modalState.paymentList && (<PaymentListModal isOpen={!!modalState.paymentList} onClose={() => setModalState(p => ({...p, paymentList: null}))} caseData={modalState.paymentList} />)}
       {modalState.resa && (<ResaNotificationModal isOpen={!!modalState.resa} onClose={() => setModalState(p => ({...p, resa: null}))} caseData={modalState.resa} />)}
-      {caseToAssignAforador && (<AssignUserModal isOpen={!!caseToAssignAforador} onClose={() => setCaseToAssignAforador(null)} caseData={caseToAssignAforador} assignableUsers={assignableUsers} onAssign={(id, name) => { if (!user || !user.displayName) return; updateDoc(doc(db, 'AforoCases', id), { aforador: name, assignmentDate: Timestamp.now(), aforadorStatusLastUpdate: { by: user.displayName, at: Timestamp.now() }}).then(()=>toast({title: 'Aforador Asignado'})).catch(()=>toast({title: 'Error'})); setCaseToAssignAforador(null); }} title="Asignar Aforador (PSMT)" description={`Como el consignatario es PSMT, debe asignar un aforador para el caso NE: ${caseToAssignAforador.ne}.`}/>)}
+      {caseToAssignAforador && (<AssignUserModal isOpen={!!caseToAssignAforador} onClose={() => setCaseToAssignAforador(null)} caseData={caseToAssignAforador} assignableUsers={assignableUsers} onAssign={() => {}} title="Asignar Aforador (PSMT)" description={`Como el consignatario es PSMT, debe asignar un aforador para el caso NE: ${caseToAssignAforador.ne}.`}/>)}
       {modalState.viewIncidents && (<ViewIncidentsModal isOpen={!!modalState.viewIncidents} onClose={() => setModalState(p => ({...p, viewIncidents: null}))} onSelectRectificacion={() => { setModalState(p => ({...p, incidentDetails: p.viewIncidents, viewIncidents: null})); }} onSelectDudaValor={() => { setModalState(p => ({...p, valueDoubt: p.viewIncidents, viewIncidents: null})); }} />)}
       {modalState.process && (<StatusProcessModal isOpen={!!modalState.process} onClose={() => setModalState(p => ({...p, process: null}))} caseData={modalState.process} />)}
-      
-      {/* Action Dialogs */}
-      <AlertDialog open={!!modalState.archive} onOpenChange={(isOpen) => !isOpen && setModalState(p => ({...p, archive: null}))}>
-        <AlertDialogContent>
-            <AlertDialogHeader><AlertDialogTitle>¿Está seguro?</AlertDialogTitle><AlertDialogDescription>Esta acción archivará el caso y no será visible en las listas principales.</AlertDialogDescription></AlertDialogHeader>
-            <AlertDialogFooter><AlertDialogCancel>Cancelar</AlertDialogCancel><AlertDialogAction onClick={handleArchiveCase}>Sí, Archivar</AlertDialogAction></AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-
-      <Dialog open={duplicateAndRetireModalOpen} onOpenChange={setDuplicateAndRetireModalOpen}>
-        <DialogContent>
-            <DialogHeader><DialogTitle>Duplicar y Retirar Caso</DialogTitle><DialogDescription>Se creará un nuevo caso con un NE nuevo, y el caso original ({modalState.duplicate?.ne}) será retirado (archivado y marcado como trasladado).</DialogDescription></DialogHeader>
-            <div className="py-4 space-y-4">
-                <div><Label htmlFor="new-ne">Nuevo NE</Label><Input id="new-ne" value={newNeForDuplicate} onChange={e => setNewNeForDuplicate(e.target.value)} placeholder="Ingrese el nuevo NE" /></div>
-                <div><Label htmlFor="reason">Motivo</Label><Textarea id="reason" value={duplicateReason} onChange={e => setDuplicateReason(e.target.value)} placeholder="Explique brevemente el motivo de la duplicación" /></div>
-            </div>
-            <DialogFooter>
-                <Button variant="outline" onClick={() => setDuplicateAndRetireModalOpen(false)}>Cancelar</Button>
-                <Button onClick={handleDuplicateAndRetire} disabled={savingState[modalState.duplicate?.id || '']}>
-                  Duplicar y Retirar
-                </Button>
-            </DialogFooter>
-        </DialogContent>
-      </Dialog>
-      
-      <Dialog open={modalState.deathkey} onOpenChange={(isOpen) => setModalState(p => ({...p, deathkey: isOpen}))}>
-        <DialogContent>
-            <DialogHeader><DialogTitle>Confirmar Acción "Deathkey"</DialogTitle><DialogDescription>Esta acción reclasificará {selectedRows.length} caso(s) a "Reporte Corporativo", excluyéndolos de la lógica de Aforo. Es irreversible. Ingrese el PIN para confirmar.</DialogDescription></DialogHeader>
-            <div className="py-4 space-y-2"><Label htmlFor="pin-input" className="flex items-center gap-2"><KeyRound/>PIN de Seguridad</Label><Input id="pin-input" type="password" value={pinInput} onChange={(e) => setPinInput(e.target.value)} placeholder="PIN de 6 dígitos"/></div>
-            <DialogFooter><Button variant="outline" onClick={() => setModalState(p => ({...p, deathkey: false}))}>Cancelar</Button><Button variant="destructive" onClick={handleDeathkey} disabled={isLoading}>{isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin"/>}Confirmar y Ejecutar</Button></DialogFooter>
-        </DialogContent>
-      </Dialog>
-
+      <AlertDialog open={!!modalState.archive} onOpenChange={(isOpen) => !isOpen && setModalState(p => ({...p, archive: null}))}><AlertDialogContent><AlertDialogHeader><AlertDialogTitle>¿Está seguro?</AlertDialogTitle><AlertDialogDescription>Esta acción archivará el caso y no será visible en las listas principales.</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel>Cancelar</AlertDialogCancel><AlertDialogAction onClick={handleArchiveCase}>Sí, Archivar</AlertDialogAction></AlertDialogFooter></AlertDialogContent></AlertDialog>
+      <Dialog open={duplicateAndRetireModalOpen} onOpenChange={setDuplicateAndRetireModalOpen}><DialogContent><DialogHeader><DialogTitle>Duplicar y Retirar Caso</DialogTitle><DialogDescription>Se creará un nuevo caso con un NE nuevo, y el caso original ({modalState.duplicate?.ne}) será retirado (archivado y marcado como trasladado).</DialogDescription></DialogHeader><div className="py-4 space-y-4"><div><Label htmlFor="new-ne">Nuevo NE</Label><Input id="new-ne" value={newNeForDuplicate} onChange={e => setNewNeForDuplicate(e.target.value)} placeholder="Ingrese el nuevo NE" /></div><div><Label htmlFor="reason">Motivo</Label><Textarea id="reason" value={duplicateReason} onChange={e => setDuplicateReason(e.target.value)} placeholder="Explique brevemente el motivo de la duplicación" /></div></div><DialogFooter><Button variant="outline" onClick={() => setDuplicateAndRetireModalOpen(false)}>Cancelar</Button><Button onClick={handleDuplicateAndRetire} disabled={savingState[modalState.duplicate?.id || '']}>Duplicar y Retirar</Button></DialogFooter></DialogContent></Dialog>
+      <Dialog open={isDeathkeyModalOpen} onOpenChange={setIsDeathkeyModalOpen}><DialogContent><DialogHeader><DialogTitle>Confirmar Acción "Deathkey"</DialogTitle><DialogDescription>Esta acción reclasificará {selectedRows.length} caso(s) a "Reporte Corporativo", excluyéndolos de la lógica de Aforo. Es irreversible. Ingrese el PIN para confirmar.</DialogDescription></DialogHeader><div className="py-4 space-y-2"><Label htmlFor="pin-input" className="flex items-center gap-2"><KeyRound/>PIN de Seguridad</Label><Input id="pin-input" type="password" value={pinInput} onChange={(e) => setPinInput(e.target.value)} placeholder="PIN de 6 dígitos"/></div><DialogFooter><Button variant="outline" onClick={() => setIsDeathkeyModalOpen(false)}>Cancelar</Button><Button variant="destructive" onClick={handleDeathkey} disabled={isLoading}>{isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin"/>}Confirmar y Ejecutar</Button></DialogFooter></DialogContent></Dialog>
     </>
   );
 }

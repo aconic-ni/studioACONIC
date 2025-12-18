@@ -8,8 +8,6 @@ import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuIte
 import { Timestamp } from 'firebase/firestore';
 import { format, differenceInDays } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { Input } from '@/components/ui/input';
-import { DatePickerWithTime } from '@/components/reports/DatePickerWithTime';
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select';
 import { Tooltip, TooltipProvider, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -23,6 +21,8 @@ import { useAuth } from '@/context/AuthContext';
 import { Switch } from '@/components/ui/switch';
 import { LastUpdateTooltip } from './LastUpdateTooltip';
 import { cn } from '@/lib/utils';
+import { DatePickerWithTime } from '@/components/reports/DatePickerWithTime';
+import { ExecutiveTableHeader } from './ExecutiveTableHeader';
 
 interface ExecutiveCasesTableProps {
   cases: WorksheetWithCase[];
@@ -33,44 +33,25 @@ interface ExecutiveCasesTableProps {
   selectedRows: string[];
   onSelectRow: React.Dispatch<React.SetStateAction<string[]>>;
   onSelectAllRows: () => void;
-  neFilter: string; setNeFilter: (value: string) => void;
-  ejecutivoFilter: string; setEjecutivoFilter: (value: string) => void;
-  consignatarioFilter: string; setConsignatarioFilter: (value: string) => void;
-  facturaFilter: string; setFacturaFilter: (value: string) => void;
-  selectividadFilter: string; setSelectividadFilter: (value: string) => void;
-  incidentTypeFilter: string; setIncidentTypeFilter: (value: string) => void;
+  columnFilters: { ne: string; ejecutivo: string; consignatario: string; factura: string; selectividad: string; incidentType: string; };
+  setColumnFilters: React.Dispatch<React.SetStateAction<{ ne: string; ejecutivo: string; consignatario: string; factura: string; selectividad: string; incidentType: string; }>>;
   handleSendToFacturacion: (caseId: string) => void;
   onSearch: () => void;
 }
 
-const getIncidentTypeDisplay = (c: AforoCase) => {
-    const types = [];
-    if (c.incidentType === 'Rectificacion') types.push('Rectificación');
-    if (c.hasValueDoubt) types.push('Duda de Valor');
-    return types.length > 0 ? types.join(' / ') : 'N/A';
-};
-
 const getOverallStatus = (caseData: AforoCase): { text: string; variant: "default" | "destructive" | "secondary" | "outline" } => {
-    const aforoData = (caseData as any).aforo || caseData;
-
-    if (aforoData.digitacionStatus === 'Trámite Completo') return { text: 'Trámite Completo', variant: 'default' };
-    if (aforoData.digitacionStatus === 'Almacenado') return { text: 'Almacenado', variant: 'default' };
-    if (aforoData.digitacionStatus === 'En Proceso') return { text: 'En Digitación', variant: 'secondary' };
-    if (aforoData.preliquidationStatus === 'Aprobada') return { text: 'Preliquidación Aprobada', variant: 'default' };
-    if (aforoData.revisorStatus === 'Aprobado') return { text: 'Aprobado por Agente', variant: 'default' };
-    if (aforoData.revisorStatus === 'Rechazado') return { text: 'Rechazado por Agente', variant: 'destructive' };
-    if (aforoData.aforadorStatus === 'En revisión') return { text: 'En Revisión (Aforo)', variant: 'secondary' };
-    if (aforoData.aforadorStatus === 'En proceso') return { text: 'En Proceso (Aforo)', variant: 'secondary' };
-    if (aforoData.aforadorStatus === 'Incompleto') return { text: 'Incompleto (Aforo)', variant: 'destructive' };
+    if (caseData.digitacionStatus === 'Trámite Completo') return { text: 'Trámite Completo', variant: 'default' };
+    if (caseData.digitacionStatus === 'Almacenado') return { text: 'Almacenado', variant: 'default' };
+    if (caseData.digitacionStatus === 'En Proceso') return { text: 'En Digitación', variant: 'secondary' };
+    if (caseData.preliquidationStatus === 'Aprobada') return { text: 'Preliquidación Aprobada', variant: 'default' };
+    if (caseData.revisorStatus === 'Aprobado') return { text: 'Aprobado por Agente', variant: 'default' };
+    if (caseData.revisorStatus === 'Rechazado') return { text: 'Rechazado por Agente', variant: 'destructive' };
+    if (caseData.aforadorStatus === 'En revisión') return { text: 'En Revisión (Aforo)', variant: 'secondary' };
+    if (caseData.aforadorStatus === 'En proceso') return { text: 'En Proceso (Aforo)', variant: 'secondary' };
+    if (caseData.aforadorStatus === 'Incompleto') return { text: 'Incompleto (Aforo)', variant: 'destructive' };
     return { text: 'Pendiente de Aforo', variant: 'outline' };
 };
 
-const getPreliquidationStatusBadge = (status?: PreliquidationStatus) => {
-    switch(status) {
-      case 'Aprobada': return <Badge variant="default" className="bg-green-600">Aprobada</Badge>;
-      default: return <Badge variant="outline">Pendiente</Badge>;
-    }
-};
 
 export function ExecutiveCasesTable({
   cases,
@@ -81,47 +62,24 @@ export function ExecutiveCasesTable({
   selectedRows,
   onSelectRow,
   onSelectAllRows,
-  neFilter, setNeFilter,
-  ejecutivoFilter, setEjecutivoFilter,
-  consignatarioFilter, setConsignatarioFilter,
-  facturaFilter, setFacturaFilter,
-  selectividadFilter, setSelectividadFilter,
-  incidentTypeFilter, setIncidentTypeFilter,
+  columnFilters,
+  setColumnFilters,
   handleSendToFacturacion,
   onSearch
 }: ExecutiveCasesTableProps) {
   const { user } = useAuth();
   
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === 'Enter') {
-      onSearch();
-    }
-  };
-
   return (
     <div className="overflow-x-auto table-container rounded-lg border">
             <TooltipProvider>
-            <Table><TableHeader><TableRow>
-                <TableHead className="w-12">
-                  <Checkbox
-                    checked={selectedRows.length > 0 && selectedRows.length === cases.filter(c => ((c as any).aforo || c).revisorStatus === 'Aprobado' && ((c as any).aforo || c).preliquidationStatus !== 'Aprobada').length}
-                    onCheckedChange={onSelectAllRows}
-                    aria-label="Seleccionar todo para preliquidación"
-                  />
-                </TableHead>
-                <TableHead>Acciones</TableHead>
-                <TableHead><Input placeholder="NE..." className="h-8 text-xs" value={neFilter} onChange={e => setNeFilter(e.target.value)} onKeyDown={handleKeyDown} /></TableHead>
-                <TableHead>Insignias</TableHead>
-                <TableHead><Input placeholder="Ejecutivo..." className="h-8 text-xs" value={ejecutivoFilter} onChange={e => setEjecutivoFilter(e.target.value)} onKeyDown={handleKeyDown} /></TableHead>
-                <TableHead><Input placeholder="Consignatario..." className="h-8 text-xs" value={consignatarioFilter} onChange={e => setConsignatarioFilter(e.target.value)} onKeyDown={handleKeyDown} /></TableHead>
-                <TableHead><Input placeholder="Factura..." className="h-8 text-xs" value={facturaFilter} onChange={e => setFacturaFilter(e.target.value)} onKeyDown={handleKeyDown} /></TableHead>
-                <TableHead>Estado General</TableHead>
-                <TableHead>Preliquidación</TableHead>
-                <TableHead><Input placeholder="Selectividad..." className="h-8 text-xs" value={selectividadFilter} onChange={e => setSelectividadFilter(e.target.value)} onKeyDown={handleKeyDown} /></TableHead>
-                <TableHead>Fecha Despacho</TableHead>
-                <TableHead><Input placeholder="Incidencia..." className="h-8 text-xs" value={incidentTypeFilter} onChange={e => setIncidentTypeFilter(e.target.value)} onKeyDown={handleKeyDown} /></TableHead>
-                <TableHead>Facturado</TableHead>
-            </TableRow></TableHeader>
+            <Table>
+                <ExecutiveTableHeader
+                    columnFilters={columnFilters}
+                    setColumnFilters={setColumnFilters}
+                    onSearch={onSearch}
+                    onSelectAllRows={onSelectAllRows}
+                    areAllSelected={selectedRows.length > 0 && selectedRows.length === cases.length}
+                />
             <TableBody>
                 {cases.map(c => {
                     const aforoData = (c as any).aforo || c;
@@ -252,7 +210,7 @@ export function ExecutiveCasesTable({
                                         <CheckCircle className="mr-2 h-4 w-4" /> Aprobar
                                     </Button>
                                 ) : (
-                                    getPreliquidationStatusBadge(aforoData.preliquidationStatus)
+                                    aforoData.preliquidationStatus === 'Aprobada' ? <Badge variant="default" className="bg-green-600">Aprobada</Badge> : <Badge variant="outline">Pendiente</Badge>
                                 )}
                                 <LastUpdateTooltip lastUpdate={aforoData.preliquidationStatusLastUpdate} caseCreation={c.createdAt}/>
                             </div>
@@ -294,10 +252,7 @@ export function ExecutiveCasesTable({
                             </TooltipProvider>
                         </TableCell>
                         <TableCell>
-                          <div className="flex items-center">
                             {getIncidentTypeDisplay(c)}
-                            <LastUpdateTooltip lastUpdate={c.incidentStatusLastUpdate} caseCreation={c.createdAt}/>
-                          </div>
                         </TableCell>
                         <TableCell>
                             <div className="flex items-center justify-center">
