@@ -1,3 +1,4 @@
+
 "use client";
 import React, { useState, useEffect, type ReactNode } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
@@ -45,7 +46,7 @@ export function DatabaseSolicitudDetailView({ solicitud, isOpen, onClose }: Data
                     isInlineView={true}
                     onBackToList={onClose}
                 >
-                    <Button variant="ghost" size="icon" onClick={onClose} className="absolute top-4 right-4">
+                    <Button variant="ghost" size="icon" onClick={onClose} className="absolute top-4 right-4 no-print">
                         <X className="h-5 w-5" />
                     </Button>
                 </SolicitudDetailView>

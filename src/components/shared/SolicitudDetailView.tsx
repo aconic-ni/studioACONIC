@@ -163,7 +163,7 @@ export default function SolicitudDetailView({ id, isInlineView, onBackToList, ch
     return (
         <CardContent className="pt-4 print:p-0">
              <div className="hidden print:block">
-                <Image src="/imagenes/HEADERSEXA.svg" alt="Header Solicitud Detail" width={800} height={100} className="w-full h-auto object-contain" data-ai-hint="company logo banner" priority />
+                <Image src="/AconicExaminer/imagenes/HEADERSEXA.svg" alt="Header Solicitud Detail" width={800} height={100} className="w-full h-auto object-contain" data-ai-hint="company logo banner" priority/>
             </div>
              <div className="no-print">
                 <CardHeader className="p-0 mb-4">
