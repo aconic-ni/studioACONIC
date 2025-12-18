@@ -490,7 +490,6 @@ const fetchCases = useCallback(async () => {
     setSearchTerm('');
     setFacturadoFilter({ facturado: false, noFacturado: true });
     setAcuseFilter({ conAcuse: false, sinAcuse: true });
-    setPreliquidationFilter(false);
     setDateRangeInput(undefined);
     setColumnFilters({ ne: '', ejecutivo: '', consignatario: '', factura: '', selectividad: '', incidentType: '' });
     setAppliedFilters({ searchTerm: '', facturado: false, noFacturado: true, conAcuse: false, sinAcuse: true, preliquidation: false, dateFilterType: 'range', dateRange: undefined, isSearchActive: false });
@@ -506,6 +505,7 @@ const fetchCases = useCallback(async () => {
         isMemorandum: false,
     };
     setInitialContextData(initialData);
+    setIsMemorandumMode(true);
     openPaymentRequestFlow();
   };
   const approvePreliquidation = (caseId: string) => { handleAutoSave(caseId, 'preliquidationStatus', 'Aprobada'); };
@@ -525,16 +525,6 @@ const fetchCases = useCallback(async () => {
     }
   };
   
-  
-
-  if (authLoading || !user) return <div className="min-h-screen flex items-center justify-center bg-background"><Loader2 className="h-12 w-12 animate-spin text-primary" /></div>;
-  if (modalState.incidentDetails) {
-      return <AppShell><div className="py-2 md:py-5"><IncidentReportDetails caseData={modalState.incidentDetails as any} onClose={() => setModalState(prev => ({...prev, incidentDetails: null}))}/></div></AppShell>;
-  }
-  if (modalState.worksheet) {
-      return <AppShell><div className="py-2 md:py-5"><WorksheetDetails worksheet={modalState.worksheet} onClose={() => setModalState(prev => ({...prev, worksheet: null}))}/></div></AppShell>;
-  }
-
   const handleExport = async () => {
     if (filteredCases.length === 0) {
         toast({ title: "No hay datos", description: "No hay casos en la tabla para exportar.", variant: "secondary" });
@@ -556,6 +546,13 @@ const fetchCases = useCallback(async () => {
     }
   };
 
+  if (authLoading || !user) return <div className="min-h-screen flex items-center justify-center bg-background"><Loader2 className="h-12 w-12 animate-spin text-primary" /></div>;
+  if (modalState.incidentDetails) {
+      return <AppShell><div className="py-2 md:py-5"><IncidentReportDetails caseData={modalState.incidentDetails as any} onClose={() => setModalState(prev => ({...prev, incidentDetails: null}))}/></div></AppShell>;
+  }
+  if (modalState.worksheet) {
+      return <AppShell><div className="py-2 md:py-5"><WorksheetDetails worksheet={modalState.worksheet} onClose={() => setModalState(prev => ({...prev, worksheet: null}))}/></div></AppShell>;
+  }
 
   return (
     <>
@@ -641,9 +638,11 @@ const fetchCases = useCallback(async () => {
     {modalState.valueDoubt && (<ValueDoubtModal isOpen={!!modalState.valueDoubt} onClose={() => setModalState(p => ({...p, valueDoubt: null}))} caseData={modalState.valueDoubt} />)}
     {modalState.comment && (<ExecutiveCommentModal isOpen={!!modalState.comment} onClose={() => setModalState(p => ({...p, comment: null}))} caseData={modalState.comment} />)}
     {modalState.quickRequest && (<QuickRequestModal isOpen={!!modalState.quickRequest} onClose={() => setModalState(p => ({...p, quickRequest: null}))} caseWithWorksheet={modalState.quickRequest} />)}
-    {modalState.paymentList && (<PaymentListModal isOpen={!!modalState.paymentList} onClose={() => setModalState(p => ({...p, paymentList: null}))} caseData={modalState.paymentList} />)}
-    {modalState.resa && (<ResaNotificationModal isOpen={!!modalState.resa} onClose={() => setModalState(p => ({...p, resa: null}))} caseData={modalState.resa} />)}
-    {caseToAssignAforador && (<AssignUserModal isOpen={!!caseToAssignAforador} onClose={() => setCaseToAssignAforador(null)} caseData={caseToAssignAforador} assignableUsers={assignableUsers} onAssign={handleAssignAforador} title="Asignar Aforador (PSMT)" description={`Como el consignatario es PSMT, debe asignar un aforador para el caso NE: ${caseToAssignAforador.ne}.`}/>)}
+    {modalState.payment && (<PaymentRequestModal isOpen={!!modalState.payment} onClose={() => setModalState(p => ({...p, payment: null}))} caseData={modalState.payment as Worksheet} />)}
+    {isRequestPaymentModalOpen && (<PaymentRequestModal isOpen={isRequestPaymentModalOpen} onClose={() => setIsRequestPaymentModalOpen(false)} caseData={null} />)}
+    {modalState.paymentList && (<PaymentListModal isOpen={!!modalState.paymentList} onClose={() => setModalState(p => ({...p, paymentList: null}))} caseData={modalState.paymentList as Worksheet} />)}
+    {modalState.resa && (<ResaNotificationModal isOpen={!!modalState.resa} onClose={() => setModalState(p => ({...p, resa: null}))} caseData={modalState.resa as worksheet} />)}
+    {caseToAssignAforador && (<AssignUserModal isOpen={!!caseToAssignAforador} onClose={() => setCaseToAssignAforador(null)} caseData={caseToAssignAforador as Worksheet} assignableUsers={assignableUsers} onAssign={handleAssignAforador} title="Asignar Aforador (PSMT)" description={`Como el consignatario es PSMT, debe asignar un aforador para el caso NE: ${caseToAssignAforador.ne}.`}/>)}
     {modalState.viewIncidents && (<ViewIncidentsModal isOpen={!!modalState.viewIncidents} onClose={() => setModalState(p => ({...p, viewIncidents: null}))} onSelectRectificacion={() => { setModalState(p => ({...p, incidentDetails: p.viewIncidents, viewIncidents: null})); }} onSelectDudaValor={() => { setModalState(p => ({...p, valueDoubt: p.viewIncidents, viewIncidents: null})); }} />)}
     {modalState.process && (<StatusProcessModal isOpen={!!modalState.process} onClose={() => setModalState(p => ({...p, process: null}))} caseData={modalState.process} />)}
     <AlertDialog open={!!modalState.archive} onOpenChange={(isOpen) => !isOpen && setModalState(p => ({...p, archive: null}))}><AlertDialogContent><AlertDialogHeader><AlertDialogTitle>¿Está seguro?</AlertDialogTitle><AlertDialogDescription>Esta acción archivará el caso y no será visible en las listas principales.</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel>Cancelar</AlertDialogCancel><AlertDialogAction onClick={handleArchiveCase}>Sí, Archivar</AlertDialogAction></AlertDialogFooter></AlertDialogContent></AlertDialog>
@@ -662,12 +661,10 @@ const fetchCases = useCallback(async () => {
             <DialogFooter><Button variant="outline" onClick={() => setDuplicateAndRetireModalOpen(false)}>Cancelar</Button><Button onClick={handleDuplicateAndRetire} disabled={savingState[caseToDuplicate?.id || '']}>Duplicar y Retirar</Button></DialogFooter>
         </DialogContent>
       </Dialog>
-      <Dialog open={isRequestPaymentModalOpen} onOpenChange={setIsRequestPaymentModalOpen}>
-        <PaymentRequestFlow
-          isOpen={isRequestPaymentModalOpen}
-          onClose={() => setIsRequestPaymentModalOpen(false)}
-        />
-      </Dialog>
+      <PaymentRequestFlow
+        isOpen={isPaymentRequestFlowOpen}
+        onClose={() => setIsRequestPaymentModalOpen(false)}
+      />
     </>
   );
 }
@@ -679,3 +676,5 @@ export default function ExecutivePage() {
         </Suspense>
     );
 }
+
+    
