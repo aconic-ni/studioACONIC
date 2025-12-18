@@ -1,4 +1,3 @@
-
 "use client";
 import React from 'react';
 import { Button } from '@/components/ui/button';
@@ -23,7 +22,7 @@ export function PaymentRequestFlow({ isOpen, onClose }: PaymentRequestFlowProps)
   const { 
     initialContextData, 
     setCurrentStep, 
-    openAddProductModal, 
+    openSolicitudModal, 
     solicitudes,
     currentStep: currentPaymentStep, // Renamed to avoid conflict
   } = useAppContext();
@@ -68,7 +67,7 @@ export function PaymentRequestFlow({ isOpen, onClose }: PaymentRequestFlowProps)
                         <div className="flex flex-col md:flex-row md:justify-between md:items-center mb-2 gap-4">
                             <CardTitle className="text-xl md:text-2xl font-semibold text-gray-800">SOLICITUDES</CardTitle>
                             <div className="flex flex-col sm:flex-row gap-3">
-                                <Button onClick={() => openAddProductModal()} className="btn-primary">
+                                <Button onClick={() => openSolicitudModal()} className="btn-primary">
                                     <PlusCircle className="mr-2 h-5 w-5" /> Añadir Nueva Solicitud
                                 </Button>
                                 <Button onClick={handleFinish} className="btn-secondary">
@@ -102,12 +101,9 @@ export function PaymentRequestFlow({ isOpen, onClose }: PaymentRequestFlowProps)
   }
 
   return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
-        <DialogContent className="max-w-6xl w-full p-0 h-auto max-h-[95vh] flex flex-col">
-            {renderContent()}
-        </DialogContent>
-        {/* AddProductModal is self-managing based on app context */}
-        <AddProductModal />
-    </Dialog>
+    <>
+      {renderContent()}
+      <AddProductModal />
+    </>
   );
 }

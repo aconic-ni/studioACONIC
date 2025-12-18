@@ -1,4 +1,3 @@
-
 "use client";
 import React, { useEffect, useState, useMemo, useCallback, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
@@ -9,8 +8,8 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Loader2, FilePlus, Search, Edit, Eye, History, PlusSquare, UserCheck, Inbox, AlertTriangle, Download, ChevronsUpDown, Info, CheckCircle, CalendarRange, Calendar, CalendarDays, ShieldAlert, BookOpen, FileCheck2, MessageSquare, View, Banknote, Bell as BellIcon, RefreshCw, Send, StickyNote, Scale, Briefcase, KeyRound, Copy, Archive } from 'lucide-react';
 import { db } from '@/lib/firebase';
-import { collection, query, where, onSnapshot, orderBy, Timestamp, doc, getDoc, updateDoc, writeBatch, addDoc, getDocs, collectionGroup, serverTimestamp, setDoc, documentId } from 'firebase/firestore';
-import type { Worksheet, AforadorStatus, noexisteStatus, DigitacionStatus, WorksheetWithCase, AforoUpdate, PreliquidationStatus, IncidentType, LastUpdateInfo, ExecutiveComment, InitialDataContext, AppUser, SolicitudRecord, ExamDocument, FacturacionStatus, AforoData } from '@/types';
+import { collection, query, where, onSnapshot, orderBy, Timestamp, doc, getDoc, updateDoc, writeBatch, addDoc, getDocs, collectionGroup, serverTimestamp, setDoc } from 'firebase/firestore';
+import type { Worksheet, AforoData, AforadorStatus, AforoDataStatus, DigitacionStatus, WorksheetWithCase, AforoUpdate, PreliquidationStatus, IncidentType, LastUpdateInfo, ExecutiveComment, InitialDataContext, AppUser, SolicitudRecord, ExamDocument, FacturacionStatus } from '@/types';
 import { format, toDate, isSameDay, startOfDay, endOfDay, differenceInDays, startOfMonth, endOfMonth } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { Input } from '@/components/ui/input';
@@ -50,10 +49,9 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { StatusProcessModal } from '@/components/executive/StatusProcessModal';
 import { Textarea } from '@/components/ui/textarea';
 import { ExecutiveCasesTable } from '@/components/executive/ExecutiveCasesTable';
-import { ExecutiveFilters } from '@/components/executive/ExecutiveFilters';
 import { v4 as uuidv4 } from 'uuid';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
-import { PaymentRequestFlow} from '@/components/examinerPay/InitialInfoForm';
+import { ExecutiveFilters } from '@/components/executive/ExecutiveFilters';
 
 type DateFilterType = 'range' | 'month' | 'today';
 
@@ -84,7 +82,7 @@ function ExecutivePageContent() {
     incident: null | AforoData;
     valueDoubt: null | AforoData;
     incidentDetails: null | AforoData;
-    worksheet: null | WorksheetWithCase;
+    worksheet: null | Worksheet;
     comment: null | AforoData;
     quickRequest: null | WorksheetWithCase;
     payment: null | AforoData;
@@ -431,23 +429,12 @@ const fetchCases = useCallback(async () => {
   const paginatedCases = appliedFilters.isSearchActive ? filteredCases.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage) : filteredCases;
   
   const caseActions = {
-    handleViewWorksheet: (c: AforoData) => setModalState(prev => ({...prev, worksheet: c as WorksheetWithCase})),
-    setSelectedCaseForQuickRequest: (c: WorksheetWithCase) => setModalState(prev => ({...prev, quickRequest: c})),
-    setSelectedCaseForPayment: (c: AforoData) => {
-        const initialData: InitialDataContext = {
-            ne: c.ne,
-            reference: c.worksheet?.reference || undefined,
-            manager: user?.displayName || 'N/A',
-            date: new Date(),
-            recipient: 'Contabilidad',
-            isMemorandum: false,
-            consignee: c.consignee,
-            declaracionAduanera: c.declaracionAduanera,
-            caseId: c.id
-        };
-        setInitialContextData(initialData);
-        setModalState(prev => ({...prev, payment: c}));
+    handleViewWorksheet: (c: AforoData) => {
+        const ws = allCases.find(ac => ac.id === c.id)?.worksheet;
+        if(ws) setModalState(prev => ({...prev, worksheet: ws}));
     },
+    setSelectedCaseForQuickRequest: (c: WorksheetWithCase) => setModalState(prev => ({...prev, quickRequest: c})),
+    setSelectedCaseForPayment: (c: AforoData) => setModalState(prev => ({...prev, payment: c})),
     setSelectedCaseForPaymentList: (c: AforoData) => setModalState(prev => ({...prev, paymentList: c})),
     setSelectedCaseForResa: (c: AforoData) => setModalState(prev => ({...prev, resa: c})),
     setSelectedCaseForIncident: (c: AforoData) => setModalState(prev => ({...prev, incident: c})),
@@ -505,7 +492,7 @@ const fetchCases = useCallback(async () => {
     setIsRequestPaymentModalOpen(true);
   };
   const approvePreliquidation = (caseId: string) => { handleAutoSave(caseId, 'preliquidationStatus', 'Aprobada'); };
-  const getIncidentTypeDisplay = (c: AforoCase) => {
+  const getIncidentTypeDisplay = (c: AforoData) => {
     const types = [];
     if (c.incidentType === 'Rectificacion') types.push('Rectificación');
     if (c.hasValueDoubt) types.push('Duda de Valor');
@@ -519,41 +506,9 @@ const fetchCases = useCallback(async () => {
       setSelectedRows(selectableIds);
     }
   };
-  const handleViewIncidents = (caseItem: AforoCase) => {
-    const hasRectificacion = caseItem.incidentType === 'Rectificacion';
-    const hasDuda = caseItem.hasValueDoubt;
-    if (hasRectificacion && hasDuda) {
-        setModalState(prev => ({...prev, viewIncidents: caseItem}));
-    } else if (hasRectificacion) {
-        setModalState(prev => ({...prev, incidentDetails: caseItem}));
-    } else if (hasDuda) {
-        setModalState(prev => ({...prev, valueDoubt: caseItem}));
-    } else {
-        toast({ title: "Sin Incidencias", description: "Este caso no tiene incidencias reportadas.", variant: "default" });
-    }
-  };
-
-  const handleSendToFacturacion = async (caseId: string) => {
-    if (!user || !user.displayName) return;
-
-    setSavingState(prev => ({...prev, [caseId]: true}));
-    
-    const aforoMetadataRef = doc(db, 'worksheets', caseId, 'aforo', 'metadata');
-    try {
-        await updateDoc(aforoMetadataRef, {
-            facturacionStatus: 'Enviado a Facturacion',
-            enviadoAFacturacionAt: Timestamp.now(),
-            facturadorAsignado: 'Alvaro Gonzalez',
-            facturadorAsignadoAt: Timestamp.now(),
-        });
-        toast({ title: 'Enviado a Facturación', description: 'El caso ha sido remitido al módulo de facturación y asignado a Alvaro Gonzalez.' });
-    } catch (e) {
-        toast({ title: 'Error', description: 'No se pudo enviar el caso a facturación.', variant: 'destructive'});
-    } finally {
-        setSavingState(prev => ({...prev, [caseId]: false}));
-    }
-  }
   
+  const welcomeName = user?.displayName ? user.displayName.split(' ')[0] : 'Usuario';
+
   if (authLoading || !user) return <div className="min-h-screen flex items-center justify-center bg-background"><Loader2 className="h-12 w-12 animate-spin text-primary" /></div>;
   if (modalState.incidentDetails) {
       return <AppShell><div className="py-2 md:py-5"><IncidentReportDetails caseData={modalState.incidentDetails} onClose={() => setModalState(prev => ({...prev, incidentDetails: null}))}/></div></AppShell>;
@@ -647,6 +602,8 @@ const fetchCases = useCallback(async () => {
     {modalState.valueDoubt && (<ValueDoubtModal isOpen={!!modalState.valueDoubt} onClose={() => setModalState(p => ({...p, valueDoubt: null}))} caseData={modalState.valueDoubt} />)}
     {modalState.comment && (<ExecutiveCommentModal isOpen={!!modalState.comment} onClose={() => setModalState(p => ({...p, comment: null}))} caseData={modalState.comment} />)}
     {modalState.quickRequest && (<QuickRequestModal isOpen={!!modalState.quickRequest} onClose={() => setModalState(p => ({...p, quickRequest: null}))} caseWithWorksheet={modalState.quickRequest} />)}
+    {modalState.payment && (<PaymentRequestModal isOpen={!!modalState.payment} onClose={() => setModalState(p => ({...p, payment: null}))} caseData={modalState.payment} />)}
+    {isRequestPaymentModalOpen && (<PaymentRequestModal isOpen={isRequestPaymentModalOpen} onClose={() => setIsRequestPaymentModalOpen(false)} caseData={null} />)}
     {modalState.paymentList && (<PaymentListModal isOpen={!!modalState.paymentList} onClose={() => setModalState(p => ({...p, paymentList: null}))} caseData={modalState.paymentList} />)}
     {modalState.resa && (<ResaNotificationModal isOpen={!!modalState.resa} onClose={() => setModalState(p => ({...p, resa: null}))} caseData={modalState.resa} />)}
     {caseToAssignAforador && (<AssignUserModal isOpen={!!caseToAssignAforador} onClose={() => setCaseToAssignAforador(null)} caseData={caseToAssignAforador} assignableUsers={assignableUsers} onAssign={handleAssignAforador} title="Asignar Aforador (PSMT)" description={`Como el consignatario es PSMT, debe asignar un aforador para el caso NE: ${caseToAssignAforador.ne}.`}/>)}
@@ -667,12 +624,6 @@ const fetchCases = useCallback(async () => {
             </div>
             <DialogFooter><Button variant="outline" onClick={() => setDuplicateAndRetireModalOpen(false)}>Cancelar</Button><Button onClick={handleDuplicateAndRetire} disabled={savingState[caseToDuplicate?.id || '']}>Duplicar y Retirar</Button></DialogFooter>
         </DialogContent>
-      </Dialog>
-      <Dialog open={isRequestPaymentModalOpen} onOpenChange={setIsRequestPaymentModalOpen}>
-      <PaymentRequestFlow
-          isOpen={isRequestPaymentModalOpen}
-          onClose={() => setIsRequestPaymentModalOpen(false)}
-        />
       </Dialog>
     </>
   );

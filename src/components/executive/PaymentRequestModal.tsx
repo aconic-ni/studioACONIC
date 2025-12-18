@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useForm } from 'react-hook-form';
@@ -10,15 +9,16 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/context/AuthContext';
-import type { AforoCase, InitialDataContext } from '@/types';
-import { StickyNote } from 'lucide-react';
+import { db } from '@/lib/firebase';
+import { doc, setDoc, Timestamp, collection } from 'firebase/firestore';
+import type { AforoData, InitialDataContext } from '@/types';
+import { Loader2, StickyNote } from 'lucide-react';
 import { useAppContext } from '@/context/AppContext';
 import { useRouter } from 'next/navigation';
 import { format } from 'date-fns';
 
 
 const paymentRequestSchema = z.object({
-  ne: z.string().optional(),
   reference: z.string().optional(),
   recipient: z.string().min(1, "Destinatario es requerido."),
 });
@@ -28,20 +28,19 @@ type PaymentRequestFormData = z.infer<typeof paymentRequestSchema>;
 interface PaymentRequestModalProps {
   isOpen: boolean;
   onClose: () => void;
-  caseData: AforoCase | null;
+  caseData: AforoData | null;
 }
 
 export function PaymentRequestModal({ isOpen, onClose, caseData }: PaymentRequestModalProps) {
   const { user } = useAuth();
   const { toast } = useToast();
-  const { setInitialContextData, openPaymentRequestFlow, setIsMemorandumMode, initialContextData: appInitialData } = useAppContext();
-  const router = useRouter();
+  const { setInitialContextData, openPaymentRequestFlow, setIsMemorandumMode } = useAppContext();
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const form = useForm<PaymentRequestFormData>({
     resolver: zodResolver(paymentRequestSchema),
     defaultValues: { 
-      ne: caseData?.ne || appInitialData?.ne || '',
-      reference: '', 
+      reference: caseData?.worksheet?.reference || '', 
       recipient: 'Contabilidad' 
     },
   });
@@ -57,8 +56,10 @@ export function PaymentRequestModal({ isOpen, onClose, caseData }: PaymentReques
       return;
     }
 
+    setIsSubmitting(true);
+    
     const initialData: InitialDataContext = {
-        ne: data.ne || `SOL-${format(new Date(), 'ddMMyy-HHmmss')}`,
+        ne: caseData?.ne || `SOL-${format(new Date(), 'ddMMyy-HHmmss')}`,
         reference: data.reference,
         manager: user.displayName,
         date: new Date(),
@@ -70,8 +71,9 @@ export function PaymentRequestModal({ isOpen, onClose, caseData }: PaymentReques
     };
     
     setInitialContextData(initialData);
-    openPaymentRequestFlow(); // This will open the main modal flow
-    onClose(); // Close this initial modal
+    openPaymentRequestFlow();
+    onClose();
+    setIsSubmitting(false);
   };
 
   if (!isOpen) return null;
@@ -91,19 +93,6 @@ export function PaymentRequestModal({ isOpen, onClose, caseData }: PaymentReques
         </DialogHeader>
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 py-4">
-             <FormField
-                control={form.control}
-                name="ne"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Número de Entrada (NE)</FormLabel>
-                    <FormControl>
-                      <Input {...field} disabled={!isGeneralRequest} placeholder={isGeneralRequest ? 'ID único autogenerado' : ''} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
              <FormField
                 control={form.control}
                 name="recipient"
@@ -130,7 +119,7 @@ export function PaymentRequestModal({ isOpen, onClose, caseData }: PaymentReques
                 <FormItem>
                   <FormLabel>Referencia (Contenedor, Guía, BL...)</FormLabel>
                   <FormControl>
-                    <Input {...field} placeholder="Ingrese la referencia" />
+                    <Input {...field} disabled={isSubmitting} placeholder="Ingrese la referencia" />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -139,7 +128,8 @@ export function PaymentRequestModal({ isOpen, onClose, caseData }: PaymentReques
             
             <DialogFooter className="pt-4">
                 <Button type="button" variant="outline" onClick={onClose}>Cancelar</Button>
-                <Button type="submit">
+                <Button type="submit" disabled={isSubmitting}>
+                    {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin"/>}
                     Siguiente
                 </Button>
             </DialogFooter>

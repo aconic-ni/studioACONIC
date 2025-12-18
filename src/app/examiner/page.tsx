@@ -1,4 +1,3 @@
-
 "use client";
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
@@ -13,6 +12,7 @@ import { ExaminerWelcome } from '@/components/examiner/ExaminerWelcome';
 import { Loader2 } from 'lucide-react';
 import { SetDisplayNameModal } from '@/components/auth/SetDisplayNameModal';
 import { PaymentRequestFlow } from '@/components/examinerPay/InitialDataForm';
+import { Dialog, DialogContent } from '@/components/ui/dialog';
 
 export default function ExaminerPage() {
   const { user, loading: authLoading, isProfileComplete } = useAuth();
@@ -21,7 +21,8 @@ export default function ExaminerPage() {
   const [isDisplayNameModalOpen, setIsDisplayNameModalOpen] = useState(false);
 
   useEffect(() => {
-    if (isPaymentRequestFlowOpen) return; // Don't redirect if the payment flow is open
+    // This check ensures we don't redirect away when the payment flow is meant to be open.
+    if (isPaymentRequestFlowOpen) return;
 
     if (!authLoading && user) {
       const allowedRoles = ['gestor', 'admin', 'supervisor', 'coordinadora', 'ejecutivo'];
@@ -34,6 +35,7 @@ export default function ExaminerPage() {
       router.push('/');
     }
   }, [user, authLoading, router, isPaymentRequestFlowOpen]);
+
 
   useEffect(() => {
     if (!authLoading && user && !isProfileComplete && user.role !== 'admin') {
@@ -56,14 +58,6 @@ export default function ExaminerPage() {
     };
   }, [currentStep]);
   
-  if (isPaymentRequestFlowOpen) {
-    return (
-      <AppShell>
-        <PaymentRequestFlow isOpen={isPaymentRequestFlowOpen} onClose={closePaymentRequestFlow} />
-      </AppShell>
-    );
-  }
-
   if (authLoading || (user && !isProfileComplete && user.role !== 'admin') || !user) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
@@ -71,6 +65,22 @@ export default function ExaminerPage() {
         <p className="ml-4 text-lg">Cargando perfil...</p>
         <SetDisplayNameModal isOpen={isDisplayNameModalOpen} />
       </div>
+    );
+  }
+
+  // Render the payment flow in a modal over the existing page content
+  if (isPaymentRequestFlowOpen) {
+    return (
+      <AppShell>
+         <div className="py-2 md:py-5">
+           <ExaminerWelcome />
+         </div>
+        <Dialog open={isPaymentRequestFlowOpen} onOpenChange={closePaymentRequestFlow}>
+            <DialogContent className="max-w-6xl w-full p-0 h-auto max-h-[95vh] flex flex-col">
+                <PaymentRequestFlow isOpen={isPaymentRequestFlowOpen} onClose={closePaymentRequestFlow} />
+            </DialogContent>
+        </Dialog>
+      </AppShell>
     );
   }
 
