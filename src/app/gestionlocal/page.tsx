@@ -4,8 +4,8 @@
 import React, { useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { db } from '@/lib/firebase';
-import { collection, query, onSnapshot, orderBy, getDoc, doc, getDocs, where, collectionGroup } from 'firebase/firestore';
-import type { Worksheet, <WorksheetType></WorksheetType> } from '@/types';
+import { collection, query, onSnapshot, orderBy, getDoc, doc, getDocs, where, collectionGroup, writeBatch, Timestamp } from 'firebase/firestore';
+import type { Worksheet, AforoUpdate, WorksheetWithCase } from '@/types';
 import { AppShell } from '@/components/layout/AppShell';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -18,7 +18,6 @@ import { AforoCommentModal } from '@/components/gestion-local/AforoCommentModal'
 import { WorksheetDetailModal } from '@/components/reporter/WorksheetDetailModal';
 import { downloadAforoReportAsExcel } from '@/lib/fileExporterAforo';
 import { ClaimCaseModal } from '@/components/gestion-local/ClaimCaseModal';
-import { Timestamp } from 'firebase/firestore';
 
 export default function GestionLocalPage() {
   const { user, loading: authLoading } = useAuth();
@@ -56,7 +55,7 @@ export default function GestionLocalPage() {
             const aforoSnap = await getDoc(aforoRef);
             
             const combinedData: WorksheetWithCase = {
-                ...(aforoSnap.exists() ? aforoSnap.data() as worksheet : {} as worksheet),
+                ...(aforoSnap.exists() ? aforoSnap.data() as AforoData : {} as AforoData),
                 ...worksheetData,
                 worksheet: worksheetData,
                 id: worksheetData.id,
