@@ -11,7 +11,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Loader2, Search, Download, Eye, Calendar as CalendarIcon, MessageSquare, Info as InfoIcon, AlertCircle, CheckCircle2, FileText as FileTextIcon, ListCollapse, ArrowLeft, CheckSquare as CheckSquareIcon, MessageSquareText, RotateCw, AlertTriangle, ShieldCheck, Trash2, FileSignature, Briefcase, User as UserIcon } from 'lucide-react';
 import { db } from '@/lib/firebase';
 import { collection, query, where, getDocs, Timestamp as FirestoreTimestamp, doc, getDoc, orderBy, updateDoc, serverTimestamp, addDoc, getCountFromServer, writeBatch, deleteDoc, type QueryConstraint, setDoc } from 'firebase/firestore';
-import type { SolicitudRecord, Comment as CommentRecord, ValidacionRecord, DeletionAuditEvent, AppUser } from '@/types';
+import type { SolicitudRecord, Comment, ValidacionRecord, DeletionAuditEvent, AppUser } from '@/types';
 import { downloadExcelFileFromTable } from '@/lib/fileExporterdatabasePay';
 import { format, startOfDay, endOfDay, startOfMonth, endOfMonth } from 'date-fns';
 import { es } from 'date-fns/locale';
@@ -408,7 +408,7 @@ export default function MemorandumPage() {
 
   const [isCommentsDialogOpen, setIsCommentsDialogOpen] = useState(false);
   const [currentSolicitudIdForComments, setCurrentSolicitudIdForComments] = useState<string | null>(null);
-  const [comments, setComments] = useState<CommentRecord[]>([]);
+  const [comments, setComments] = useState<Comment[]>([]);
   const [newCommentText, setNewCommentText] = useState('');
   const [isLoadingComments, setIsLoadingComments] = useState(false);
   const [isPostingComment, setIsPostingComment] = useState(false);
@@ -559,9 +559,12 @@ export default function MemorandumPage() {
         const data = docSnap.data();
         return {
           id: docSnap.id,
-          ...data,
+          text: data.text,
+          authorId: data.authorId,
+          authorName: data.authorName,
+          authorRole: data.authorRole,
           createdAt: data.createdAt instanceof FirestoreTimestamp ? data.createdAt.toDate() : new Date(),
-        } as CommentRecord;
+        } as Comment;
       });
       setComments(fetchedComments);
     } catch (err) {
@@ -582,7 +585,7 @@ export default function MemorandumPage() {
   };
 
   const handlePostComment = async () => {
-    if (!newCommentText.trim() || !currentSolicitudIdForComments || !user || !user.email) {
+    if (!newCommentText.trim() || !currentSolicitudIdForComments || !user || !user.email || !user.role || !user.displayName) {
       toast({
         title: "Error",
         description: "El comentario no puede estar vacío o falta información del usuario/solicitud.",
@@ -596,11 +599,11 @@ export default function MemorandumPage() {
 
     try {
       const commentsCollectionRef = collection(db, collectionName, currentSolicitudIdForComments, "comments");
-      const newCommentData: Omit<CommentRecord, 'id' | 'createdAt'> & { createdAt: any } = {
+      const newCommentData: Omit<Comment, 'id' | 'createdAt'> & { createdAt: any } = {
         text: newCommentText.trim(),
         authorId: user.uid,
-        authorName: user.displayName || user.email,
-        authorRole: user.role || 'unknown',
+        authorName: user.displayName,
+        authorRole: user.role,
         createdAt: serverTimestamp(),
       };
       const docRefComment = await addDoc(commentsCollectionRef, newCommentData);
@@ -612,7 +615,7 @@ export default function MemorandumPage() {
         newHasOpenUrgentCommentFlag = true;
       }
 
-      setComments(prev => [...prev, { ...newCommentData, id: docRefComment.id, createdAt: new Date() } as CommentRecord]);
+      setComments(prev => [...prev, { ...newCommentData, id: docRefComment.id, createdAt: new Date() } as Comment]);
       setNewCommentText('');
       setIsNewCommentUrgent(false); 
       toast({ title: "Éxito", description: "Comentario publicado." });
@@ -881,18 +884,19 @@ export default function MemorandumPage() {
             institucionServicio: docData.institucionServicio || null,
             correo: docData.correo || null,
             observation: docData.observation || null,
+            isMemorandum: docData.isMemorandum ?? false,
+            memorandumCollaborators: docData.memorandumCollaborators || [],
             savedBy: docData.savedBy || null,
             commentsCount: commentsCount,
             hasOpenUrgentComment: docData.hasOpenUrgentComment ?? false,
-            isMemorandum: docData.isMemorandum ?? false,
-            memorandumCollaborators: docData.memorandumCollaborators || [],
+            // RH Fields
             rhPaymentStatus: docData.rhPaymentStatus || null,
             rhPaymentOtherDetails: docData.rhPaymentOtherDetails || null,
             rhPaymentDate: rhPaymentDate,
             rhPaymentStartDate: rhPaymentStartDate,
             rhPaymentEndDate: rhPaymentEndDate,
-            rhStatusLastUpdatedBy: docData.rhStatusLastUpdatedBy || null,
             rhStatusLastUpdatedAt: docData.rhStatusLastUpdatedAt ? (docData.rhStatusLastUpdatedAt as FirestoreTimestamp).toDate() : undefined,
+            rhStatusLastUpdatedBy: docData.rhStatusLastUpdatedBy || null,
           } as SolicitudRecord;
         });
 
@@ -946,7 +950,7 @@ export default function MemorandumPage() {
             commentsString = querySnapshot.docs.map(docSnap => {
                 const data = docSnap.data();
                 const createdAt = data.createdAt instanceof FirestoreTimestamp ? data.createdAt.toDate() : new Date();
-                return `${data.userEmail} - ${format(createdAt, "dd/MM/yy HH:mm", { locale: es })}: ${data.text}`;
+                return `${data.authorName} - ${format(createdAt, "dd/MM/yy HH:mm", { locale: es })}: ${data.text}`;
             }).join("\n");
             }
         } catch (err) {
@@ -1094,7 +1098,7 @@ export default function MemorandumPage() {
     );
   }
 
-  const isUserAllowedToSeeExtendedFilters = user?.role === 'admin' || user?.role === 'revisor' || user?.role === 'calificador' || user?.role === 'supervisor';
+  const isUserAdminOrRevisor = user?.role === 'admin' || user?.role === 'revisor' || user?.role === 'calificador' || user?.role === 'supervisor';
   const isUserAllowedToMarkUrgent = user?.role === 'autorevisor' || user?.role === 'autorevisor_plus' || user?.role === 'revisor';
 
 
@@ -1114,7 +1118,7 @@ export default function MemorandumPage() {
                   <SelectContent>
                     <SelectItem value="dateToday">Por Fecha (Hoy)</SelectItem>
                     <SelectItem value="dateSpecific">Por Fecha (Específica)</SelectItem>
-                    {isUserAllowedToSeeExtendedFilters && (
+                    {isUserAdminOrRevisor && (
                         <>
                             <SelectItem value="dateCurrentMonth">Por Mes (Actual)</SelectItem>
                             <SelectItem value="dateRange">Por Rango de Fechas</SelectItem>
@@ -1194,7 +1198,7 @@ export default function MemorandumPage() {
                     <div className="flex justify-between items-center mb-1">
                         <p className="font-semibold text-primary text-xs">{comment.authorName}</p>
                         <p className="text-muted-foreground text-xs">
-                            {format(comment.createdAt, "dd/MM/yyyy HH:mm", { locale: es })}
+                            {format(comment.createdAt as Date, "dd/MM/yyyy HH:mm", { locale: es })}
                         </p>
                     </div>
                     <p className="text-sm text-foreground whitespace-pre-wrap">{comment.text}</p>
@@ -1256,3 +1260,7 @@ export default function MemorandumPage() {
   );
 }
 
+
+
+
+    

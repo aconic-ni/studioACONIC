@@ -1,4 +1,5 @@
 
+
 import { Timestamp, FieldValue } from 'firebase/firestore';
 
 export type UserRole = 'gestor' | 'aforador' | 'ejecutivo' | 'coordinadora' | 'admin' | 'agente' | 'digitador' | 'supervisor' | 'revisor' | 'calificador' | 'autorevisor' | 'autorevisor_plus' | 'invitado' | 'facturador' | 'legal';
@@ -70,13 +71,14 @@ export interface ExamDocument extends ExamData {
 }
 
 export interface Comment {
-    id: string;
-    text: string;
-    authorId: string;
-    authorName: string;
-    authorRole: UserRole;
-    authorRoleTitle?: string | null; // Custom title for display
-    createdAt: Timestamp;
+  id: string;
+  text: string;
+  authorId: string;
+  authorName: string;
+  authorRole: UserRole;
+  authorRoleTitle?: string | null;
+  createdAt: Timestamp | Date;
+  solicitudId?: string; // Optional, useful for context
 }
 
 // Interface for data passed to downloadExcelFile

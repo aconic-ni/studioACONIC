@@ -11,7 +11,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Loader2, Search, Download, Eye, Calendar as CalendarIcon, MessageSquare, Info as InfoIcon, AlertCircle, CheckCircle2, FileText as FileTextIcon, ListCollapse, ArrowLeft, CheckSquare as CheckSquareIcon, MessageSquareText, RotateCw, AlertTriangle, ShieldCheck, Trash2, FileSignature, Briefcase, User as UserIcon, ArrowUpDown } from 'lucide-react';
 import { db } from '@/lib/firebase';
 import { collection, query, where, getDocs, Timestamp as FirestoreTimestamp, doc, getDoc, orderBy, updateDoc, serverTimestamp, addDoc, getCountFromServer, writeBatch, deleteDoc, type QueryConstraint, setDoc, documentId, type OrderByDirection } from 'firebase/firestore';
-import type { SolicitudRecord, Comment as CommentRecord, ValidacionRecord, DeletionAuditEvent, AppUser } from '@/types';
+import type { SolicitudRecord, Comment, ValidacionRecord, DeletionAuditEvent, AppUser } from '@/types';
 import { downloadExcelFileFromTable } from '@/lib/fileExporterdatabasePay';
 import { format, startOfDay, endOfDay, startOfMonth, endOfMonth } from 'date-fns';
 import { es } from 'date-fns/locale';
@@ -66,7 +66,7 @@ export default function DatabasePage() {
 
   const [isCommentsDialogOpen, setIsCommentsDialogOpen] = useState(false);
   const [currentSolicitudIdForComments, setCurrentSolicitudIdForComments] = useState<string | null>(null);
-  const [comments, setComments] = useState<CommentRecord[]>([]);
+  const [comments, setComments] = useState<Comment[]>([]);
   const [newCommentText, setNewCommentText] = useState('');
   const [isLoadingComments, setIsLoadingComments] = useState(false);
   const [isPostingComment, setIsPostingComment] = useState(false);
@@ -379,7 +379,7 @@ export default function DatabasePage() {
 
   const openCommentsDialog = async (solicitudId: string) => {
     setCurrentSolicitudIdForComments(solicitudId);
-    setIsNewCommentUrgent(false); 
+    setIsNewCommentUrgent(false);
     setComments([]);
     setIsLoadingComments(true);
     setIsCommentsDialogOpen(true);
@@ -410,9 +410,12 @@ export default function DatabasePage() {
         const data = docSnap.data();
         return {
           id: docSnap.id,
-          ...data,
+          text: data.text,
+          authorId: data.authorId,
+          authorName: data.authorName,
+          authorRole: data.authorRole,
           createdAt: data.createdAt instanceof FirestoreTimestamp ? data.createdAt.toDate() : new Date(),
-        } as CommentRecord;
+        } as Comment;
       });
       setComments(fetchedComments);
     } catch (err) {
@@ -433,7 +436,7 @@ export default function DatabasePage() {
   };
 
   const handlePostComment = async () => {
-    if (!newCommentText.trim() || !currentSolicitudIdForComments || !user || !user.email) {
+    if (!newCommentText.trim() || !currentSolicitudIdForComments || !user || !user.email || !user.role || !user.displayName) {
       toast({
         title: "Error",
         description: "El comentario no puede estar vacío o falta información del usuario/solicitud.",
@@ -463,11 +466,12 @@ export default function DatabasePage() {
 
     try {
       const commentsCollectionRef = collection(db, foundInCollection, currentSolicitudIdForComments, "comments");
-      const newCommentData: Omit<CommentRecord, 'id' | 'createdAt'> & { createdAt: any } = {
+      const newCommentData: Omit<Comment, 'id' | 'createdAt'> & { createdAt: any } = {
         solicitudId: currentSolicitudIdForComments,
         text: newCommentText.trim(),
-        userId: user.uid,
-        userEmail: user.email,
+        authorId: user.uid,
+        authorName: user.displayName,
+        authorRole: user.role,
         createdAt: serverTimestamp(),
       };
       const docRefComment = await addDoc(commentsCollectionRef, newCommentData);
@@ -479,7 +483,7 @@ export default function DatabasePage() {
         newHasOpenUrgentCommentFlag = true;
       }
 
-      setComments(prev => [...prev, { ...newCommentData, id: docRefComment.id, createdAt: new Date() } as CommentRecord]);
+      setComments(prev => [...prev, { ...newCommentData, id: docRefComment.id, createdAt: new Date() } as Comment]);
       setNewCommentText('');
       setIsNewCommentUrgent(false); 
       toast({ title: "Éxito", description: "Comentario publicado." });
@@ -801,7 +805,7 @@ export default function DatabasePage() {
             commentsString = querySnapshot.docs.map(docSnap => {
                 const data = docSnap.data();
                 const createdAt = data.createdAt instanceof FirestoreTimestamp ? data.createdAt.toDate() : new Date();
-                return `${data.userEmail} - ${format(createdAt, "dd/MM/yy HH:mm", { locale: es })}: ${data.text}`;
+                return `${data.authorName} - ${format(createdAt, "dd/MM/yy HH:mm", { locale: es })}: ${data.text}`;
             }).join("\n");
             }
         } catch (err) {
@@ -1123,9 +1127,9 @@ export default function DatabasePage() {
                 comments.map(comment => (
                   <div key={comment.id} className="p-2 my-1 border-b bg-card shadow-sm rounded">
                     <div className="flex justify-between items-center mb-1">
-                        <p className="font-semibold text-primary text-xs">{comment.authorEmail}</p>
+                        <p className="font-semibold text-primary text-xs">{comment.authorName}</p>
                         <p className="text-muted-foreground text-xs">
-                            {format(comment.createdAt, "dd/MM/yyyy HH:mm", { locale: es })}
+                            {format(comment.createdAt as Date, "dd/MM/yyyy HH:mm", { locale: es })}
                         </p>
                     </div>
                     <p className="text-sm text-foreground whitespace-pre-wrap">{comment.text}</p>
@@ -1211,3 +1215,7 @@ export default function DatabasePage() {
   );
 }
 
+
+
+
+    
