@@ -61,7 +61,6 @@ export function ExecutiveTableHeader({
                 <TableHead><Input placeholder="Consignatario..." className="h-8 text-xs" value={columnFilters.consignatario} onChange={e => handleFilterChange('consignatario', e.target.value)} onKeyDown={handleKeyDown} /></TableHead>
                 <TableHead><Input placeholder="Factura..." className="h-8 text-xs" value={columnFilters.factura} onChange={e => handleFilterChange('factura', e.target.value)} onKeyDown={handleKeyDown} /></TableHead>
                 <TableHead>Estado General</TableHead>
-                <TableHead>Preliquidación</TableHead>
                 <TableHead><Input placeholder="Selectividad..." className="h-8 text-xs" value={columnFilters.selectividad} onChange={e => handleFilterChange('selectividad', e.target.value)} onKeyDown={handleKeyDown} /></TableHead>
                 <TableHead>Fecha Despacho</TableHead>
                 <TableHead><Input placeholder="Incidencia..." className="h-8 text-xs" value={columnFilters.incidentType} onChange={e => handleFilterChange('incidentType', e.target.value)} onKeyDown={handleKeyDown} /></TableHead>

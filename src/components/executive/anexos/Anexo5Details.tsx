@@ -1,3 +1,4 @@
+
 "use client";
 import React, { useEffect, useState } from 'react';
 import Image from 'next/image';
@@ -5,12 +6,11 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardFooter } from '@/components/ui/card';
 import { Edit } from 'lucide-react';
 import type { Worksheet, AppUser } from '@/types';
-import { Timestamp, collection, query, where, getDocs } from 'firebase/firestore';
+import { Timestamp } from 'firebase/firestore';
 import { format as formatDateFns } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { aduanas } from '@/lib/formData';
 import { cn } from "@/lib/utils";
-import { db } from '@/lib/firebase';
 import Link from 'next/link';
 import { Anexo5PrintButton } from './Anexo5PrintButton';
 import { SignatureSection } from '@/components/shared/SignatureSection';

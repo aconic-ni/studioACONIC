@@ -1,7 +1,7 @@
 
 "use client";
 import React from 'react';
-import type { AforoData, AforoDataStatus, DigitacionStatus, PreliquidationStatus, WorksheetWithCase } from '@/types';
+import type { AforoData, FacturacionStatus, no existeStatus, DigitacionStatus, PreliquidationStatus, WorksheetWithCase } from '@/types';
 import { Table, TableBody, TableCell, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -75,13 +75,14 @@ export function ExecutiveCasesTable({
   return (
     <div className="overflow-x-auto table-container rounded-lg border">
             <TooltipProvider>
-            <Table><ExecutiveTableHeader
+            <Table>
+              <ExecutiveTableHeader
                     columnFilters={columnFilters}
                     setColumnFilters={setColumnFilters}
                     onSearch={onSearch}
                     onSelectAllRows={onSelectAllRows}
                     areAllSelected={selectedRows.length > 0 && selectedRows.length === cases.length}
-                />
+              />
             <TableBody>
                 {cases.map(c => {
                     const aforoData = (c as any).aforo || c;

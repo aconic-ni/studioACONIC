@@ -11,6 +11,7 @@ import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import type { DateRange } from 'react-day-picker';
 import { Search, ChevronsUpDown, RefreshCw, Download, CalendarRange, Calendar, CalendarDays } from 'lucide-react';
+import type { TabValue } from '@/app/executive/page';
 
 const months = [
     { value: 0, label: 'Enero' }, { value: 1, label: 'Febrero' }, { value: 2, label: 'Marzo' },
@@ -23,7 +24,6 @@ const currentYear = new Date().getFullYear();
 const years = Array.from({ length: 5 }, (_, i) => currentYear - i);
 
 type DateFilterType = 'range' | 'month' | 'today';
-type TabValue = 'worksheets' | 'anexos' | 'corporate';
 
 interface ExecutiveFiltersProps {
     activeTab: TabValue;
@@ -42,8 +42,10 @@ interface ExecutiveFiltersProps {
     setAppliedFilters: (filters: any) => void;
     setCurrentPage: (page: number) => void;
     isExporting: boolean;
-    allCasesCount: number;
+    onExport: () => void;
+    onRefresh: () => void;
     searchHint: { foundIn: TabValue; label: string } | null;
+    onHintClick: (tab: TabValue) => void;
     clearFilters: () => void;
 }
 
@@ -64,8 +66,10 @@ export function ExecutiveFilters({
     setAppliedFilters,
     setCurrentPage,
     isExporting,
-    allCasesCount,
+    onExport,
+    onRefresh,
     searchHint,
+    onHintClick,
     clearFilters
 }: ExecutiveFiltersProps) {
     const [selectedMonth, setSelectedMonth] = useState<number>(new Date().getMonth());
@@ -124,8 +128,10 @@ export function ExecutiveFilters({
                     </Popover>
                     <Button onClick={handleSearch}><Search className="mr-2 h-4 w-4" /> Buscar</Button>
                     <Button variant="outline" onClick={clearFilters}>Limpiar Filtros</Button>
-                     <Button variant="outline" onClick={() => {}}><RefreshCw className="mr-2 h-4 w-4" /> Actualizar</Button>
-                    <Button onClick={() => {}} disabled={allCasesCount === 0 || isExporting}><Download className="mr-2 h-4 w-4" />Exportar</Button>
+                     <Button variant="outline" onClick={onRefresh}>
+                        <RefreshCw className="mr-2 h-4 w-4" /> Actualizar
+                    </Button>
+                    <Button onClick={onExport} disabled={isExporting}><Download className="mr-2 h-4 w-4" />Exportar</Button>
                 </div>
             </div>
             <div className="flex flex-wrap items-center gap-4">
@@ -145,11 +151,7 @@ export function ExecutiveFilters({
             {searchHint && (
                 <div className="mt-2 p-2 bg-blue-100 dark:bg-blue-900/30 border border-blue-300 dark:border-blue-700 rounded-md flex items-center gap-2 text-sm">
                     <p>También se encontraron resultados en:</p>
-                    <Button onClick={() => {
-                        const newUrl = `/executive?tab=${searchHint.foundIn}`;
-                        window.history.pushState({ ...window.history.state, as: newUrl, url: newUrl }, '', newUrl);
-                        window.dispatchEvent(new PopStateEvent('popstate'));
-                    }} variant="secondary" size="sm">{searchHint.label}</Button>
+                    <Button onClick={() => onHintClick(searchHint.foundIn)} variant="secondary" size="sm">{searchHint.label}</Button>
                 </div>
             )}
         </div>

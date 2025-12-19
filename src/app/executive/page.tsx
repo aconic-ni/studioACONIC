@@ -506,7 +506,40 @@ const fetchCases = useCallback(async () => {
       setSelectedRows(selectableIds);
     }
   };
-  
+  const handleViewIncidents = (caseItem: AforoCase) => {
+    const hasRectificacion = caseItem.incidentType === 'Rectificacion';
+    const hasDuda = caseItem.hasValueDoubt;
+    if (hasRectificacion && hasDuda) {
+        setModalState(prev => ({...prev, viewIncidents: caseItem}));
+    } else if (hasRectificacion) {
+        setModalState(prev => ({...prev, incidentDetails: caseItem}));
+    } else if (hasDuda) {
+        setModalState(prev => ({...prev, valueDoubt: caseItem}));
+    } else {
+        toast({ title: "Sin Incidencias", description: "Este caso no tiene incidencias reportadas.", variant: "default" });
+    }
+  };
+
+  const handleSendToFacturacion = async (caseId: string) => {
+    if (!user || !user.displayName) return;
+
+    setSavingState(prev => ({...prev, [caseId]: true}));
+    
+    const aforoMetadataRef = doc(db, 'worksheets', caseId, 'aforo', 'metadata');
+    try {
+        await updateDoc(aforoMetadataRef, {
+            facturacionStatus: 'Enviado a Facturacion',
+            enviadoAFacturacionAt: Timestamp.now(),
+            facturadorAsignado: 'Alvaro Gonzalez',
+            facturadorAsignadoAt: Timestamp.now(),
+        });
+        toast({ title: 'Enviado a Facturación', description: 'El caso ha sido remitido al módulo de facturación y asignado a Alvaro Gonzalez.' });
+    } catch (e) {
+        toast({ title: 'Error', description: 'No se pudo enviar el caso a facturación.', variant: 'destructive'});
+    } finally {
+        setSavingState(prev => ({...prev, [caseId]: false}));
+    }
+  }
   const welcomeName = user?.displayName ? user.displayName.split(' ')[0] : 'Usuario';
 
   if (authLoading || !user) return <div className="min-h-screen flex items-center justify-center bg-background"><Loader2 className="h-12 w-12 animate-spin text-primary" /></div>;
