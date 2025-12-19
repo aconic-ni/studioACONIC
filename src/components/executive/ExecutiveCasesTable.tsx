@@ -1,7 +1,7 @@
 
 "use client";
 import React from 'react';
-import type { AforoData, FacturacionStatus, no existeStatus, DigitacionStatus, PreliquidationStatus, WorksheetWithCase } from '@/types';
+import type { AforoData, FacturacionStatus, DigitacionStatus, PreliquidationStatus, Worksheet, WorksheetWithCase } from '@/types';
 import { Table, TableBody, TableCell, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -214,7 +214,7 @@ export function ExecutiveCasesTable({
                          <TableCell>
                             <div className="flex items-center gap-2">
                                 <Select
-                                    value={c.selectividad || ''}
+                                    value={aforoData.selectividad || ''}
                                     onValueChange={(value) => onAutoSave(c.id, 'selectividad', value)}
                                     disabled={savingState[c.id] || !aforoData.declaracionAduanera}
                                 >
@@ -227,7 +227,7 @@ export function ExecutiveCasesTable({
                                         <SelectItem value="ROJO">ROJO</SelectItem>
                                     </SelectContent>
                                 </Select>
-                                {c.selectividad === 'AMARILLO' && (
+                                {aforoData.selectividad === 'AMARILLO' && (
                                     <Tooltip>
                                         <TooltipTrigger>
                                             <Badge variant="secondary" className="cursor-help"><Info className="h-4 w-4" /></Badge>
@@ -241,21 +241,21 @@ export function ExecutiveCasesTable({
                         <TableCell>
                             <TooltipProvider>
                                 <Tooltip>
-                                    <TooltipTrigger asChild><div><DatePickerWithTime date={(c.fechaDespacho as Timestamp)?.toDate()} onDateChange={(d) => onAutoSave(c.id, 'fechaDespacho', d ? Timestamp.fromDate(d) : null)} disabled={savingState[c.id] || (c.selectividad !== 'VERDE' && c.selectividad !== 'ROJO')} /></div></TooltipTrigger>
-                                    {(c.selectividad !== 'VERDE' && c.selectividad !== 'ROJO') && (<TooltipContent><p>Debe seleccionar un estado de selectividad (Verde o Rojo) antes de registrar el despacho.</p></TooltipContent>)}
+                                    <TooltipTrigger asChild><div><DatePickerWithTime date={(aforoData.fechaDespacho as Timestamp)?.toDate()} onDateChange={(d) => onAutoSave(c.id, 'fechaDespacho', d ? Timestamp.fromDate(d) : null)} disabled={savingState[c.id] || (aforoData.selectividad !== 'VERDE' && aforoData.selectividad !== 'ROJO')} /></div></TooltipTrigger>
+                                    {(aforoData.selectividad !== 'VERDE' && aforoData.selectividad !== 'ROJO') && (<TooltipContent><p>Debe seleccionar un estado de selectividad (Verde o Rojo) antes de registrar el despacho.</p></TooltipContent>)}
                                 </Tooltip>
                             </TooltipProvider>
                         </TableCell>
                         <TableCell>
                           <div className="flex items-center">
-                           <span>{getIncidentTypeDisplay(c)}</span>
-                            <LastUpdateTooltip lastUpdate={c.incidentStatusLastUpdate} caseCreation={c.createdAt}/>
+                           <span>{getIncidentTypeDisplay(aforoData)}</span>
+                            <LastUpdateTooltip lastUpdate={aforoData.incidentStatusLastUpdate} caseCreation={c.createdAt}/>
                           </div>
                         </TableCell>
                         <TableCell>
                             <div className="flex items-center justify-center">
-                                {isPsmt ? (<Button size="sm" variant="outline" onClick={() => handleSendToFacturacion(c.id)} disabled={savingState[c.id] || !c.fechaDespacho || c.facturacionStatus === 'Facturado'}><Send className="mr-2 h-4 w-4" />{c.facturacionStatus === 'Enviado a Facturacion' ? 'Re-enviar' : 'Enviar'}</Button>)
-                                : (<Switch checked={!!c.facturado} onCheckedChange={(checked) => onAutoSave(c.id, 'facturado', checked)} disabled={savingState[c.id]} />)}
+                                {isPsmt ? (<Button size="sm" variant="outline" onClick={() => handleSendToFacturacion(c.id)} disabled={savingState[c.id] || !aforoData.fechaDespacho || aforoData.facturacionStatus === 'Facturado'}><Send className="mr-2 h-4 w-4" />{aforoData.facturacionStatus === 'Enviado a Facturacion' ? 'Re-enviar' : 'Enviar'}</Button>)
+                                : (<Switch checked={!!aforoData.facturado} onCheckedChange={(checked) => onAutoSave(c.id, 'facturado', checked)} disabled={savingState[c.id]} />)}
                             </div>
                         </TableCell>
                     </TableRow>
